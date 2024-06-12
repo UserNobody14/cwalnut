@@ -1,0 +1,24 @@
+{
+  "name": "cwal2",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build-dist": "./node_modules/typescript/bin/tsc",
+    "general": "ts-node src/index.ts"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "tree-sitter": "^0.21.1",
+    "tree-sitter-crystal-walnut": "1.0.7",
+    "ts-pattern": "^5.1.2"
+  },
+  "devDependencies": {
+    "ts-node": "^10.9.2",
+    "tsx": "^4.15.2",
+    "typescript": "^5.4.5"
+  }
+}
