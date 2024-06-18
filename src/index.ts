@@ -3,6 +3,13 @@ import CrystalWalnut from 'tree-sitter-crystal-walnut';
 import { LVar, Package, SLogic, Stream } from './logic';
 import { setKeyValue } from './Guard';
 
+/**
+ * TODO:
+ * - setup type system
+ * - ensure recursion works
+ * - figure out async?
+ * - setup file system connection (& grammar connection?)
+ */
 
 const parser = new Parser();
 parser.setLanguage(CrystalWalnut);
@@ -74,7 +81,7 @@ function interpret(node: Parser.SyntaxNode, lm: Map<string, LVar>): (p: Package)
                 const argActual = node.children[1];
                 console.log('argActual', argActual.children.map(nnc => nnc.grammarType));
                 if (argActual.children.length === 0) {
-                    return (predicate as any)();
+                    return (predicate as any)()(p);
                 }
                 const arglist = argActual.children.slice(1, -1);
                 console.log('arglist', arglist.map(nnc => nnc.grammarType));
@@ -177,6 +184,18 @@ function directAccess(node: Parser.SyntaxNode, lm: Map<string, LVar>): LVar | st
                     setKeyValue(obj, attr, nlvarTempAttribute)
                 )
             );
+        case 'binary_operator':
+            throw new Error('Not implemented');
+        case 'unary_operator':
+            throw new Error('Not implemented');
+        case 'list':
+            return SLogic.list(node.children.slice(1, -1).map((nc) => directAccess(nc, lm)));
+        case 'dictionary':
+            const map = new Map();
+            node.children.slice(1, -1).forEach((nc) => {
+                map.set(nc.children[0].text, directAccess(nc.children[2], lm));
+            });
+            return SLogic.lmap(map, 'finite');
         case 'string':
             return node.text.slice(1, -1);
         case 'number':

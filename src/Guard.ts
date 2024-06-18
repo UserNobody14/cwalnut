@@ -28,6 +28,7 @@ export const setKeyValue = (m1: unknown, k1: any, v1: any) => (p: Package): Stre
         .with(
             [when(is_logic_map), P.Pattern.string, when(is_lvar)],
             ([m, k, v]): Stream => {
+                console.log('setKeyValue 1!!!!!', m, k, v);
                 if (SLogic.is_finite_map(m)) {
                     if (!m.has(k)) {
                         return SLogic.fail(p);
@@ -51,6 +52,7 @@ export const setKeyValue = (m1: unknown, k1: any, v1: any) => (p: Package): Stre
         .with(
             [when(is_logic_map), P.Pattern.string, P.Pattern._],
             ([m, k, v]): Stream => {
+                console.log('setKeyValue 2!!!!!', m, k, v);
                 if (SLogic.is_finite_map(m)) {
                     if (!m.has(k)) {
                         return SLogic.fail(p);
@@ -74,11 +76,13 @@ export const setKeyValue = (m1: unknown, k1: any, v1: any) => (p: Package): Stre
         .with(
             [when(is_lvar), P.Pattern.string, when(is_lvar)],
             ([m, k, v]) => {
+                console.log('setKeyValue 3!!!!!', m, k, v);
                 const newMap = SLogic.lmap(new Map(), 'infinite');
                 newMap.set(k, v);
                 return eq(m, newMap)(p);
             })
-        .otherwise(() => {
+        .otherwise(([m, k, v]) => {
+            console.log('setKeyValue FAILURE!!!!!', m, k, v);
             return SLogic.fail(p);
         });
 }

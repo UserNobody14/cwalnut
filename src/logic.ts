@@ -1,109 +1,13 @@
 // (function() {
 
+import { get_domain, intersection, make_domain, minus_inf, inf, REAL_DOMAIN } from "./get_domain";
+
 //utils
 function assert(x: boolean, str: string | undefined) {
     if (x === false) throw new Error(str)
 }
 
 const write = ((typeof console === 'object') && (typeof console.log !== 'undefined')) ? console.log : function () { }
-
-// const inf = 1 / 0 //we start with a division by zero. this is a good start.
-// const minus_inf = (-1) * inf
-const inf = Infinity;
-const minus_inf = -Infinity;
-
-/*
-    domains (for clp)
-*/
-
-export class Domain {
-    min: number;
-    max: number;
-    constructor(min: number, max: number) {
-        this.min = min
-        this.max = max
-    }
-    public toString = () => {
-        const str = '[' + this.min + ', ' + this.max + ']'
-        return str
-    }
-    is_member(v: number) {
-        const d1 = this
-        return v >= d1.min && v <= d1.max
-    }
-    add(d2: { min: number; max: number }) {
-        const d1 = this
-        return make_domain(d1.min + d2.min, d1.max + d2.max)
-    }
-    sub(d2: { max: number; min: number }) {
-        const d1 = this
-        return make_domain(d1.min - d2.max, d1.max - d2.min)
-    }
-    mul(d2: { min: number; max: number }) {
-        const d1 = this
-            , obj = [d1.min * d2.min, d1.min * d2.max, d1.max * d2.min, d1.max * d2.max]
-            , min = Math.min.apply(null, obj)
-            , max = Math.max.apply(null, obj)
-        return make_domain(min, max)
-    }
-    div(d2: { min: number; max: number }) {
-        const d1 = this
-        let min, max
-        if (d2.min <= 0 && d2.max >= 0) { //zero is involved.
-            if (d2.min === 0 && d2.max === 0) {
-                return false
-            }
-            else if (d2.min === 0) {
-                max = inf
-                return make_domain(Math.min(d1.min / d2.max, d1.max / d2.max), inf)
-            }
-            else if (d2.max === 0) {
-                min = minus_inf
-                return make_domain(minus_inf, Math.max(d1.min / d2.min, d1.max / d2.max))
-            }
-        }
-        if (!(isFinite(d2.min) && isFinite(d2.max))) { //infinity is involved...
-            if (d2.min === minus_inf && d2.max === inf) {
-                return REAL_DOMAIN
-            }
-        }
-        const obj = [d1.min / d2.min, d1.min / d2.max, d1.max / d2.min, d1.max / d2.max];
-        min = Math.min.apply(null, obj)
-        max = Math.max.apply(null, obj)
-        //write('obj',obj,d1,d2)
-        return make_domain(min, max)
-    }
-
-}
-
-function make_domain(min: number, max: number) {
-    return new Domain(min, max)
-}
-
-const REAL_DOMAIN = make_domain(minus_inf, inf);
-
-function intersection(d1: Domain, d2: Domain) {
-    let min, max
-    min = (d1.min < d2.min) ? d2.min : d1.min;
-    max = (d1.max > d2.max) ? d2.max : d1.max;
-    if (max < min) return false;
-    return make_domain(min, max)
-}
-
-function get_domain(pack: Package, x: LVar | number | undefined) {
-    if (SLogic.is_lvar(x)) {
-        const d = pack.lookup_domain_binding(x)
-        if (!d)
-            return REAL_DOMAIN
-        return d.val
-    }
-    else if (typeof x === 'number') {
-        return make_domain(x, x)
-    }
-    else {
-        return REAL_DOMAIN
-    }
-}
 
 /*
     constraints	
@@ -266,7 +170,7 @@ const clpr = {
 }
 
 //constructs a goal from constraint parameters
-function goal_construct<T>(fn: ConstraintFn<T>, args: T[], name: string) {
+export function goal_construct<T>(fn: ConstraintFn<T>, args: T[], name: string) {
     const c = make_constraint(fn, args, name)
     return function (p: Package) {
         const pc = p.extend_constraint(c)
@@ -620,7 +524,7 @@ const valueShow = (v: any): string => {
         if (typeof v.toString === 'function') {
             return v.toString()
         }
-        return '{' + Object.keys(v).map(k => k + '=' + valueShow(v[k])).join(', ') + '}'
+        return '{' + Object.keys(v).map(k => k + '=' + valueShow(v[k])).join(', \n') + '}'
     }
     return v.toString()
 }
@@ -754,43 +658,30 @@ export class SLogic {
                 frame = SLogic.unify(a[i], b[i], frame)
             }
             return frame
-        } else if (SLogic.is_logic_map(a) && SLogic.is_logic_map(b)) { //are both maps
+        } else if (SLogic.is_logic_map(a) && SLogic.is_logic_map(b)) { //are both maps            
             // if a is finite, and b is infinite, treat b as finite
             if (SLogic.is_finite_map(a) && SLogic.is_infinite_map(b)) {
                 // unify b with a
-                for (const [k, v] of b) {
-                    if (a.has(k)) {
-                        frame = SLogic.unify(v, a.get(k), frame)
-                    }
-                }
+                frame = unifyMaps(a, b, frame);
             }
             // if a is infinite, and b is finite, treat a as finite
             else if (SLogic.is_infinite_map(a) && SLogic.is_finite_map(b)) {
                 // unify a with b
-                for (const [k, v] of a) {
-                    if (b.has(k)) {
-                        frame = SLogic.unify(v, b.get(k), frame)
-                    }
-                }
+                frame = unifyMaps(b, a, frame);
             }
             // if both are finite, match them
             else if (SLogic.is_finite_map(a) && SLogic.is_finite_map(b)) {
                 // match two maps
                 if (a.size !== b.size) return false;
-                for (const [k, v] of a) {
-                    if (b.has(k)) {
-                        frame = SLogic.unify(v, b.get(k), frame)
-                    }
-                }
+                frame = unifyMaps(a, b, frame);
             }
             // if both are infinite, merge them
             else if (SLogic.is_infinite_map(a) && SLogic.is_infinite_map(b)) {
                 // merge two maps
-                for (const [k, v] of a) {
-                    if (b.has(k)) {
-                        frame = SLogic.unify(v, b.get(k), frame)
-                    }
-                }
+                frame = unifyMaps(a, b, frame);
+                // frame = unifyMaps(b, a, frame);
+            } else {
+                throw new Error('unify: unknown map type');
             }
             return frame
         }
@@ -915,5 +806,23 @@ export class SLogic {
         }
         return result
     }
+}
+
+function unifyMaps(
+    a: LogicMap,
+    b: LogicMap, frame: false | SList<any>) {
+    // console.log('unifying maps||||||||||||||||||||||||');
+    // console.log('unifying maps||||||||||||||||||||||||');
+
+    // console.log('unifying maps||||||||||||||||||||||||');
+
+    // console.log('unifying maps||||||||||||||||||||||||');
+
+    for (const [k, v] of a) {
+        if (b.has(k) && SLogic.is_list(frame)) {
+            frame = SLogic.unify(v, b.get(k), frame);
+        }
+    }
+    return frame;
 }
 
