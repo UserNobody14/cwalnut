@@ -1,7 +1,9 @@
 import { WorldGoal, LogicValue, PredicateLogic, World, LogicPredicate, LogicLvar, LogicLiteral, eq } from "./WorldGoal";
 import { builtinWorld } from "./builtinWorld";
 import { SLogic } from "./logic";
-import { ExpressionTyped, TermTyped, codeToTypedAst, pprintTypedAst } from "./typing";
+import { codeToTypedAst } from "./typing";
+import { pprintTypedAst } from './pprintType';
+import { ExpressionTyped, TermTyped } from './types/DesugaredAstTyped';
 
 export function interpretPlus(ast: TermTyped | TermTyped[]): WorldGoal {
     if (Array.isArray(ast)) {

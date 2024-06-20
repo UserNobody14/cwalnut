@@ -1,210 +1,10 @@
+import { Term, Conjunction, Disjunction, PredicateCall, Unification, Expression, PredicateDefinitionAst } from './types/OldAstTyped';
+import { IdentifierTyped, TermTyped, ExpressionTyped, LiteralTyped, ConjunctionTyped, DisjunctionTyped, TypedAst } from './types/DesugaredAstTyped';
+import { Type, ComplexType } from './types/Types';
 import * as ast from './ast';
-/**
- * Take in the ast and return a type annotated ast
- */
-
-// Typing
-
-type InOutType = 'in' | 'out' | 'inout';
-
-interface TypeMeta {
-    inout?: InOutType;
-    linear?: boolean;
-}
-
-interface SimpleType {
-    type: 'simple_type';
-    name: string;
-    meta: TypeMeta;
-}
-
-interface ComplexType {
-    type: 'complex_type';
-    name: string;
-    args: Type[];
-    meta: TypeMeta;
-}
-
-interface HKT {
-    type: 'hkt';
-    args: TypeVar[];
-    staticT: Type[];
-    apply: (args: Type[]) => Type;
-}
-
-interface TypeVar {
-    type: 'type_var';
-    name: string;
-    // Constraints?
-}
-
-interface MonoPredicateType {
-    type: 'mono_predicate';
-    args: Type[];
-    meta: TypeMeta;
-}
-
-interface Union {
-    type: 'union';
-    options: Type[];
-}
-
-export type Type = SimpleType | HKT | TypeVar | Union | MonoPredicateType | ComplexType;
-export type UnboundType = TypeVar | HKT;
-// export type boundType = SimpleType | Union | MonoPredicateType;
-
-
-// Utilities
-
-const to_type_meta = (inout: InOutType = 'inout', linear: boolean = false): TypeMeta => ({
-    inout,
-    linear
-}),
-    to_mono_pred = (args: Type[], inout: InOutType = 'inout', linear: boolean = false): MonoPredicateType => ({
-        type: 'mono_predicate',
-        args,
-        meta: to_type_meta(inout, linear)
-    }),
-    to_union = (options: Type[]): Union => ({
-        type: 'union',
-        options
-    }),
-    to_hkt = (args: TypeVar[], apply: (args: Type[]) => Type, staticT: Type[]): HKT => ({
-        type: 'hkt',
-        args,
-        apply,
-        staticT
-    }),
-    to_complex_type = (name: string, args: Type[], inout: InOutType = 'inout', linear: boolean = false): ComplexType => ({
-        type: 'complex_type',
-        name,
-        args,
-        meta: to_type_meta(inout, linear)
-    }),
-    to_type_var = (name: string): TypeVar => ({
-        type: 'type_var',
-        name,
-    }),
-    to_simple_type = (name: string, inout: InOutType = 'inout', linear: boolean = false): SimpleType => ({
-        type: 'simple_type',
-        name,
-        meta: to_type_meta(inout, linear)
-    }),
-    to_dict = (key: Type, value: Type): ComplexType => to_complex_type('dict', [key, value]);
-
-const types = {
-    string: to_simple_type('string'),
-    number: to_simple_type('number'),
-    bool: to_simple_type('bool'),
-    // any: to_simple_type('any'),
-
-    // Builtin complex types
-    // dict: to_complex_type('dict', [to_type_var('K'), to_type_var('V')]),
-
-    // Builtin predicates
-    unify: to_simple_type('unify'),
-    set_key_of: to_simple_type('set_key_of'),
-    length: to_simple_type('length'),
-} as const;
-
-// Builtin lvars for some utility predicates
-const builtins: Record<string, IdentifierTyped> = {
-    unify: {
-        type: 'identifier',
-        value: 'unify',
-        contextualType: types.unify
-    },
-    set_key_of: {
-        type: 'identifier',
-        value: 'set_key_of',
-        contextualType: types.set_key_of
-    },
-    length: {
-        type: 'identifier',
-        value: 'length',
-        contextualType: types.length
-    }
-}
-
-const to_unify = (lhs: ExpressionTyped, rhs: ExpressionTyped): PredicateCallTyped => ({
-    type: 'predicate',
-    source: builtins.unify,
-    args: [lhs, rhs]
-}),
-    to_set_key_of = (obj: ExpressionTyped, key: ExpressionTyped, value: ExpressionTyped): PredicateCallTyped => ({
-        type: 'predicate',
-        source: {
-            type: 'identifier',
-            value: 'set_key_of',
-            contextualType: types.set_key_of
-        },
-        args: [obj, key, value]
-    }),
-    to_literal = (value: string, t: SimpleType): LiteralTyped => ({
-        type: 'literal',
-        value,
-        contextualType: t
-    }),
-    to_conjunction = (terms: TermTyped[]): ConjunctionTyped => ({
-        type: 'conjunction',
-        terms
-    }),
-    to_disjunction = (terms: TermTyped[]): DisjunctionTyped => ({
-        type: 'disjunction',
-        terms
-    }),
-    to_typed_lvar = (name: string, t: Type): IdentifierTyped => ({
-        type: 'identifier',
-        value: name,
-        contextualType: t
-    });
-
-
-
-// Output Ast
-
-export type TypedAst = ConjunctionTyped;
-
-export type TermTyped = ConjunctionTyped | DisjunctionTyped | PredicateCallTyped | PredicateDefinitionTyped;
-
-export interface ConjunctionTyped {
-    type: 'conjunction';
-    terms: TermTyped[];
-}
-
-export interface DisjunctionTyped {
-    type: 'disjunction';
-    terms: TermTyped[];
-}
-
-export interface PredicateCallTyped {
-    type: 'predicate';
-    source: IdentifierTyped;
-    args: ExpressionTyped[];
-}
-
-export interface PredicateDefinitionTyped {
-    type: 'predicate_definition';
-    name: IdentifierTyped;
-    args: IdentifierTyped[];
-    body: TypedAst;
-}
-
-export type ExpressionTyped = IdentifierTyped | LiteralTyped;
-
-export interface IdentifierTyped {
-    type: 'identifier';
-    contextualType: Type;
-    value: string;
-}
-
-export interface LiteralTyped {
-    type: 'literal';
-    contextualType: Type;
-    value: string;
-}
-
-
+import { types, to_union, to_complex_type, to_type_var, to_mono_pred, to_dict } from './utils/typingbuiltins';
+import { to_conjunction, to_disjunction, to_typed_lvar, to_literal, to_unify, to_set_key_of } from './utils/to_conjunction';
+import { pprintType, pprintTypedAst } from './pprintType';
 // Conversion from Ast to TypedAst
 
 function unifyTypesDisj(t1: Type, t2: Type): Type {
@@ -449,7 +249,7 @@ function equalsTypes(t1: Type, t2: Type): boolean {
 // Type checking & annotation
 // Each term is simplified to a conjunction and/or disjunction of predicates, so each ast node
 // can return more than one term, and the type environment is updated accordingly
-function typeTermAst(ast: ast.Term, typeEnv: TypeEnv): [TermTyped[], TypeEnv] {
+function typeTermAst(ast: Term, typeEnv: TypeEnv): [TermTyped[], TypeEnv] {
     switch (ast.type) {
         case 'conjunction': return typeConjunction(ast, typeEnv);
         case 'disjunction': return typeDisjunction(ast, typeEnv);
@@ -458,15 +258,15 @@ function typeTermAst(ast: ast.Term, typeEnv: TypeEnv): [TermTyped[], TypeEnv] {
     }
 }
 
-function typeConjunction(ast: ast.Conjunction, typeEnv: TypeEnv): [TermTyped[], TypeEnv] {
+function typeConjunction(ast: Conjunction, typeEnv: TypeEnv): [TermTyped[], TypeEnv] {
     return typeTermList(ast.children, typeEnv, 'conjunction');
 }
 
-function typeDisjunction(ast: ast.Disjunction, typeEnv: TypeEnv): [TermTyped[], TypeEnv] {
+function typeDisjunction(ast: Disjunction, typeEnv: TypeEnv): [TermTyped[], TypeEnv] {
     return typeTermList(ast.children, typeEnv, 'disjunction');
 }
 
-function typeTermList(children: ast.Term[], typeEnv: TypeEnv, type: 'implicit' | 'conjunction' | 'disjunction'): [TermTyped[], TypeEnv] {
+function typeTermList(children: Term[], typeEnv: TypeEnv, type: 'implicit' | 'conjunction' | 'disjunction'): [TermTyped[], TypeEnv] {
     // TODO: update for disjunction typing properly...
     let terms: TermTyped[] = [];
     if (type === 'conjunction' || type === 'implicit') {
@@ -496,7 +296,7 @@ function typeTermList(children: ast.Term[], typeEnv: TypeEnv, type: 'implicit' |
 }
 
 // Convert predicate call source to (potentially) several unifications with identifiers
-function typePredicateCall(ast: ast.PredicateCall, typeEnv: TypeEnv): [TermTyped[], TypeEnv] {
+function typePredicateCall(ast: PredicateCall, typeEnv: TypeEnv): [TermTyped[], TypeEnv] {
     const [typedArgs, newTerms1, newEnv] = typeExpressionList(ast.args, typeEnv);
     const [source, newTerms2, typeEnv2] = typeToIdentifier(ast.source, newEnv);
     return [[...newTerms1, ...newTerms2, {
@@ -507,7 +307,7 @@ function typePredicateCall(ast: ast.PredicateCall, typeEnv: TypeEnv): [TermTyped
 }
 
 // Convert unification to a predicate call to the unification predicate
-function typeUnification(ast: ast.Unification, typeEnv: TypeEnv): [TermTyped[], TypeEnv] {
+function typeUnification(ast: Unification, typeEnv: TypeEnv): [TermTyped[], TypeEnv] {
     // in the special case of a predicate definition, go to typePredicateDefinition
     if (ast.right.type === 'predicate_definition') {
         return typePredicateDefinition(ast.left, ast.right, typeEnv);
@@ -526,7 +326,7 @@ function typeUnification(ast: ast.Unification, typeEnv: TypeEnv): [TermTyped[], 
     }], newEnv3];
 }
 
-function typePredicateDefinition(lhs: ast.Expression, expression: ast.PredicateDefinitionAst, oldEnv: TypeEnv): [TermTyped[], TypeEnv] {
+function typePredicateDefinition(lhs: Expression, expression: PredicateDefinitionAst, oldEnv: TypeEnv): [TermTyped[], TypeEnv] {
     const [lhs1, newTerms, typeEnv] = typeToExpression(lhs, oldEnv);
     // Add a predicate definition to the list of terms and use its id here
     const freshTypeEnv = new TypeEnv();
@@ -601,7 +401,7 @@ function checkAndBindTypes(lhs: ExpressionTyped, rhs: ExpressionTyped, newEnv2: 
     return { lhs, rhs, newEnv3: newEnv2 };
 }
 
-function typeExpressionList(expressions: ast.Expression[], typeEnv: TypeEnv): [ExpressionTyped[], TermTyped[], TypeEnv] {
+function typeExpressionList(expressions: Expression[], typeEnv: TypeEnv): [ExpressionTyped[], TermTyped[], TypeEnv] {
     let typed: ExpressionTyped[] = [],
         newTermsList: TermTyped[] = [];
     for (let expression of expressions) {
@@ -613,7 +413,7 @@ function typeExpressionList(expressions: ast.Expression[], typeEnv: TypeEnv): [E
     return [typed, newTermsList, typeEnv];
 }
 
-function typeToExpression(expression: ast.Expression, typeEnv: TypeEnv): [ExpressionTyped, TermTyped[], TypeEnv] {
+function typeToExpression(expression: Expression, typeEnv: TypeEnv): [ExpressionTyped, TermTyped[], TypeEnv] {
     if (expression.type === 'literal') {
         if (typeof expression.value === 'string') {
             return [to_literal(expression.value, types.string), [], typeEnv];
@@ -625,7 +425,7 @@ function typeToExpression(expression: ast.Expression, typeEnv: TypeEnv): [Expres
 }
 
 // Convert all of the expr synactic sugar to a predicate call to unify and/or other fns
-function typeToIdentifier(expression: ast.Expression, typeEnv: TypeEnv): [IdentifierTyped, TermTyped[], TypeEnv] {
+function typeToIdentifier(expression: Expression, typeEnv: TypeEnv): [IdentifierTyped, TermTyped[], TypeEnv] {
     switch (expression.type) {
         case 'lvar':
             const type = typeEnv.getType(expression.name);
@@ -847,116 +647,6 @@ function cleanupTypeVarsConjDisj(ast: ConjunctionTyped | DisjunctionTyped, env: 
 
 
 
-
-
-//////////// Pretty printing
-
-
-
-
-
-function indentStr(indent: number, multiLineInput: string): string {
-    const indentToAdd = "    ".repeat(indent);
-    const lines = multiLineInput.split("\n");
-    const indentedLines = lines.map((line) => indentToAdd + line);
-    return indentedLines.join("\n");
-}
-
-function dedentStr(multiLineInput: string, maxDedent = Number.POSITIVE_INFINITY): string {
-    const lines = multiLineInput.split("\n");
-    const dedentedLines = lines.map((line) => {
-        let dedentCount = 0;
-        while (line.startsWith("    ") && dedentCount < maxDedent) {
-            line = line.slice(4);
-            dedentCount++;
-        }
-        return line;
-    });
-    return dedentedLines.join("\n");
-}
-
-// Template string version of the above functions
-
-export const indent = (strings: TemplateStringsArray, ...values: any[]): string => {
-    // dedent the input string, then indent all values and combine
-    const dedented = strings.map(str => dedentStr(str));
-    const indentedValues = values.map((value) => {
-        if (!value) {
-            return "";
-        } else if (typeof value === "string") {
-            return indentStr(1, value);
-        } else if (typeof value === 'object' && 'toString' in value) {
-            return indentStr(1, value.toString());
-        } else {
-            return indentStr(1, JSON.stringify(value, null, 4));
-        }
-    });
-    let result = "";
-    for (let i = 0; i < dedented.length; i++) {
-        result += dedented[i];
-        if (i < indentedValues.length) {
-            result += indentedValues[i];
-        }
-    }
-    return result;
-}
-
-export function pprintTypedAst(ast: TermTyped | TermTyped[]): string {
-    if (Array.isArray(ast)) {
-        return ast.map(pprintTypedAst).join('\n');
-    }
-    switch (ast.type) {
-        case 'conjunction':
-            return `conj:
-${ast.terms.map(pprintTypedAst).map(ii => indentStr(1, ii)).join('\n')}`;
-        case 'disjunction':
-            return `disj:
-${ast.terms.map(pprintTypedAst).map(ii => indentStr(1, ii)).join('\n')}`;
-        case 'predicate':
-            return `${pprintExprAst(ast.source)}(${pprintExprListAst(ast.args, 'withtype')})`;
-        case 'predicate_definition':
-            return `DEFINE ${ast.name.value} as (${pprintExprListAst(ast.args)}) => 
-${indentStr(1, pprintTypedAst(ast.body.terms))}`;
-        default:
-            throw `Invalid ast type: ${ast}`;
-    }
-}
-
-function pprintExprListAst(ast: ExpressionTyped[], withtype: 'withtype' | 'without_type' = 'without_type',
-    withio: 'withio' | 'without_io' = 'without_io'): string {
-    return ast.map(ee => pprintExprAst(ee, withtype, withio)).join(', ');
-}
-
-function pprintExprAst(ast: ExpressionTyped, withtype: 'withtype' | 'without_type' = 'without_type',
-    withio: 'withio' | 'without_io' = 'without_io'): string {
-    switch (ast.type) {
-        case 'identifier':
-            if (withtype === 'withtype') {
-                return `${ast.value}: ${pprintType(ast.contextualType)}`;
-            } else {
-                return ast.value;
-            }
-        case 'literal':
-            return JSON.stringify(ast.value);
-    }
-}
-
-function pprintType(ast: Type): string {
-    switch (ast.type) {
-        case 'simple_type':
-            return ast.name;
-        case 'hkt':
-            return `${ast.args.map(pprintType).join(', ')} => ${pprintType(ast.apply(ast.args))}`;
-        case 'type_var':
-            return `\$${ast.name}`;
-        case 'mono_predicate':
-            return `Pred(${ast.args.map(pprintType).join(', ')})`;
-        case 'union':
-            return `(${ast.options.map(pprintType).join(' | ')})`;
-        case 'complex_type':
-            return `${ast.name}<${ast.args.map(pprintType).join(', ')}>`;
-    }
-}
 
 
 const sourceCode = `

@@ -50,7 +50,9 @@
 import { setKeyValue } from "./Guard";
 import { codeToAst } from "./ast";
 import { LVar, Package, SLogic, Stream, goal_construct } from "./logic";
-import { ExpressionTyped, TermTyped, codeToTypedAst, pprintTypedAst } from "./typing";
+import { codeToTypedAst } from "./typing";
+import { pprintTypedAst } from './pprintType';
+import { ExpressionTyped, TermTyped } from './types/DesugaredAstTyped';
 
 //                 const argActual = node.children[1];
 //                 console.log('argActual', argActual.children.map(nnc => nnc.grammarType));
