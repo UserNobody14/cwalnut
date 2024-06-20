@@ -4,7 +4,7 @@ import { interpretFromCode } from "src/interpretPlus";
 const source1 = `
 a = 1
 b = 2
-`
+`;
 
 const source2 = `
 a.foo = 1
@@ -49,21 +49,21 @@ appendo = (a, b, ab) =>
 einput = [1, 2, 3]
 input2 = [4, 5, 6]
 appendo(einput, input2, qq)
-`
+`;
 
-
-function displayVars(source: string = source2, varsv: string[] = ['qq']) {
-    const vfr = interpretFromCode(source, varsv);
-    console.log('-----------------------');
-    vfr.forEach(
-        (f) => {
-            for (const k in f) {
-                console.log(k, f[k].toString());
-            }
-        }
-    )
+function displayVars(
+	source: string = source2,
+	varsv: string[] = ["qq"],
+) {
+	const vfr = interpretFromCode(source, varsv);
+	console.log("-----------------------");
+	vfr.forEach((f) => {
+		for (const k in f) {
+			console.log(k, f[k].toString());
+		}
+	});
 }
 // displayVars(source2, ['qq', 'a', 'b']);
 // displayVars(source4, ['qq']);
 // displayVars(source3, ['a']);
-displayVars(source5, ['qq']);
+displayVars(source5, ["qq"]);

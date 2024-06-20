@@ -18,6 +18,7 @@
     "ts-pattern": "^5.1.2"
   },
   "devDependencies": {
+    "@biomejs/biome": "1.8.2",
     "ts-node": "^10.9.2",
     "tsx": "^4.15.2",
     "typescript": "^5.4.5"
