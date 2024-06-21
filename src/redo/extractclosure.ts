@@ -2,7 +2,7 @@
  * Extract all of the closure variables from a function, so they can be allocated above it
  */
 
-import { Set } from "immutable";
+import { Set as ImmSet } from "immutable";
 import type { TermDsAst } from "src/types/DesugaredAst";
 import {
 	builtinList,
@@ -14,11 +14,11 @@ import {
 // find out the *greatest* common term for the variables
 interface ResponseItem {
 	// All variables used in a term or set of terms
-	allVarsUsed: Set<string>;
+	allVarsUsed: ImmSet<string>;
 	// Variables whose highest common term group is the same as the full set
-	commonVars: Set<string>;
+	commonVars: ImmSet<string>;
 	// Variables whose highest common term group is (currently) bellow the full set
-	nestedVars: Set<string>;
+	nestedVars: ImmSet<string>;
 
 	//Note: commonvars + nestedvars = allVarsUsed
 }
@@ -26,18 +26,18 @@ interface ResponseItem {
 function findCommonClosureVars(
 	terms: TermDsAst[],
 ): ResponseItem {
-	let allVarsUsed = Set<string>();
+	let allVarsUsed = ImmSet<string>();
 
-	const withoutEachClosureVars: Set<string>[] = Array(
+	const withoutEachClosureVars: ImmSet<string>[] = Array(
 		terms.length,
-	).fill(Set());
-	const eachAllVarsUsed: Set<string>[] = [];
+	).fill(ImmSet());
+	const eachAllVarsUsed: ImmSet<string>[] = [];
 	// let eachCommonVars: Set<string>[] = [];
 	// let eachNestedVars: Set<string>[] = [];
 	for (let zz = 0; zz < terms.length; zz++) {
 		const t = terms[zz];
 		switch (t.type) {
-			case "conjunction":
+			case "conjunction": {
 				const {
 					allVarsUsed: allVarsUsed1,
 					commonVars: commonVars1,
@@ -47,7 +47,8 @@ function findCommonClosureVars(
 				allVarsUsed = allVarsUsed.union(allVarsUsed1);
 				eachAllVarsUsed[zz] = allVarsUsed1;
 				break;
-			case "disjunction":
+			}
+			case "disjunction": {
 				const {
 					allVarsUsed: allVarsUsed2,
 					commonVars: commonVars2,
@@ -56,7 +57,8 @@ function findCommonClosureVars(
 				allVarsUsed = allVarsUsed.union(allVarsUsed2);
 				eachAllVarsUsed[zz] = allVarsUsed2;
 				break;
-			case "fresh":
+			}
+			case "fresh": {
 				const {
 					allVarsUsed: allVarsUsed3,
 					commonVars: commonVars3,
@@ -65,7 +67,8 @@ function findCommonClosureVars(
 				allVarsUsed = allVarsUsed.union(allVarsUsed3);
 				eachAllVarsUsed[zz] = allVarsUsed3;
 				break;
-			case "with":
+			}
+			case "with": {
 				const {
 					allVarsUsed: allVarsUsed4,
 					commonVars: commonVars4,
@@ -74,8 +77,9 @@ function findCommonClosureVars(
 				allVarsUsed = allVarsUsed.union(allVarsUsed4);
 				eachAllVarsUsed[zz] = allVarsUsed4;
 				break;
-			case "predicate_call":
-				const newSet = Set(
+			}
+			case "predicate_call": {
+				const newSet = ImmSet(
 					t.args
 						.filter((ttx) => ttx.type === "identifier")
 						.map((a) => a.value),
@@ -83,22 +87,24 @@ function findCommonClosureVars(
 				allVarsUsed = allVarsUsed.union(newSet);
 				eachAllVarsUsed[zz] = newSet;
 				break;
-			case "predicate_definition":
-				const newSet2 = Set([t.name.value]);
+			}
+			case "predicate_definition": {
+				const newSet2 = ImmSet([t.name.value]);
 				allVarsUsed = allVarsUsed.add(t.name.value);
 				eachAllVarsUsed[zz] = newSet2;
 				break;
+			}
 		}
 	}
 
 	// For each item, find the vars common to *other* items
-	let carryUp = Set<string>();
+	let carryUp = ImmSet<string>();
 	for (let zz = 1; zz < terms.length; zz++) {
 		const otherVarsNew = eachAllVarsUsed[zz - 1];
 		carryUp = carryUp.union(otherVarsNew);
 		withoutEachClosureVars[zz] = carryUp;
 	}
-	let carryDown = Set<string>();
+	let carryDown = ImmSet<string>();
 	for (let zz = terms.length - 2; zz >= 0; zz--) {
 		const otherVarsNew = eachAllVarsUsed[zz + 1];
 		carryDown = carryDown.union(otherVarsNew);
@@ -107,7 +113,7 @@ function findCommonClosureVars(
 	}
 
 	let commonVars = allVarsUsed;
-	let nestedVars = Set<string>();
+	let nestedVars = ImmSet<string>();
 	// For each item, find the vars unique to that item
 	for (let zz = 0; zz < terms.length; zz++) {
 		const otherVarsNew = withoutEachClosureVars[zz];
@@ -150,13 +156,13 @@ function freshenTermVars(
 ): [string[], TermDsAst[]] {
 	switch (term.type) {
 		case "conjunction":
-		case "disjunction":
+		case "disjunction": {
 			const terms = term.terms;
 			// const cv = ezcom(terms);
 			const cv = findCommonClosureVars(terms);
 			const common = cv.commonVars;
 			const minusBuiltins = common.subtract(
-				Set(varsToExclude),
+				ImmSet(varsToExclude),
 			);
 			const terms2 = terms.flatMap(
 				(t) =>
@@ -172,7 +178,7 @@ function freshenTermVars(
 						? [conjunction1(...terms2)]
 						: [disjunction1(...terms2)],
 				];
-			} else {
+			}
 				// Make a new "fresh" term, with the minusBuiltins as the new vars
 				const newVars = Array.from(minusBuiltins).map((v) =>
 					make_identifier(v),
@@ -187,8 +193,8 @@ function freshenTermVars(
 							: make_conjunction(disjunction1(...terms2)),
 				};
 				return [Array.from(minusBuiltins), [newTerm]];
-			}
-		case "fresh":
+		}
+		case "fresh": {
 			const nff = freshenTermVars(
 				term.body,
 				varsToExclude.concat(
@@ -205,21 +211,22 @@ function freshenTermVars(
 					},
 				],
 			];
+		}
 		case "with":
 			return freshenTermVars(term.body, varsToExclude);
-		case "predicate_call":
+		case "predicate_call": {
 			const varsUsed = term.args
 				.filter((ttx) => ttx.type === "identifier")
 				.map((a) => a.value);
-			const varsUsedSet = Set(varsUsed).add(
+			const varsUsedSet = ImmSet(varsUsed).add(
 				term.source.value,
 			);
 			const minusBuiltins2 = varsUsedSet.subtract(
-				Set(varsToExclude),
+				ImmSet(varsToExclude),
 			);
 			if (minusBuiltins2.size === 0) {
 				return [[], [term]];
-			} else {
+			}
 				const newVars = Array.from(minusBuiltins2).map(
 					(v) => make_identifier(v),
 				);
@@ -229,8 +236,8 @@ function freshenTermVars(
 					body: conjunction1(term),
 				};
 				return [Array.from(minusBuiltins2), [newTerm]];
-			}
-		case "predicate_definition":
+		}
+		case "predicate_definition": {
 			const fn = term;
 			// returns a set of variable names that are used in the body of the function, but not created there
 			const args = fn.args.map((a) => a.value);
@@ -246,6 +253,7 @@ function freshenTermVars(
 				body,
 			};
 			return [closureVars, [newFn]];
+		}
 	}
 }
 
@@ -257,8 +265,7 @@ export function freshenTerms(
 	if (logicType === "conjunction") {
 		const tt = freshenTermVars(conjunction1(...terms), bt);
 		return tt[1];
-	} else {
+	}
 		const tt = freshenTermVars(disjunction1(...terms), bt);
 		return tt[1];
-	}
 }

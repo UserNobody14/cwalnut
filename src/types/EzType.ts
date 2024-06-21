@@ -11,6 +11,7 @@ export interface TypeVariable {
 export interface ComplexType {
 	type: "complex";
 	name: string;
+    fresh: TypeVariable[];
 	generics: Type[];
 }
 

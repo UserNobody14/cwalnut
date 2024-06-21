@@ -84,7 +84,7 @@ export function toAst(node: Parser.SyntaxNode): Term {
 				node.children[2],
 				"conjunction",
 			);
-		case "unification":
+		case "unification": {
 			const aaa = expressionToAst(node.children[0]);
 			const bbb = expressionToAst(node.children[2]);
 			const unification = (
@@ -104,7 +104,8 @@ export function toAst(node: Parser.SyntaxNode): Term {
 				bbb,
 				node.children[1].text as "!=" | string,
 			);
-		case "predicate":
+		}
+		case "predicate": {
 			const argActual = node.children[1];
 			const arglist = argActual.children.slice(1, -1);
 			const allArgs = arglist
@@ -112,6 +113,7 @@ export function toAst(node: Parser.SyntaxNode): Term {
 				.map((nc) => expressionToAst(nc));
 			const source = expressionToAst(node.children[0]);
 			return make_predicate(source, allArgs);
+		}
 		default:
 			throw new Error(
 				`Unrecognized node type: ${node.type}`,
@@ -130,12 +132,10 @@ function filterEmptyCompoundLogic(
 	) {
 		if (node.children.length === 0) {
 			return false;
-		} else {
-			return true;
 		}
-	} else {
-		return true;
+			return true;
 	}
+		return true;
 }
 
 function buildCompoundLogic(
@@ -144,9 +144,9 @@ function buildCompoundLogic(
 ): Term {
 	if (node.children.length === 0) {
 		throw new Error("Empty compound logic");
-	} else if (node.children.length === 1) {
+	}if (node.children.length === 1) {
 		return toAst(node.children[0]);
-	} else {
+	}
 		const terms = node.children
 			.slice(1)
 			.filter(filterEmptyCompoundLogic)
@@ -159,17 +159,15 @@ function buildCompoundLogic(
 			);
 		if (variety === "conjunction") {
 			return make_conjunction(...terms);
-		} else {
-			return make_disjunction(...terms);
 		}
-	}
+			return make_disjunction(...terms);
 }
 
 function expressionToAst(
 	node: Parser.SyntaxNode,
 ): Expression {
 	switch (node.type) {
-		case "predicate_definition":
+		case "predicate_definition": {
 			const argsList = node.children
 				.slice(1, -3)
 				.filter((nnc) => nnc.grammarType !== ",");
@@ -211,20 +209,22 @@ function expressionToAst(
 				freshTerm,
 			);
 			return pt;
+		}
 		case "identifier":
 			return make_lvar_ast(node.text);
 		case "expression":
 		case "primary_expression":
 			return expressionToAst(node.children[0]);
-		case "attribute":
+		case "attribute": {
 			const obj1 = expressionToAst(node.children[0]);
 			const attr = node.children[2].text;
 			return make_attribute_ast(obj1, attr);
+		}
 		case "binary_operator":
 			throw new Error("Not implemented");
 		case "unary_operator":
 			throw new Error("Not implemented");
-		case "list":
+		case "list": {
 			const listVals = node.children
 				.slice(1, -1)
 				.filter((nnc) => nnc.grammarType !== ",");
@@ -232,7 +232,8 @@ function expressionToAst(
 				expressionToAst(nc),
 			);
 			return make_list_ast(expressions);
-		case "dictionary":
+		}
+		case "dictionary": {
 			const map = new Map();
 			const listValsDict = node.children
 				.slice(1, -1)
@@ -252,6 +253,7 @@ function expressionToAst(
 					expressionToAst(nc.children[2]),
 				]),
 			);
+		}
 		case "string":
 			return make_literal_ast(node.text.slice(1, -1));
 		case "number":

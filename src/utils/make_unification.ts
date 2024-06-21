@@ -40,23 +40,24 @@ export const is_lvar_ast = (e: Expression): e is LVarAst =>
 	): e is PredicateDefinitionAst =>
 		e.type === "predicate_definition";
 const is_conjunction = (t: Term): t is Conjunction =>
-		t.type === "conjunction",
-	is_disjunction = (t: Term): t is Disjunction =>
-		t.type === "disjunction",
-	is_unification = (t: Term): t is Unification =>
-		t.type === "unification",
-	is_predicate = (t: Term): t is PredicateCall =>
+		t.type === "conjunction";
+const is_disjunction = (t: Term): t is Disjunction =>
+		t.type === "disjunction";
+const is_unification = (t: Term): t is Unification =>
+		t.type === "unification";
+const is_predicate = (t: Term): t is PredicateCall =>
 		t.type === "predicate_call";
 // is_type_signature = (t: TypeValue): t is TypeSignature => t.type === 'type_signature';
-const is_expression = (e: any): e is Expression =>
-	is_lvar_ast(e) ||
-	is_literal_ast(e) ||
-	is_attribute_ast(e) ||
-	is_binary_operator_ast(e) ||
-	is_unary_operator_ast(e) ||
-	is_list_ast(e) ||
-	is_dictionary_ast(e) ||
-	is_predicate_ast(e);
+// const is_expression = (e: unknown): e is Expression =>
+//     typeof e === 'object' && e !== null && 'type' in e &&
+// 	(is_lvar_ast(e) ||
+// 	is_literal_ast(e) ||
+// 	is_attribute_ast(e) ||
+// 	is_binary_operator_ast(e) ||
+// 	is_unary_operator_ast(e) ||
+// 	is_list_ast(e) ||
+// 	is_dictionary_ast(e) ||
+// 	is_predicate_ast(e));
 // const is_type_value = (t: any): t is TypeValue => is_simple_type(t) || is_complex_type(t) || is_type_signature(t);
 /////////////////////
 export const make_conjunction = (

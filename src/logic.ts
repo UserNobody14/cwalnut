@@ -42,7 +42,7 @@ class Constraint<T, U> {
 		this.name = name ?? "";
 	}
 	public toString = () => {
-		const str = "[" + this.name + " " + this.args + "]";
+		const str = `[${this.name} ${this.args}]`;
 		return str;
 	};
 	//calls constraint
@@ -100,10 +100,10 @@ type CLPInput = number | LVar;
 
 function less_equal_c(x: CLPInput, y: CLPInput) {
 	return (p: Package) => {
-		const wx = p.walk(x),
-			wy = p.walk(y),
-			dx = get_domain(p, wx),
-			dy = get_domain(p, wy);
+		const wx = p.walk(x);
+		const wy = p.walk(y);
+		const dx = get_domain(p, wx);
+		const dy = get_domain(p, wy);
 		const di = intersection(
 			dx,
 			make_domain(minus_inf, dy.max),
@@ -117,8 +117,8 @@ function less_equal_c(x: CLPInput, y: CLPInput) {
 				const p1 = p.extend_domain(x, di);
 				const p2 = p1.extend_domain(y, di2);
 				return p2;
-			} else return false;
-		} else return false;
+			}return false;
+		}return false;
 	};
 }
 
@@ -128,12 +128,12 @@ function add_c(x: CLPInput, y: CLPInput, z: CLPInput) {
 	//x=z-y
 	//y=z-x
 	return (p: Package) => {
-		let wx = p.walk(x),
-			wy = p.walk(y),
-			wz = p.walk(z),
-			dx = get_domain(p, wx),
-			dy = get_domain(p, wy),
-			dz = get_domain(p, wz);
+		const wx = p.walk(x);
+		const wy = p.walk(y);
+		const wz = p.walk(z);
+		let dx = get_domain(p, wx);
+		let dy = get_domain(p, wy);
+		let dz = get_domain(p, wz);
 		dz = intersection(dz, dx.add(dy));
 		if (dz) {
 			dx = intersection(dx, dz.sub(dy));
@@ -157,12 +157,12 @@ function mul_c(x: CLPInput, y: CLPInput, z: CLPInput) {
 	//x=z/y
 	//y=z/x
 	return (p: Package) => {
-		let wx = p.walk(x),
-			wy = p.walk(y),
-			wz = p.walk(z),
-			dx = get_domain(p, wx),
-			dy = get_domain(p, wy),
-			dz = get_domain(p, wz);
+		const wx = p.walk(x);
+		const wy = p.walk(y);
+		const wz = p.walk(z);
+		let dx = get_domain(p, wx);
+		let dy = get_domain(p, wy);
+		let dz = get_domain(p, wz);
 		dz = intersection(dz, dx.mul(dy));
 		if (dz) {
 			dx = intersection(dx, dz.div(dy));
@@ -187,14 +187,14 @@ const clpr = {
 			"#2-3 arguments of dom must be number.",
 		);
 		return (p: Package) => {
-			const d = make_domain(min, max),
-				wx = p.walk(x),
-				dx = get_domain(p, x),
-				di = intersection(dx, d);
+			const d = make_domain(min, max);
+			const wx = p.walk(x);
+			const dx = get_domain(p, x);
+			const di = intersection(dx, d);
 			//di returns false when it fails
 			//in that case, the goal will fail
 			if (di) return SLogic.win(p.extend_domain(x, di));
-			else return SLogic.fail();
+			return SLogic.fail();
 		};
 	},
 	add: (x: CLPInput, y: CLPInput, z: CLPInput) => goal_construct(add_c, [x, y, z], "+"),
@@ -220,10 +220,10 @@ export function goal_construct<T>(
 ) {
 	const c = make_constraint(fn, args, name);
 	return (p: Package) => {
-		const pc = p.extend_constraint(c),
-			p2 = c.proc(pc);
+		const pc = p.extend_constraint(c);
+		const p2 = c.proc(pc);
 		if (p2) return SLogic.win(p2);
-		else return SLogic.fail();
+		return SLogic.fail();
 	};
 }
 
@@ -241,11 +241,11 @@ class SList<TYPE> {
 	}
 	append(s2: TYPE | SList<TYPE>): TYPE | SList<TYPE> {
 		if (this.is_empty()) return s2;
-		else return SLogic.make_list(this.first, this.append(s2));
+		return SLogic.make_list(this.first, this.append(s2));
 	}
 	interleave(s2: SList<TYPE>): SList<TYPE> {
 		if (this.is_empty()) return s2;
-		else
+		
 			return SLogic.make_list(
 				this.first,
 				s2.interleave(this.rest),
@@ -253,10 +253,9 @@ class SList<TYPE> {
 	}
 	forEach(f: (arg0: TYPE) => void) {
 		if (this.is_empty()) return;
-		else {
+		
 			f(this.first);
 			this.rest.forEach(f);
-		}
 	}
 	foldr<ACC>(
 		f: (arg0: ACC, arg1: TYPE) => ACC,
@@ -264,16 +263,14 @@ class SList<TYPE> {
 	) {
 		if (this.is_empty()) {
 			return initial;
-		} else {
-			return f(this.first, this.rest.foldr(f, initial));
 		}
+			return f(this.first, this.rest.foldr(f, initial));
 	}
 	map<T>(f: (arg0: TYPE) => T) {
 		if (this.is_empty()) return EMPTY_STREAM;
-		else {
+		
 			const _rest = this.rest.map(f);
 			return SLogic.make_list(f(this.first), _rest);
-		}
 	}
 	extend(val: TYPE, ..._args: TYPE[]) {
 		return SLogic.make_list(val, this);
@@ -283,9 +280,8 @@ class SList<TYPE> {
 		let s = this;
 		while (!s.is_empty()) {
 			str +=
-				s.first.toString() +
-				(s.rest.is_empty() ? "" : "; ") +
-				"\n";
+				`${s.first.toString() +
+				(s.rest.is_empty() ? "" : "; ")}\n`;
 			s = s.rest;
 		}
 		str += "|";
@@ -306,7 +302,7 @@ class SList<TYPE> {
 				frame = frame.rest;
 			}
 			return variable;
-		} else return variable;
+		}return variable;
 	}
 }
 
@@ -330,9 +326,9 @@ export class Package {
 		variable: T,
 	): boolean | T {
 		if (frame === EMPTY_LIST) return false;
-		else if (frame.first.variable === variable)
+		if (frame.first.variable === variable)
 			return frame.first;
-		else
+		
 			return this.lookup_binding_helper(
 				frame.rest,
 				variable,
@@ -344,7 +340,7 @@ export class Package {
 				this.frame,
 				variable,
 			);
-		else throw new Error("frame must be a list");
+		throw new Error("frame must be a list");
 	}
 	lookup_domain_binding(variable: any) {
 		return this.lookup_binding_helper(
@@ -373,7 +369,7 @@ export class Package {
 		if (d.min === d.max) {
 			if (SLogic.is_lvar(v))
 				return this.extend_binding(v, d.min);
-			else return this;
+			return this;
 		}
 		return new Package(
 			this.frame,
@@ -397,14 +393,10 @@ export class Package {
 	}
 	public toString = (): string => {
 		const str =
-			"{" +
-			(this.frame.is_empty()
+			`{${this.frame.is_empty()
 				? ""
 				: this.frame.toString() +
-					(this.store.is_empty() ? "" : ", ")) +
-			(this.store.is_empty() ? "" : this.store + ", ") +
-			(this.domains.is_empty() ? "" : this.domains) +
-			"}";
+					(this.store.is_empty() ? "" : ", ")}${this.store.is_empty() ? "" : `${this.store}, `}${this.domains.is_empty() ? "" : this.domains}}`;
 		return str;
 	};
 	write() {
@@ -418,7 +410,7 @@ export class Package {
 		const result = this.lookup_binding(variable).val;
 		if (typeof result === "undefined")
 			return this.lookup_domain_binding(variable).val;
-		else return result;
+		return result;
 	}
 }
 
@@ -441,51 +433,47 @@ export class Stream {
 	iterate(f: (arg0: any) => void, j: number, i: number) {
 		i = i || 0;
 		if (i >= j || this.is_empty()) return;
-		else {
+		
 			f(this.first);
 			this.rest().iterate(f, j, i + 1);
-		}
 	}
 	forEach(f: (arg0: any) => void) {
 		if (this.is_empty()) return;
-		else {
+		
 			f(this.first);
 			this.rest().iterate(f);
-		}
 	}
 	foldr(f: (arg0: any, arg1: any) => any, initial: any) {
 		if (this.is_empty()) {
 			return initial;
-		} else {
-			return f(this.first, this.rest().foldr(f, initial));
 		}
+			return f(this.first, this.rest().foldr(f, initial));
 	}
 	map(f: (arg0: any) => any) {
 		if (this.is_empty()) return EMPTY_STREAM;
-		else {
+		
 			const _rest = this.rest().map(f);
 			return SLogic.make_stream(f(this.first), () => _rest);
-		}
 	}
 	flatten() {
 		if (this.is_empty()) return this;
-		else if (SLogic.is_stream(this.first)) {
-			const s1 = this.first,
-				s2 = this.rest();
+		if (SLogic.is_stream(this.first)) {
+			const s1 = this.first;
+			const s2 = this.rest();
 			return s1.append(s2.flatten());
-		} else
+		}
 			return SLogic.make_stream(this.first).append(
 				this.rest().flatten(),
 			);
 	}
 	append(s2: any) {
 		if (this.is_empty()) return s2;
-		else
+		
 			return SLogic.make_stream(this.first, () => this.rest().append(s2));
 	}
 	interleave(s2: { interleave: (arg0: any) => any }) {
 		if (this.is_empty()) return s2;
-		else
+		
 			return SLogic.make_stream(this.first, () => s2.interleave(this.rest()));
 	}
 	extend(val: any) {
@@ -523,11 +511,9 @@ class Binding {
 	}
 	public toString = () => {
 		return (
-			(typeof this.variable.name !== "undefined"
+			`${typeof this.variable.name !== "undefined"
 				? this.variable.name
-				: "_") +
-			"=" +
-			this.val.toString()
+				: "_"}=${this.val.toString()}`
 		);
 	};
 }
@@ -558,10 +544,9 @@ const _between = (
 	x: any,
 ): (p: Package) => Stream => {
 	if (a > b) return SLogic.fail;
-	else {
+	
 		const eqe = SLogic.eq(x, a);
 		return SLogic.disj(eqe, SLogic.between(a + 1, b, x));
-	}
 };
 
 class LogicList extends Array {
@@ -574,7 +559,7 @@ class LogicList extends Array {
 		let str = "|";
 		const s = this;
 		for (const i in s) {
-			str += i.toString() + "; ";
+			str += `${i.toString()}; `;
 		}
 		str += "|";
 		return str;
@@ -585,7 +570,7 @@ const valueShow = (v: any): string => {
 	if (typeof v === "undefined") return "undefined";
 	if (typeof v === "object" && v !== null) {
 		if (v.type === "logic_list") {
-			return "[" + v.map(valueShow).join(", ") + "]";
+			return `[${v.map(valueShow).join(", ")}]`;
 		}
 		if (v.type === "logic_map") {
 			return v.toString();
@@ -594,17 +579,15 @@ const valueShow = (v: any): string => {
 			return `Lvar(${typeof v.name !== "undefined" ? v.name : "_"})`;
 		}
 		if (Array.isArray(v)) {
-			return "[" + v.map(valueShow).join(", ") + "]";
+			return `[${v.map(valueShow).join(", ")}]`;
 		}
 		if (typeof v.toString === "function") {
 			return v.toString();
 		}
 		return (
-			"{" +
-			Object.keys(v)
-				.map((k) => k + "=" + valueShow(v[k]))
-				.join(", \n") +
-			"}"
+			`{${Object.keys(v)
+				.map((k) => `${k}=${valueShow(v[k])}`)
+				.join(", \n")}}`
 		);
 	}
 	return v.toString();
@@ -754,13 +737,13 @@ export class SLogic {
 		const a = frame.walk(a1);
 		const b = frame.walk(b1);
 		if (a === b) return frame;
-		else if (SLogic.is_lvar(a))
+		if (SLogic.is_lvar(a))
 			//is variable
 			return frame.extend(SLogic.make_binding(a, b));
-		else if (SLogic.is_lvar(b))
+		if (SLogic.is_lvar(b))
 			//is variable
 			return frame.extend(SLogic.make_binding(b, a));
-		else if (
+		if (
 			SLogic.is_logic_list(a) &&
 			SLogic.is_logic_list(b)
 		) {
@@ -771,7 +754,7 @@ export class SLogic {
 				frame = SLogic.unify(a[i], b[i], frame);
 			}
 			return frame;
-		} else if (
+		}if (
 			SLogic.is_logic_map(a) &&
 			SLogic.is_logic_map(b)
 		) {
@@ -813,7 +796,7 @@ export class SLogic {
 				throw new Error("unify: unknown map type");
 			}
 			return frame;
-		} else return false;
+		}return false;
 	}
 
 	static eq(a: any, b: any) {
@@ -826,13 +809,13 @@ export class SLogic {
 				//if(f!=f2 && !p.domains.is_empty() && (!intersection(get_domain(p, a), get_domain(p, b)))) //take care of constraints
 				//return SLogic.fail()
 				const p2 = p.set_frame(f2);
-				if (f == f2 || p.store.is_empty())
+				if (f === f2 || p.store.is_empty())
 					return SLogic.win(p2);
 				//check constraints first
 				const p3 = run_constraints(p2.store, p2);
 				if (p3) return SLogic.win(p3);
-				else return SLogic.fail();
-			} else return SLogic.fail();
+				return SLogic.fail();
+			}return SLogic.fail();
 		};
 	}
 
@@ -899,7 +882,7 @@ export class SLogic {
 		return (p: any) => {
 			const s1 = g1(p);
 			if (s1.is_empty()) return g3 ? g3(p) : SLogic.win(p);
-			else
+			
 				return s1
 					.map((p: any) => g2(p))
 					.flatten();
@@ -934,11 +917,11 @@ export class SLogic {
 			"#2 of run must be variable/array",
 		);
 		n = typeof n === "undefined" ? inf : n;
-		let s = g(SLogic.nil),
-			result: any[] = [];
+		let s = g(SLogic.nil);
+		const result: any[] = [];
 		for (let i = 0; i < n && !s.is_empty(); ++i) {
-			const pack = s.first,
-				frame = pack.frame;
+			const pack = s.first;
+			const frame = pack.frame;
 			if (SLogic.is_lvar(v)) {
 				//get variable into result
 				const v2 = frame.walk(v);

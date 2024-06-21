@@ -10,6 +10,7 @@ import type {
 	TermGeneric,
 	WithGeneric,
 } from "src/types/DsAstTyped";
+import type { ComplexType, ConstraintType, SimpleType, Type, TypeVariable, UnionType } from "src/types/EzType";
 
 const conjunction_dat = <T>(
 	terms: TermGeneric<T>[],
@@ -74,7 +75,48 @@ const literal_dat = (
 	value,
 });
 
-export const make_better_typed = {
+// Types
+
+const simple_type_dat = (
+    name: string
+): SimpleType => ({
+    type: "simple",
+    name,
+});
+
+const complex_type_dat = (
+    name: string,
+    fresh: TypeVariable[],
+    args: Type[]
+): ComplexType => ({
+    type: "complex",
+    name,
+    fresh,
+    generics: args
+});
+
+const type_variable_dat = (
+    name: string
+): TypeVariable => ({
+    type: "variable",
+    name
+});
+
+const union_type_dat = (
+    ...types: Type[]
+): UnionType => ({
+    type: "union",
+    types
+});
+
+const constraint_type_dat = (
+    constrain: (s: UnionType) => boolean
+): ConstraintType => ({
+    type: "constraint",
+    constrain
+});
+
+export const make = {
 	conjunction: conjunction_dat,
 	disjunction: disjunction_dat,
 	fresh: fresh_dat,
@@ -83,4 +125,10 @@ export const make_better_typed = {
 	predicate_definition: predicate_definition_dat,
 	identifier: identifier_dat,
 	literal: literal_dat,
+    // Types
+    simple_type: simple_type_dat,
+    complex_type: complex_type_dat,
+    type_variable: type_variable_dat,
+    union_type: union_type_dat,
+    constraint_type: constraint_type_dat, 
 };

@@ -3,30 +3,30 @@ import * as P from "ts-pattern";
 import { type LogicMap, type Package, SLogic, type Stream } from "./logic";
 import { GuardP } from "ts-pattern/dist/types/Pattern";
 
-const is_lvar = SLogic.is_lvar,
-	is_logic_map = SLogic.is_logic_map,
-	is_stream = SLogic.is_stream,
-	is_logic_list = SLogic.is_logic_list,
-	is_finite_map = (q: unknown): q is LogicMap =>
-		is_logic_map(q) && SLogic.is_finite_map(q),
-	is_infinite_map = (q: unknown): q is LogicMap =>
+const is_lvar = SLogic.is_lvar;
+const is_logic_map = SLogic.is_logic_map;
+const is_stream = SLogic.is_stream;
+const is_logic_list = SLogic.is_logic_list;
+const is_finite_map = (q: unknown): q is LogicMap =>
+		is_logic_map(q) && SLogic.is_finite_map(q);
+const is_infinite_map = (q: unknown): q is LogicMap =>
 		is_logic_map(q) && SLogic.is_infinite_map(q);
 
-const unify = SLogic.unify,
-	eq = SLogic.eq,
-	fail = SLogic.fail,
-	conj = SLogic.conj,
-	disj = SLogic.disj,
-	lvar = SLogic.lvar;
+const unify = SLogic.unify;
+const eq = SLogic.eq;
+const fail = SLogic.fail;
+const conj = SLogic.conj;
+const disj = SLogic.disj;
+const lvar = SLogic.lvar;
 
 const when = P.Pattern.when;
 
 export const setKeyValue =
 	(m1: unknown, k1: any, v1: any) =>
 	(p: Package): Stream => {
-		const m = p.walk(m1),
-			k = p.walk(k1),
-			v = p.walk(v1);
+		const m = p.walk(m1);
+		const k = p.walk(k1);
+		const v = p.walk(v1);
 		return match([m, k, v])
 			.with(
 				[
@@ -45,7 +45,7 @@ export const setKeyValue =
 							return SLogic.fail(p);
 						}
 						return eq(pp, v)(p);
-					} else {
+					}
 						if (!m.has(k)) {
 							return SLogic.fail(p);
 						}
@@ -54,7 +54,6 @@ export const setKeyValue =
 							return SLogic.fail(p);
 						}
 						return eq(pp, v)(p);
-					}
 				},
 			)
 			.with(
@@ -70,7 +69,7 @@ export const setKeyValue =
 							return SLogic.fail(p);
 						}
 						return eq(pp, v)(p);
-					} else {
+					}
 						if (!m.has(k)) {
 							return SLogic.fail(p);
 						}
@@ -79,7 +78,6 @@ export const setKeyValue =
 							return SLogic.fail(p);
 						}
 						return eq(pp, v)(p);
-					}
 				},
 			)
 			.with(
@@ -99,8 +97,8 @@ export const setKeyValue =
 
 export const setKey =
 	(m1: unknown, k1: any) => (p: Package) => {
-		const m = p.walk(m1),
-			k = p.walk(k1);
+		const m = p.walk(m1);
+		const k = p.walk(k1);
 		return match([m, k])
 			.with(
 				[when(is_logic_map), P.Pattern.string],
@@ -114,7 +112,7 @@ export const setKey =
 							return SLogic.fail(p);
 						}
 						return eq(pp, k)(p);
-					} else {
+					}
 						if (!m.has(k)) {
 							return SLogic.fail(p);
 						}
@@ -123,7 +121,6 @@ export const setKey =
 							return SLogic.fail(p);
 						}
 						return eq(pp, k)(p);
-					}
 				},
 			)
 			.with([when(is_lvar), P.Pattern.string], ([m, k]) => {
@@ -138,8 +135,8 @@ export const setKey =
 
 export const setLength =
 	(m1: unknown, k1: any) => (p: Package) => {
-		const m = p.walk(m1),
-			k = p.walk(k1);
+		const m = p.walk(m1);
+		const k = p.walk(k1);
 		return match([m, k])
 			.with(
 				[when(is_logic_list), P.Pattern.number],

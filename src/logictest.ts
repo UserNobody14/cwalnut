@@ -6,39 +6,39 @@ const write = console.log;
 
 write(logic);
 
-var or = logic.or,
-	and = logic.and,
-	eq = logic.eq,
-	lvar = logic.lvar,
-	nil = logic.nil,
-	between = logic.between,
-	run = logic.run,
-	list = logic.list,
-	implies = logic.implies;
+const or = logic.or;
+const and = logic.and;
+const eq = logic.eq;
+const lvar = logic.lvar;
+const nil = logic.nil;
+const between = logic.between;
+const run = logic.run;
+const list = logic.list;
+const implies = logic.implies;
 
-var x = lvar("x"),
-	y = lvar("y"),
-	z = lvar("z"),
-	w = lvar();
+const x = lvar("x");
+const y = lvar("y");
+const z = lvar("z");
+const w = lvar();
 
 //console.log(a.lvar())
 
-let g = null,
-	s = null,
-	g1 = null,
-	s1 = null,
-	g2: any = null,
-	g3 = null,
-	r = null,
-	s2 = null,
-	s3 = null;
+let g = null;
+let s = null;
+let g1 = null;
+let s1 = null;
+let g2: any = null;
+let g3 = null;
+let r = null;
+let s2 = null;
+let s3 = null;
 
 const range = (
 	low: any,
 	high: any,
 ): logicS.Stream => {
 	if (low > high) return logic.EMPTY_STREAM;
-	else
+	
 		return logic.make_stream(low, () => range(low + 1, high));
 };
 
@@ -56,7 +56,7 @@ function father(a: any, b: any) {
 }
 
 function grandfather(x1: any, y1: any) {
-	var z = lvar();
+	const z = lvar();
 	return and(father(x1, z), father(z, y1));
 }
 
@@ -153,13 +153,13 @@ write(r);
 r = logic.run(father(x, y), [x, y]);
 write(r);
 
-var dom = logic.dom,
-	add = logic.add,
-	sub = logic.sub,
-	mul = logic.mul,
-	div = logic.div,
-	make_domain = logic.clpr.make_domain,
-	less_equal = logic.clpr.less_equal;
+const dom = logic.dom;
+const add = logic.add;
+const sub = logic.sub;
+const mul = logic.mul;
+const div = logic.div;
+const make_domain = logic.clpr.make_domain;
+const less_equal = logic.clpr.less_equal;
 
 write("--");
 g = and(dom(x, 0, 5), dom(x, 0, 3));

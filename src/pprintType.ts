@@ -45,16 +45,15 @@ export const indent = (
 	const indentedValues = values.map((value) => {
 		if (!value) {
 			return "";
-		} else if (typeof value === "string") {
+		}if (typeof value === "string") {
 			return indentStr(1, value);
-		} else if (
+		}if (
 			typeof value === "object" &&
 			"toString" in value
 		) {
 			return indentStr(1, value.toString());
-		} else {
-			return indentStr(1, JSON.stringify(value, null, 4));
 		}
+			return indentStr(1, JSON.stringify(value, null, 4));
 	});
 	let result = "";
 	for (let i = 0; i < dedented.length; i++) {
@@ -112,9 +111,8 @@ function pprintExprAst(
 		case "identifier":
 			if (withtype === "withtype") {
 				return `${ast.value}: ${pprintType(ast.contextualType)}`;
-			} else {
-				return ast.value;
 			}
+				return ast.value;
 		case "literal":
 			return JSON.stringify(ast.value);
 	}

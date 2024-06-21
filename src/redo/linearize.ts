@@ -38,13 +38,6 @@ function monadicFold<T, U>(
 	x: T[],
 	y: U,
 ): [T[], U] {
-	console.log(
-		y,
-		"counter" in (y as any)
-			? (y as any).counter
-			: "no counter",
-		x,
-	);
 	return x.reduce(
 		([x1, y1], a) => {
 			const [ox, oy] = f(a, y1);
@@ -372,7 +365,7 @@ function countVarUsage(
 			return countVarUsage(term.body, variableContext);
 		case "with":
 			return countVarUsage(term.body, variableContext);
-		case "predicate_call":
+		case "predicate_call": {
 			const sourceCount =
 				variableContext.varCounter.get(term.source.value) ??
 				0;
@@ -387,6 +380,7 @@ function countVarUsage(
 						const newVarCounter2 = new Map(acc.varCounter);
 						newVarCounter2.set(a.value, count + 1);
 						return {
+							// biome-ignore lint/performance/noAccumulatingSpread: <explanation>
 							...acc,
 							varCounter: newVarCounter2,
 						};
@@ -398,6 +392,7 @@ function countVarUsage(
 					varCounter: newVarCounter,
 				},
 			);
+		}
 		case "predicate_definition":
 			return variableContext;
 	}

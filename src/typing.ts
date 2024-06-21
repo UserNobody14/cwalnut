@@ -40,18 +40,17 @@ import { pprintType, pprintTypedAst } from "./pprintType";
 function unifyTypesDisj(t1: Type, t2: Type): Type {
 	if (t1.type === "type_var") {
 		return t2;
-	} else if (t2.type === "type_var") {
+	}if (t2.type === "type_var") {
 		return t1;
-	} else if (
+	}if (
 		t1.type === "simple_type" &&
 		t2.type === "simple_type"
 	) {
 		if (t1.name === t2.name) {
 			return t1;
-		} else {
-			return to_union([t1, t2]);
 		}
-	} else if (t1.type === "complex_type") {
+			return to_union([t1, t2]);
+	}if (t1.type === "complex_type") {
 		if (t2.type === "complex_type") {
 			if (t1.name === t2.name) {
 				if (t1.args.length !== t2.args.length) {
@@ -63,13 +62,11 @@ function unifyTypesDisj(t1: Type, t2: Type): Type {
 					unifyTypesDisj(arg, t2.args[i]),
 				);
 				return to_complex_type(t1.name, args);
-			} else {
-				return to_union([t1, t2]);
 			}
-		} else {
-			return to_union([t1, t2]);
+				return to_union([t1, t2]);
 		}
-	} else if (t1.type === "hkt" && t2.type === "hkt") {
+			return to_union([t1, t2]);
+	}if (t1.type === "hkt" && t2.type === "hkt") {
 		if (t1.args.length !== t2.args.length) {
 			throw new Error(
 				`HKTs have different number of args: ${t1.args.length} vs ${t2.args.length}`,
@@ -79,12 +76,11 @@ function unifyTypesDisj(t1: Type, t2: Type): Type {
 			unifyTypesDisj(arg, t2.args[i]),
 		);
 		// return to_hkt(args, t1.apply);
-		throw new Error(`Unification not implemented for HKTs`);
-	} else {
+		throw new Error("Unification not implemented for HKTs");
+	}
 		throw new Error(
 			`Unification not implemented for ${t1.type} and ${t2.type}`,
 		);
-	}
 }
 
 class TypeEnv {
@@ -144,14 +140,13 @@ class TypeEnv {
 			const gettingV = this.getType(id);
 			if (gettingV) {
 				throw new Error(`Type ${id} already defined`);
-			} else {
+			}
 				this.addType(id, t);
 				return {
 					type: "identifier",
 					value: id,
 					contextualType: t,
 				};
-			}
 		}
 		return this.getTypedLvar(t);
 	}
@@ -192,9 +187,8 @@ class TypeEnv {
 			// If the bound type is a type var, walk it further
 			if (bound.type === "type_var") {
 				return this.walkTypeVar(bound.name);
-			} else {
-				return bound;
 			}
+				return bound;
 		}
 		return undefined;
 	}
@@ -370,11 +364,10 @@ function typeTermList(
 	[terms, typeEnv] = cleanupTypeVarsList(terms, typeEnv);
 	if (type === "implicit") {
 		return [terms, typeEnv];
-	} else if (type === "conjunction") {
+	}if (type === "conjunction") {
 		return [[to_conjunction(terms)], typeEnv];
-	} else {
-		return [[to_disjunction(terms)], typeEnv];
 	}
+		return [[to_disjunction(terms)], typeEnv];
 }
 
 // Convert predicate call source to (potentially) several unifications with identifiers
@@ -487,12 +480,11 @@ function typePredicateDefinition(
 			throw new Error(
 				`Invalid predicate definition lhs type: ${lhs1.contextualType}`,
 			);
-		} else {
+		}
 			typeEnv.bindTypeVar(
 				lhs1.contextualType.name,
 				to_mono_pred(typedArgs),
 			);
-		}
 	}
 	return [
 		[
@@ -572,7 +564,7 @@ function checkAndBindTypes(
 				rhs.contextualType.args.length
 			) {
 				throw new Error(
-					`Cannot unify complex types with different numbers of args`,
+					"Cannot unify complex types with different numbers of args",
 				);
 			}
 			for (
@@ -599,8 +591,8 @@ function typeExpressionList(
 	expressions: Expression[],
 	typeEnv: TypeEnv,
 ): [ExpressionTyped[], TermTyped[], TypeEnv] {
-	let typed: ExpressionTyped[] = [],
-		newTermsList: TermTyped[] = [];
+	const typed: ExpressionTyped[] = [];
+	let newTermsList: TermTyped[] = [];
 	for (const expression of expressions) {
 		const [expr, newTerms, newEnv] = typeToExpression(
 			expression,
@@ -624,7 +616,7 @@ function typeToExpression(
 				[],
 				typeEnv,
 			];
-		} else if (typeof expression.value === "number") {
+		}if (typeof expression.value === "number") {
 			return [
 				to_literal(
 					expression.value.toString(),
@@ -644,7 +636,7 @@ function typeToIdentifier(
 	typeEnv: TypeEnv,
 ): [IdentifierTyped, TermTyped[], TypeEnv] {
 	switch (expression.type) {
-		case "lvar":
+		case "lvar": {
 			const type = typeEnv.getType(expression.name);
 			if (!type) {
 				// throw new Error(`Type not found for ${expression.name}`);
@@ -662,6 +654,7 @@ function typeToIdentifier(
 				[],
 				typeEnv,
 			];
+		}
 		case "literal":
 			// Add a predicate call unify(newlvar, literal), and return the new lvar
 			if (typeof expression.value === "string") {
@@ -676,7 +669,7 @@ function typeToIdentifier(
 					],
 					typeEnv,
 				];
-			} else if (typeof expression.value === "number") {
+			}if (typeof expression.value === "number") {
 				const newLvar = typeEnv.getTypedLvar(types.number);
 				return [
 					newLvar,
@@ -691,12 +684,11 @@ function typeToIdentifier(
 					],
 					typeEnv,
 				];
-			} else {
+			}
 				throw new Error(
 					`Invalid literal type: ${expression.value}`,
 				);
-			}
-		case "attribute":
+		case "attribute": {
 			// Add a predicate call to "set_key_of" with the object, key, and (new lvar) value
 			// return the value identifier
 			const [obj, objTerms, objEnv] = typeToExpression(
@@ -722,7 +714,7 @@ function typeToIdentifier(
 					[...objTerms, to_set_key_of(obj, key, idValRet)],
 					objEnv,
 				];
-			} else if (obj.contextualType.type === "type_var") {
+			}if (obj.contextualType.type === "type_var") {
 				// Bind the object type var to a dict with the key and a new type var
 				return createAttributeFn(
 					objEnv,
@@ -730,12 +722,12 @@ function typeToIdentifier(
 					objTerms,
 					key,
 				);
-			} else {
+			}
 				throw new Error(
 					`Invalid object type for attribute: ${obj.contextualType}`,
 				);
-			}
-		case "predicate_definition":
+		}
+		case "predicate_definition": {
 			// Add a predicate definition to the list of terms and use its id here
 			const freshTypeEnv = new TypeEnv();
 			const args = expression.args.map((arg) => {
@@ -769,7 +761,8 @@ function typeToIdentifier(
 				],
 				typeEnv,
 			];
-		case "list":
+		}
+		case "list": {
 			// Call the predicate labeled "list" with the list of expressions
 			// first input to "list" is a new lvar, used in here
 			const [typed, newTerms, newEnv] = typeExpressionList(
@@ -800,7 +793,8 @@ function typeToIdentifier(
 				],
 				newEnv,
 			];
-		case "dictionary":
+		}
+		case "dictionary": {
 			// Convert to a series of set_key_of calls, plus a "length" call
 			const dict = to_complex_type("dict", [
 				types.string,
@@ -812,7 +806,7 @@ function typeToIdentifier(
 				// const [key2, keyTerms, env1] = typeToExpression(key, typeEnv);
 				let key2: ExpressionTyped;
 				if (key.type === "literal") {
-					key2 = to_literal(key.value + "", types.string);
+					key2 = to_literal(`${key.value}`, types.string);
 				} else if (key.type === "lvar") {
 					key2 = to_literal(key.name, types.string);
 				} else {
@@ -829,7 +823,7 @@ function typeToIdentifier(
 			}
 			// TODO: deal better w/ situations where keys are not literals
 			const len = to_literal(
-				expression.entries.length + "",
+				`${expression.entries.length}`,
 				types.number,
 			);
 			dictTerms.push({
@@ -842,6 +836,7 @@ function typeToIdentifier(
 				args: [dictLvar, len],
 			});
 			return [dictLvar, dictTerms, typeEnv];
+		}
 		case "unary_operator":
 		case "binary_operator":
 			throw new Error(
@@ -880,7 +875,7 @@ function cleanupTypeVars(
 		case "conjunction":
 		case "disjunction":
 			return cleanupTypeVarsConjDisj(ast, env);
-		case "predicate":
+		case "predicate": {
 			// Check the predicate source and called variables, if they are type vars, seek to replace them
 			// with their bound types
 			const source = ast.source;
@@ -916,7 +911,8 @@ function cleanupTypeVars(
 				},
 				env,
 			];
-		case "predicate_definition":
+		}
+		case "predicate_definition": {
 			// Cleanup the body of the predicate
 			const [terms, newEnv] = cleanupTypeVarsList(
 				ast.body.terms,
@@ -931,6 +927,7 @@ function cleanupTypeVars(
 				},
 				newEnv,
 			];
+		}
 	}
 }
 
@@ -978,9 +975,8 @@ function cleanupTypeVarsConjDisj(
 	);
 	if (ast.type === "conjunction") {
 		return [to_conjunction(terms), newEnv];
-	} else {
-		return [to_disjunction(terms), newEnv];
 	}
+		return [to_disjunction(terms), newEnv];
 }
 
 const sourceCode = `
@@ -1033,10 +1029,9 @@ export function codeToTypedAst(source: string): TypedAst {
 			"implicit",
 		);
 		return to_conjunction(eet);
-	} else {
+	}
 		const [eet, nv] = typeTermAst(codeE, typeEnv);
 		return to_conjunction(eet);
-	}
 }
 
 function testOnSource(source: string) {

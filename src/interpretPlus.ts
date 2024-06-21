@@ -30,7 +30,7 @@ export function interpretPlus(
 			return WorldGoal.disj(
 				...ast.terms.map(interpretPlus),
 			);
-		case "predicate":
+		case "predicate": {
 			const ast2333 = interpretExprListPlus(
 				ast.args,
 				"without_type",
@@ -38,6 +38,7 @@ export function interpretPlus(
 			);
 			// console.log('predicate', ast.source.value, ast2333.map(a => a.toString()));
 			return WorldGoal.pred(ast.source.value, ast2333);
+		}
 		// return `${interpretExpr(ast.source)}(${interpretExprListPlus(ast.args, 'withtype')})`;
 		case "predicate_definition":
 			return eq(
@@ -90,9 +91,8 @@ export function interpretPlus(
 										);
 										if (respLvar) {
 											return world2.walk(respLvar);
-										} else {
-											return undefined;
 										}
+											return undefined;
 									},
 								);
 								if (
@@ -144,9 +144,8 @@ function interpretExpr(
 			if (withtype === "withtype") {
 				// return `${ast.value}: ${pprintType(ast.contextualType)}`;
 				return new LogicLvar(ast.value);
-			} else {
-				return new LogicLvar(ast.value);
 			}
+				return new LogicLvar(ast.value);
 		case "literal":
 			return new LogicLiteral(ast.value);
 	}

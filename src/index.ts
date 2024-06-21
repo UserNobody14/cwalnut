@@ -54,7 +54,7 @@ function interpret(
 				lm,
 				"conjunction",
 			);
-		case "unification":
+		case "unification": {
 			const aaa = directAccess(node.children[0], lm);
 			const bbb = directAccess(node.children[2], lm);
 			if (
@@ -66,17 +66,18 @@ function interpret(
 						SLogic.eq(aCorrected, bCorrected),
 					),
 				);
-			} else if (aaa instanceof Unifiable) {
+			}if (aaa instanceof Unifiable) {
 				return aaa.unify((aCorrected) =>
 					SLogic.eq(aCorrected, bbb),
 				);
-			} else if (bbb instanceof Unifiable) {
+			}if (bbb instanceof Unifiable) {
 				return bbb.unify((bCorrected) =>
 					SLogic.eq(aaa, bCorrected),
 				);
 			}
 			return SLogic.eq(aaa, bbb);
-		case "predicate":
+		}
+		case "predicate": {
 			// get the predicate name
 			const predicateName = node.children[0].text;
 			// walk the current frame to find the predicate
@@ -132,6 +133,7 @@ function interpret(
 						.map((nc) => directAccess(nc, lm)),
 				)(p);
 			};
+		}
 		default:
 			throw new Error(
 				`Unrecognized node type: ${node.type}`,
@@ -151,9 +153,9 @@ function buildCompoundLogic(
 	return (p: Package) => {
 		if (node.children.length === 0) {
 			return SLogic.fail(p);
-		} else if (node.children.length === 1) {
+		}if (node.children.length === 1) {
 			return interpret(node.children[0], lm)(p);
-		} else {
+		}
 			const comparator =
 				variety === "conjunction"
 					? SLogic.conj
@@ -165,7 +167,6 @@ function buildCompoundLogic(
 					interpret(node.children[0], lm),
 				);
 			return ppv(p);
-		}
 	};
 }
 
@@ -206,7 +207,7 @@ function directAccess(
 ): LVar | string | number | PredicateFn | Unifiable {
 	console.log(`Direct access node: ${node.type}`);
 	switch (node.type) {
-		case "predicate_definition":
+		case "predicate_definition": {
 			const predDef = (...args: any[]) => {
 				console.log("predicate", args);
 				const argsList = node.children
@@ -247,25 +248,27 @@ function directAccess(
 				return freshTerm;
 			};
 			return predDef;
-		case "identifier":
+		}
+		case "identifier": {
 			if (lm.has(node.text)) {
 				return lm.get(node.text) as LVar;
 			}
 			const nlvar = SLogic.lvar(node.text);
 			lm.set(node.text, nlvar);
 			return nlvar;
+		}
 		case "expression":
 			return directAccess(node.children[0], lm);
 		case "primary_expression":
 			return directAccess(node.children[0], lm);
-		case "attribute":
+		case "attribute": {
 			const obj = directAccess(node.children[0], lm);
 			const attr = node.children[2].text;
-			const nlvarTempAttribute = lm.has(attr + "_temp")
-				? (lm.get(attr + "_temp") as LVar)
-				: SLogic.lvar(attr + "_temp");
+			const nlvarTempAttribute = lm.has(`${attr}_temp`)
+				? (lm.get(`${attr}_temp`) as LVar)
+				: SLogic.lvar(`${attr}_temp`);
 			const lmapn = SLogic.lmap(new Map(), "infinite");
-			lm.set(attr + "_temp", nlvarTempAttribute);
+			lm.set(`${attr}_temp`, nlvarTempAttribute);
 			lmapn.set(attr, nlvarTempAttribute);
 			return new Unifiable(
 				nlvarTempAttribute,
@@ -274,6 +277,7 @@ function directAccess(
 					setKeyValue(obj, attr, nlvarTempAttribute),
 				),
 			);
+		}
 		case "binary_operator":
 			throw new Error("Not implemented");
 		case "unary_operator":
@@ -284,7 +288,7 @@ function directAccess(
 					.slice(1, -1)
 					.map((nc) => directAccess(nc, lm)),
 			);
-		case "dictionary":
+		case "dictionary": {
 			const map = new Map();
 			node.children.slice(1, -1).forEach((nc) => {
 				map.set(
@@ -293,6 +297,7 @@ function directAccess(
 				);
 			});
 			return SLogic.lmap(map, "finite");
+		}
 		case "string":
 			return node.text.slice(1, -1);
 		case "number":

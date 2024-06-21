@@ -57,11 +57,11 @@ function displayVars(
 ) {
 	const vfr = interpretFromCode(source, varsv);
 	console.log("-----------------------");
-	vfr.forEach((f) => {
+	for (const f of vfr) {
 		for (const k in f) {
 			console.log(k, f[k].toString());
 		}
-	});
+	}
 }
 // displayVars(source2, ['qq', 'a', 'b']);
 // displayVars(source4, ['qq']);

@@ -51,12 +51,12 @@ const builtins2 = {
 				return WorldGoal.fail;
 			}
 			return eq(firstElem, (fullList as any).value[0]);
-		} else if (fullList instanceof LogicLvar) {
+		}if (fullList instanceof LogicLvar) {
 			// set b's lvar to a nonfinite list with a as the first element
 			// return eq(b, new LogicValue([a]));
 			return new WorldGoal((world) => {
 				const fullList2 = world.walk(fullList);
-				if (fullList2 && fullList2.isList()) {
+				if (fullList2?.isList()) {
 					console.log(
 						"2222: first",
 						fullList2.toString(),
@@ -69,18 +69,16 @@ const builtins2 = {
 						return WorldGoal.fail.run(world);
 					}
 					return eq(firstElem, fullList2List[0]).run(world);
-				} else {
+				}
 					console.warn("first: b is not a list");
 					return WorldGoal.fail.run(world);
-				}
 			});
-		} else {
+		}
 			console.warn(
 				"first: b is not a list or lvar: ",
 				fullList.toString(),
 			);
 			return WorldGoal.fail;
-		}
 	},
 	rest: (remainder1: LogicValue, fullList1: LogicValue) => {
 		console.log(
@@ -89,17 +87,17 @@ const builtins2 = {
 			fullList1.toString(),
 		);
 		if (fullList1 instanceof LogicList) {
-			if (fullList1.value.length == 0) {
+			if (fullList1.value.length === 0) {
 				console.warn("rest: b is empty");
 				return WorldGoal.fail;
 			}
-			if (fullList1.value.length == 1) {
+			if (fullList1.value.length === 1) {
 				return eq(emptyList, remainder1);
 			}
 			const slicedValue = [...fullList1.value].slice(1);
 			console.log("slicedValue", slicedValue);
 			return eq(new LogicList(slicedValue), remainder1);
-		} else if (remainder1 instanceof LogicList) {
+		}if (remainder1 instanceof LogicList) {
 			// return eq(fullList1, new LogicList([]));
 			return new WorldGoal((world) => {
 				return eq(
@@ -110,14 +108,13 @@ const builtins2 = {
 					]),
 				).run(world);
 			});
-		} else {
+		}
 			console.warn(
 				"rest: b is not a list or lvar: ",
 				remainder1.toString(),
 				fullList1.toString(),
 			);
 			return WorldGoal.fail;
-		}
 		// return WorldGoal.preWalked(
 		//     (remainder, fullList) => {
 		//         if (fullList.isList()) {
@@ -244,7 +241,7 @@ const builtins2 = {
 					len,
 					new LogicLiteral(item.value.length),
 				).run(world);
-			} else if (item instanceof LogicMap) {
+			}if (item instanceof LogicMap) {
 				console.log(
 					"length: item (map)",
 					item.toString(),
@@ -276,17 +273,15 @@ const builtins2 = {
 							),
 						),
 					);
-				} else {
+				}
 					// Set the map to finite (as constraint??)
 					return eq(
 						len,
 						new LogicLiteral(item.value.size),
 					).run(world);
-				}
-			} else {
+			}
 				console.warn("length: a is not a list or map");
 				return [World.fail];
-			}
 		});
 	},
 };

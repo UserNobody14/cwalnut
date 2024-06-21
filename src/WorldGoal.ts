@@ -64,18 +64,16 @@ export class World {
 			const lvar2 = this.lvars.get(lvar.name);
 			if (lvar2 === undefined) {
 				return l;
-			} else if (lvar2 instanceof LogicLvar) {
+			}if (lvar2 instanceof LogicLvar) {
 				if (lvar2.getName() !== lvar.name) {
 					console.warn(
 						`Lvar ${lvar.name} is still unbound`,
 					);
 					return this.walk(lvar2);
-				} else {
-					return lvar2;
 				}
-			} else {
-				return lvar2;
+					return lvar2;
 			}
+				return lvar2;
 		}
 		if (l instanceof LogicMap) {
 			const map = l.value;
@@ -116,7 +114,7 @@ export class World {
 					console.log("bindWalked2", str, value.toString());
 					this.addLvar(str, value);
 					return this;
-				} else {
+				}
 					console.log(
 						"bindWalked1",
 						str,
@@ -125,16 +123,13 @@ export class World {
 					);
 					this.addLvar(str, value.unite(walked) ?? value);
 					return this;
-				}
-			} else {
+			}
 				console.warn(`Lvar ${str} is still unbound?`);
 				this.addLvar(str, value);
 				return this;
-			}
-		} else {
+		}
 			this.addLvar(str, value);
 			return this.bind(str, value);
-		}
 	}
 
 	toString = () => {
@@ -230,9 +225,8 @@ export class WorldGoal {
 				// return WorldGoal.preWalked(
 				//     worldSource.value.fn
 				// )(...args).run(world);
-			} else {
-				return WorldGoal.fail.run(world);
 			}
+				return WorldGoal.fail.run(world);
 			// if (worldSource === undefined) {
 			//     return [World.fail];
 			// } else if (!worldSource.isPredicate()) {
@@ -290,26 +284,25 @@ export abstract class LogicValue {
 			this.value.type === "logic_var"
 		) {
 			return;
-		} else if (
+		}if (
 			typeof this.value === "string" ||
 			typeof this.value === "number"
 		) {
 			return;
-		} else if (
+		}if (
 			typeof this.value === "object" &&
 			this.value instanceof Map
 		) {
 			return;
-		} else if (Array.isArray(this.value)) {
+		}if (Array.isArray(this.value)) {
 			return;
-		} else if (
+		}if (
 			typeof this.value === "object" &&
 			this.value instanceof PredicateLogic
 		) {
 			return;
-		} else {
-			throw new Error(`Invalid logic value: ${this.value}`);
 		}
+			throw new Error(`Invalid logic value: ${this.value}`);
 	}
 
 	getName(): string {
@@ -395,9 +388,8 @@ export abstract class LogicValue {
 			}
 			if (hadAny) {
 				return new LogicMap(newMap, this.type);
-			} else {
-				return undefined;
 			}
+				return undefined;
 		}
 		if (this instanceof LogicList) {
 			const currList = this.value as LogicValue[];
@@ -430,9 +422,8 @@ export abstract class LogicValue {
 			}
 			if (hadAny) {
 				return new LogicList(newList);
-			} else {
-				return undefined;
 			}
+				return undefined;
 		}
 		if (this instanceof LogicLvar) {
 			return val;
@@ -456,7 +447,7 @@ export abstract class LogicValue {
 			for (const [key, value] of map.entries()) {
 				str += `${key}: ${value.toString()}, `;
 			}
-			return str + "}";
+			return `${str}}`;
 		}
 		if (this instanceof LogicList) {
 			const list = this.value as LogicValue[];
@@ -464,7 +455,7 @@ export abstract class LogicValue {
 			for (const item of list) {
 				str += `${item.toString()}, `;
 			}
-			return str + "]";
+			return `${str}]`;
 		}
 		if (this.isPredicate()) {
 			return "Predicate";
@@ -498,7 +489,7 @@ export function eq(
 		) {
 			if (aWalked.value === bWalked.value) {
 				return [world];
-			} else if (
+			}if (
 				aWalked.value.toString() ===
 				bWalked.value.toString()
 			) {
@@ -506,12 +497,11 @@ export function eq(
 					`Literal values questionably equal: ${aWalked.value} ${bWalked.value}`,
 				);
 				return [world];
-			} else {
+			}
 				console.warn(
 					`Literal values not equal: ${aWalked.value} ${bWalked.value}`,
 				);
 				return [World.fail];
-			}
 		}
 		if (
 			aWalked instanceof LogicLvar &&
@@ -666,7 +656,7 @@ export function eq(
 					);
 				}
 				return WorldGoal.and(...subGoals).run(world);
-			} else {
+			}
 				const aMap = aWalked.value as Map<
 					string,
 					LogicValue
@@ -685,14 +675,12 @@ export function eq(
 				const subGoals = [];
 				for (const [key, value] of aMap.entries()) {
 					if (!bMap.has(key)) {
-						console.warn(`Map keys missing`);
+						console.warn("Map keys missing");
 						return [World.fail];
-					} else {
-						subGoals.push(eq(value, bMap.get(key)));
 					}
+						subGoals.push(eq(value, bMap.get(key)));
 				}
 				return WorldGoal.and(...subGoals).run(world);
-			}
 		}
 		if (
 			aWalked instanceof LogicList &&
@@ -745,9 +733,8 @@ export class LogicLvar extends LogicValue {
 	override unite(other: LogicValue): LogicValue {
 		if (other instanceof LogicLvar) {
 			return this;
-		} else {
-			return other;
 		}
+			return other;
 	}
 
 	toString = () => {
@@ -764,15 +751,12 @@ export class LogicLiteral extends LogicValue {
 		if (other instanceof LogicLiteral) {
 			if (this.value === other.value) {
 				return this;
-			} else {
+			}
 				// TODO: should ret a fail world goal?
 				// throw new Error(`Literal values not equal: ${this.value} ${other.value}`);
 				return null;
-			}
-		} else {
-			return null;
-			// throw new Error(`Literal values not equal: ${this.value} ${other.value}`);
 		}
+			return null;
 	}
 
 	toString = () => {
@@ -829,11 +813,10 @@ export class LogicMap extends LogicValue {
 				return null;
 			}
 			return new LogicMap(newMap, this.type, newSize);
-		} else if (other instanceof LogicLvar) {
+		}if (other instanceof LogicLvar) {
 			return this;
-		} else {
-			return null;
 		}
+			return null;
 	}
 
 	constrainSize = (size: number) => {
@@ -871,7 +854,7 @@ export class LogicMap extends LogicValue {
 		for (const [key, value] of this.value.entries()) {
 			str += `${key}: ${value.toString()}, `;
 		}
-		return str + "}";
+		return `${str}}`;
 	};
 }
 
@@ -894,11 +877,10 @@ export class LogicList extends LogicValue {
 				newList.push(newVal);
 			}
 			return new LogicList(newList);
-		} else if (other instanceof LogicLvar) {
+		}if (other instanceof LogicLvar) {
 			return other;
-		} else {
-			return null;
 		}
+			return null;
 	}
 
 	toString = () => {
@@ -906,7 +888,7 @@ export class LogicList extends LogicValue {
 		for (const item of this.value) {
 			str += `${item.toString()}, `;
 		}
-		return str + "]";
+		return `${str}]`;
 	};
 }
 
@@ -918,11 +900,10 @@ export class LogicPredicate extends LogicValue {
 	override unite(other: LogicValue): LogicValue | null {
 		if (other instanceof LogicPredicate) {
 			return this;
-		} else if (other instanceof LogicLvar) {
+		}if (other instanceof LogicLvar) {
 			return this;
-		} else {
-			return null;
 		}
+			return null;
 	}
 
 	toString = () => {

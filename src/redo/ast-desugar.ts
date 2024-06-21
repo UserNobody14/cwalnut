@@ -24,6 +24,8 @@ import {
 import { pprintDsAst } from "./pprintast";
 import { linearize } from "./linearize";
 import { freshenTerms } from "./extractclosure";
+import { toBasicTypes } from "src/interpret-types/type-pipe";
+import { pprintGeneric, pprintTermT } from "./pprintgeneric";
 
 const parser = new Parser();
 parser.setLanguage(CrystalWalnut);
@@ -307,6 +309,8 @@ export function codeToAst(code: string): TermDsAst[] {
 	console.log(pprintDsAst(linearize(astn)));
 	console.log("Freshened--------------------------");
 	console.log(pprintDsAst(freshenTerms(astn)));
+    console.log("Typed--------------------------");
+    console.log(pprintTermT(toBasicTypes(astn)));
 	return astn;
 }
 
@@ -324,6 +328,16 @@ j = v
 j = ooo
 
 membero(qq, einput)
+`;
+
+const source5 = `
+
+einput = [1, 2, 3, 4, 5]
+j = 3
+j = v
+j = ooo
+
+first(qq, einput)
 `;
 
 codeToAst(source4);

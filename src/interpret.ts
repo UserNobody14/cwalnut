@@ -252,7 +252,7 @@ const interpretT = (
 		//     console.log('argsWalked', argsWalked);
 		//     return predicate(...argsWalked)(p);
 		// };
-		case "predicate_definition":
+		case "predicate_definition": {
 			const map = new Map();
 			lm.forEach((v, k) => map.set(k, v));
 			const argsList = t.args.map((arg) =>
@@ -273,6 +273,7 @@ const interpretT = (
 			const newLvar = SLogic.lvar(t.name.value);
 			map.set(t.name.value, newLvar);
 			return SLogic.eq(newLvar, freshTerm);
+		}
 	}
 };
 
@@ -281,13 +282,14 @@ const interpretE = (
 	lm: Map<string, LVar>,
 ): LVar | string | number => {
 	switch (t.type) {
-		case "identifier":
+		case "identifier": {
 			if (lm.has(t.value)) {
 				return lm.get(t.value) as LVar;
 			}
 			const nlvar = SLogic.lvar(t.value);
 			lm.set(t.value, nlvar);
 			return nlvar;
+		}
 		case "literal":
 			return t.value;
 	}
@@ -300,9 +302,9 @@ function buildCompoundLogic(
 ): (p: Package) => Stream {
 	if (terms.length === 0) {
 		return (p: Package) => SLogic.fail(p);
-	} else if (terms.length === 1) {
+	}if (terms.length === 1) {
 		return interpretT(terms[0], lm);
-	} else {
+	}
 		const comparator =
 			variety === "conjunction" ? SLogic.conj : SLogic.disj;
 		// const ppv: (q: Package) => Stream = terms.slice(0, -1).reduceRight((acc, nc) => comparator(acc, interpretT(nc, lm)), interpretT(terms[0], lm));
@@ -318,7 +320,6 @@ function buildCompoundLogic(
 			throw new Error("ppv is undefined");
 		}
 		return ppv;
-	}
 }
 
 const builtins = {

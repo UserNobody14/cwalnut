@@ -16,7 +16,7 @@ export class Domain {
 		this.max = max;
 	}
 	public toString = () => {
-		const str = "[" + this.min + ", " + this.max + "]";
+		const str = `[${this.min}, ${this.max}]`;
 		return str;
 	};
 	is_member(v: number) {
@@ -29,30 +29,30 @@ export class Domain {
 		return make_domain(this.min - d2.max, this.max - d2.min);
 	}
 	mul(d2: { min: number; max: number }) {
-		const 
-			obj = [
+		const obj = [
 				this.min * d2.min,
 				this.min * d2.max,
 				this.max * d2.min,
 				this.max * d2.max,
-			],
-			min = Math.min.apply(null, obj),
-			max = Math.max.apply(null, obj);
+			];
+		const min = Math.min.apply(null, obj);
+		const max = Math.max.apply(null, obj);
 		return make_domain(min, max);
 	}
 	div(d2: { min: number; max: number }) {
-		let min, max;
+		let min;
+		let max;
 		if (d2.min <= 0 && d2.max >= 0) {
 			//zero is involved.
 			if (d2.min === 0 && d2.max === 0) {
 				return false;
-			} else if (d2.min === 0) {
+			}if (d2.min === 0) {
 				max = inf;
 				return make_domain(
 					Math.min(this.min / d2.max, this.max / d2.max),
 					inf,
 				);
-			} else if (d2.max === 0) {
+			}if (d2.max === 0) {
 				min = minus_inf;
 				return make_domain(
 					minus_inf,
@@ -60,7 +60,7 @@ export class Domain {
 				);
 			}
 		}
-		if (!(isFinite(d2.min) && isFinite(d2.max))) {
+		if (!(Number.isFinite(d2.min) && Number.isFinite(d2.max))) {
 			//infinity is involved...
 			if (d2.min === minus_inf && d2.max === inf) {
 				return REAL_DOMAIN;
@@ -83,7 +83,8 @@ export function make_domain(min: number, max: number) {
 }
 export const REAL_DOMAIN = make_domain(minus_inf, inf);
 export function intersection(d1: Domain, d2: Domain) {
-	let min, max;
+	let min;
+	let max;
 	min = d1.min < d2.min ? d2.min : d1.min;
 	max = d1.max > d2.max ? d2.max : d1.max;
 	if (max < min) return false;
@@ -97,9 +98,8 @@ export function get_domain(
 		const d = pack.lookup_domain_binding(x);
 		if (!d) return REAL_DOMAIN;
 		return d.val;
-	} else if (typeof x === "number") {
+	}if (typeof x === "number") {
 		return make_domain(x, x);
-	} else {
-		return REAL_DOMAIN;
 	}
+		return REAL_DOMAIN;
 }
