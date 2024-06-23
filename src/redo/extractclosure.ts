@@ -5,6 +5,7 @@
 import { Set as ImmSet } from "immutable";
 import type { TermDsAst } from "src/types/DesugaredAst";
 import {
+    Builtin,
 	builtinList,
 	conjunction1,
 	disjunction1,
@@ -260,7 +261,7 @@ function freshenTermVars(
 export function freshenTerms(
 	terms: TermDsAst[],
 	logicType: "conjunction" | "disjunction" = "conjunction",
-	bt: string[] = builtinList,
+	bt = builtinList as unknown as string[],
 ): TermDsAst[] {
 	if (logicType === "conjunction") {
 		const tt = freshenTermVars(conjunction1(...terms), bt);

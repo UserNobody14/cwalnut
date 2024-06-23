@@ -1,6 +1,6 @@
 import type { IdentifierDsAst, TermDsAst } from "src/types/DesugaredAst";
 import { Map as ImmMap } from "immutable";
-import type { ExpressionGeneric, IdentifierGeneric, PredicateCallGeneric, TermGeneric } from "src/types/DsAstTyped";
+import type { ExpressionGeneric, IdentifierGeneric, PredicateCallGeneric, PredicateDefinitionGeneric, TermGeneric } from "src/types/DsAstTyped";
 
 export function* intoVars(tt: TermDsAst[]): Generator<string> {
     for (const t of tt) {
@@ -259,9 +259,11 @@ export function mapVarsGeneric<T, Z>(tt: TermGeneric<T>[], fn: (v: IdentifierGen
     });
 }
 
+type CtxTypes = 'fresh-args' | 'name' | 'definition-args' | 'call-args';
+
 export function mapPredCalls<T, Z>(tt: TermGeneric<T>[], 
     fn: (z: PredicateCallGeneric<T>) => PredicateCallGeneric<Z>,
-    freshen: (src: string, zz: IdentifierGeneric<T>[]) => IdentifierGeneric<Z>[],
+    freshen: (src: CtxTypes, zz: IdentifierGeneric<T>[]) => IdentifierGeneric<Z>[],
 ): TermGeneric<Z>[] {
     return tt.map((t: TermGeneric<T>): TermGeneric<Z> => {
         switch (t.type) {
@@ -303,6 +305,84 @@ export function mapPredCalls<T, Z>(tt: TermGeneric<T>[],
                 return fn(t);
         }
     });
+}
+
+export function mapPredDefinitionsGeneric<T, Z>(
+    tt: TermGeneric<T>[],
+    fn: (z: PredicateDefinitionGeneric<T>) => PredicateDefinitionGeneric<Z>,
+    freshen: (src: CtxTypes, zz: IdentifierGeneric<T>[]) => IdentifierGeneric<Z>[],
+): TermGeneric<Z>[] {
+    return tt.map((t: TermGeneric<T>): TermGeneric<Z> => {
+        switch (t.type) {
+            case "conjunction":
+            case "disjunction":
+                return {
+                    ...t,
+                    terms: mapPredDefinitionsGeneric(t.terms, fn, freshen),
+                };
+            case "fresh":
+                return {
+                    ...t,
+                    newVars: freshen('fresh-args', t.newVars),
+                    body: {
+                        ...t.body,
+                        terms: mapPredDefinitionsGeneric(t.body.terms, fn, freshen),
+                    },
+                };
+            case "with":
+                return {
+                    ...t,
+                    name: freshen('name', [t.name])[0],
+                    body: {
+                        ...t.body,
+                        terms: mapPredDefinitionsGeneric(t.body.terms, fn, freshen),
+                    },
+                };
+            case "predicate_definition":
+                return fn(t);
+            case "predicate_call":
+                return {
+                    ...t,
+                    source: freshen('name', [t.source])[0],
+                    args: t.args.map(a => a.type === "identifier" ? freshen('call-args', [a])[0] : a),
+                };
+        }
+    });
+}
+
+export function mapPredDefinitionsToState<T, S>(
+    tt: TermGeneric<T>[],
+    fn: (z: PredicateDefinitionGeneric<T>, s: S) => S,
+    freshen: (src: CtxTypes, zz: IdentifierGeneric<T>[], s: S) => [IdentifierGeneric<T>[], S],
+    s1: S,
+): S {
+    let s = s1;
+    for (const t of tt) {
+        switch (t.type) {
+            case "conjunction":
+            case "disjunction":
+                s = mapPredDefinitionsToState(t.terms, fn, freshen, s);
+                break;
+            case "fresh":
+                s = mapPredDefinitionsToState(t.body.terms, fn, freshen, s);
+                break;
+            case "with":
+                s = mapPredDefinitionsToState(t.body.terms, fn, freshen, s);
+                break;
+            case "predicate_definition":
+                s = fn(t, s);
+                break;
+            case "predicate_call":
+                s = freshen('name', [t.source], s)[1];
+                for (const a of t.args) {
+                    if (a.type === "identifier") {
+                        s = freshen('call-args', [a], s)[1];
+                    }
+                }
+                break;
+        }
+    }
+    return s;
 }
 
 export function mapVarsWithState<T, Z, S>(tt: TermGeneric<T>[], fn: (v: IdentifierGeneric<T>, s: S) => [IdentifierGeneric<Z>, S], s1: S): [TermGeneric<Z>[], S] {
@@ -475,7 +555,7 @@ export function mapPredCallsToState<T, S>(tt: TermGeneric<T>[], fn: (z: Predicat
                 s = mapPredCallsToState(t.body.terms, fn, s);
                 break;
             case "predicate_definition":
-                s = mapPredCallsToState(t.body.terms, fn, s);
+                // s = mapPredCallsToState(t.body.terms, fn, s);
                 break;
             case "predicate_call":
                 s = fn(t, s);

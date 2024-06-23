@@ -85,7 +85,17 @@ export const builtinList = [
 	"first",
 	"rest",
 	"empty",
-];
+    "add",
+    "subtract",
+    "multiply",
+    "divide",
+    "modulo",
+    "negate",
+    "internal_file",
+    "internal_import",
+] as const;
+
+export type Builtin = typeof builtinList[number];
 
 export const [
 	set_key_of,
@@ -97,6 +107,9 @@ export const [
 	to_slice,
 	to_length,
 	list,
+    to_first,
+    to_rest,
+    to_empty,
 ] = builtinList.map(make_identifier).map(
 	(id) =>
 		(...args: ExpressionDsAst[]) =>
@@ -234,3 +247,41 @@ export function disjunction1(
 	//     return make_disjunction(...flattenDisjunctions(terms));
 	// }
 }
+
+export const operate = (
+    operator: string,
+    left: ExpressionDsAst,
+    right: ExpressionDsAst,
+    value: IdentifierDsAst,
+): PredicateCallDsAst => {
+    const opToPredicateName: Record<string, Builtin> = {
+        '+': 'add',
+        '-': 'subtract',
+        '*': 'multiply',
+        '/': 'divide',
+        '%': 'modulo',
+    };
+    const predName = opToPredicateName?.[operator];
+    if (!predName) {
+        throw new Error(`Operator ${operator} is not supported`);
+    }
+    return make_predicate(make_identifier(predName), [left, right, value]);
+
+};
+
+export const unary_operate = (
+    operator: string,
+    operand: ExpressionDsAst,
+    value: IdentifierDsAst,
+): PredicateCallDsAst => {
+    const opToPredicateName: Record<string, Builtin> = {
+        '-': 'negate',
+        'file': 'internal_file',
+        'import': 'internal_import',
+    };
+    const predName = opToPredicateName?.[operator];
+    if (!predName) {
+        throw new Error(`Operator ${operator} is not supported`);
+    }
+    return make_predicate(make_identifier(predName), [operand, value]);
+};

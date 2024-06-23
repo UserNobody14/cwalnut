@@ -7,7 +7,7 @@ import {
 	ConjunctionDsAst,
 	type TermDsAst,
 	PredicateCallDsAst,
-	PredicateDefinitionDsAst,
+	type PredicateDefinitionDsAst,
 	type IdentifierDsAst,
 	type ExpressionDsAst,
 } from "src/types/DesugaredAst";
@@ -160,8 +160,20 @@ function linearizeVars(
 				newFreeVars6,
 			];
 		}
-		case "predicate_definition":
-			return [[term], { ...freeVars1 }];
+		case "predicate_definition": {
+            const [linearizedDef, newFreeVars7] = linearizeVars(
+                term.body,
+                freeVars1,
+            );
+            const predDef: PredicateDefinitionDsAst = {
+                type: "predicate_definition",
+                name: term.name,
+                args: term.args,
+                body: make_conjunction(...linearizedDef),
+            }
+			return [[predDef], { ...newFreeVars7,
+                varCounter: new Map([...newFreeVars7.varCounter.entries(), [term.name.value, 1]]) }];
+		}
 	}
 }
 
@@ -186,7 +198,7 @@ function linearizeQuick(
 ): [IdentifierDsAst, TermDsAst[], FreeVarsData] {
 	// First check if the variable is in newNames
 	const newName = variableContext.newNames.get(expr.value);
-	if (builtinList.includes(expr.value)) {
+	if (builtinList.includes(expr.value as any)) {
 		return [expr, [], { ...variableContext }];
 	}
 	if (!newName) {
@@ -258,12 +270,12 @@ function updateFreeVarsData(
 	newName2: string,
 	actualName: string,
 ): FreeVarsData {
-	console.log(
-		"latestName",
-		latestName,
-		"newName2",
-		newName2,
-	);
+	// console.log(
+	// 	"latestName",
+	// 	latestName,
+	// 	"newName2",
+	// 	newName2,
+	// );
 	const newEntryVals: [string, number][] =
 		latestName === newName2
 			? [

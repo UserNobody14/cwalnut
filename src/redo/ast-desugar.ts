@@ -8,6 +8,7 @@ import {
 	type ExpressionDsAst,
 	LiteralDsAst,
 	type IdentifierDsAst,
+    type PredicateDefinitionDsAst,
 } from "src/types/DesugaredAst";
 import {
 	make_conjunction,
@@ -19,13 +20,17 @@ import {
 	make_predicate,
 	make_predicate_fn,
 	make_unification,
+	operate,
 	set_key_of,
+    unary_operate,
 } from "src/utils/make_desugared_ast";
 import { pprintDsAst } from "./pprintast";
 import { linearize } from "./linearize";
 import { freshenTerms } from "./extractclosure";
 import { toBasicTypes } from "src/interpret-types/type-pipe";
 import { pprintGeneric, pprintTermT } from "./pprintgeneric";
+import { verifyLinear } from "src/verify/verify-linear";
+import { PredicateDefinitionAst } from "src/types/OldAstTyped";
 
 const parser = new Parser();
 parser.setLanguage(CrystalWalnut);
@@ -57,15 +62,7 @@ export function toAst(
 			return buildCompoundLogic(node, "conjunction");
 		case "either_statement":
 			// disjunction
-			if (
-				filterEmptyCompoundLogic(node.children[2]) === false
-			) {
-				console.warn(
-					"Empty compound logic",
-					node.children[2].type,
-					node.children[2].text,
-				);
-			}
+			logEmptyCompoundLogic(node);
 			return buildCompoundLogic(
 				node.children[2],
 				"disjunction",
@@ -73,39 +70,50 @@ export function toAst(
 
 		case "all_statement":
 			// conjunction
-			if (
-				filterEmptyCompoundLogic(node.children[2]) === false
-			) {
-				console.warn(
-					"Empty compound logic",
-					node.children[2].type,
-					node.children[2].text,
-				);
-			}
+			logEmptyCompoundLogic(node);
 			return buildCompoundLogic(
 				node.children[2],
 				"conjunction",
 			);
 		case "unification": {
-			const aaa = expressionToAst(node.children[0]);
-			const bbb = expressionToAst(node.children[2]);
-			const unification = (
-				a: Expression,
-				k: "==" | "<<" | ">>",
-				b: Expression,
-				disj: "!=" | string,
-			) => {
-				if (disj === "!=") {
-					return make_unification(a, "!=", b);
-				}
-				return make_unification(a, k, b);
-			};
-			return unification(
-				aaa,
-				node.children[1].text as "==" | "<<" | ">>",
-				bbb,
-				node.children[1].text as "!=" | string,
-			)[1];
+			const [a, aterms] = expressionToAst(node.children[0]);
+			const [b, bterms] = expressionOrPredicateDefinitionToAst(node.children[2]);
+            if (b.type === "predicate_definition") {
+                if (a.type !== "identifier") {
+                    throw new Error(
+                        "Source of predicate must be an identifier",
+                    );
+                }
+                return [
+                    ...aterms,
+                    {
+                        ...b,
+                        name: a,
+                    }
+                ];
+            }
+			// const unification = (
+			// 	a: Expression,
+			// 	k: "==" | "<<" | ">>",
+			// 	b: Expression,
+			// 	disj: "!=" | string,
+			// ) => {
+			// 	if (disj === "!=") {
+			// 		return make_unification(a, "!=", b);
+			// 	}
+			// 	return make_unification(a, k, b);
+			// };
+			// return unification(
+			// 	aaa,
+			// 	node.children[1].text as "==" | "<<" | ">>",
+			// 	bbb,
+			// 	node.children[1].text as "!=" | string,
+			// )[1];
+            const k = node.children[1].text as "==" | "<<" | ">>";
+            if (node.children[1].text === "!=") {
+                return make_unification([a, aterms], "!=", [b, bterms])[1];
+            }
+            return make_unification([a, aterms], k, [b, bterms])[1];
 		}
 		case "predicate": {
 			const argActual = node.children[1];
@@ -135,6 +143,16 @@ export function toAst(
 				`Unrecognized node type: ${node.type}`,
 			);
 	}
+}
+
+function logEmptyCompoundLogic(node: Parser.SyntaxNode) {
+    if (filterEmptyCompoundLogic(node.children[2]) === false) {
+        console.warn(
+            "Empty compound logic",
+            node.children[2].type,
+            node.children[2].text
+        );
+    }
 }
 
 function filterEmptyCompoundLogic(
@@ -179,41 +197,18 @@ function freshLvar(): IdentifierDsAst {
 	return make_identifier(`__fresh_${freshCounter++}`);
 }
 
-function expressionToAst(
-	node: Parser.SyntaxNode,
-): [ExpressionDsAst, TermDsAst[]] {
-	switch (node.type) {
-		case "predicate_definition": {
+function expressionOrPredicateDefinitionToAst(
+    node: Parser.SyntaxNode
+): [ExpressionDsAst | PredicateDefinitionDsAst, TermDsAst[]] {
+    switch (node.type) {
+        case "predicate_definition": {
 			const argsList = node.children
 				.slice(1, -3)
 				.filter((nnc) => nnc.grammarType !== ",");
-			console.log(
-				"nodechillen",
-				node.children.map((nnc) => nnc.grammarType),
-			);
+            // TODO: add verification 1
 			let selectedNode =
 				node.children[node.children.length - 1];
-			if (
-				filterEmptyCompoundLogic(selectedNode) === false
-			) {
-				console.warn(
-					"Empty compound logic",
-					selectedNode.type,
-					selectedNode.text,
-				);
-				selectedNode = node.children.find(
-					(nnc) => nnc.grammarType === "block",
-				) as Parser.SyntaxNode;
-				console.log(
-					"selectedNode",
-					selectedNode.grammarType,
-				);
-			}
-			const argsListApplication = selectedNode.children;
-			console.log(
-				"argsListApplication",
-				argsListApplication.map((nnc) => nnc.grammarType),
-			);
+			selectedNode = handleEmptyCompoundLogic(selectedNode, node);
 			const freshTerm = buildCompoundLogic(
 				selectedNode,
 				"conjunction",
@@ -226,10 +221,40 @@ function expressionToAst(
 					.map((nnc) => make_identifier(nnc.text)),
 				make_conjunction(...freshTerm),
 			);
-			return [frshName, [pt]];
+			return [pt, [pt]];
 		}
+    default:
+        return expressionToAst(node);
+    }
+}
+
+function expressionToAst(
+	node: Parser.SyntaxNode,
+): [ExpressionDsAst, TermDsAst[]] {
+	switch (node.type) {
+		// case "predicate_definition": {
+		// 	const argsList = node.children
+		// 		.slice(1, -3)
+		// 		.filter((nnc) => nnc.grammarType !== ",");
+        //     // TODO: add verification 1
+		// 	let selectedNode =
+		// 		node.children[node.children.length - 1];
+		// 	selectedNode = handleEmptyCompoundLogic(selectedNode, node);
+		// 	const freshTerm = buildCompoundLogic(
+		// 		selectedNode,
+		// 		"conjunction",
+		// 	);
+		// 	const frshName = freshLvar();
+		// 	const pt = make_predicate_fn(
+		// 		frshName,
+		// 		argsList
+		// 			.filter((ddf) => ddf.grammarType !== ",")
+		// 			.map((nnc) => make_identifier(nnc.text)),
+		// 		make_conjunction(...freshTerm),
+		// 	);
+		// 	return [frshName, [pt]];
+		// }
 		case "identifier":
-			// TODO: make it freshen/scope the identifier?
 			return [make_identifier(node.text), []];
 		case "expression":
 		case "primary_expression":
@@ -249,10 +274,32 @@ function expressionToAst(
 			];
 		}
 		// return make_attribute_ast(obj1, attr);
-		case "binary_operator":
-			throw new Error("Not implemented");
-		case "unary_operator":
-			throw new Error("Not implemented");
+		case "binary_operator": {
+            const [aaa, aaTerms] = expressionToAst(node.children[0]);
+            const op = node.children[1].text;
+			const [bbb, bbTerms] = expressionToAst(node.children[2]);
+			const val = freshLvar();
+			return [
+				val,
+				[
+					...aaTerms,
+                    ...bbTerms,
+					operate(op, aaa, bbb, val)
+				],
+			];
+		}
+		case "unary_operator": {
+            const [aaa, aaTerms] = expressionToAst(node.children[1]);
+            const op = node.children[0].text;
+            const val = freshLvar();
+            return [
+                val,
+                [
+                    ...aaTerms,
+                    unary_operate(op, aaa, val)
+                ],
+            ];
+        }
 		case "list": {
 			const listVals = node.children
 				.slice(1, -1)
@@ -300,17 +347,46 @@ function expressionToAst(
 	}
 }
 
+function handleEmptyCompoundLogic(selectedNode1: Parser.SyntaxNode, node: Parser.SyntaxNode) {
+    let selectedNode = selectedNode1
+    if (filterEmptyCompoundLogic(selectedNode) === false) {
+        console.warn(
+            "Empty compound logic",
+            selectedNode.type,
+            selectedNode.text
+        );
+        selectedNode = node.children.find(
+            (nnc) => nnc.grammarType === "block"
+        ) as Parser.SyntaxNode;
+        console.log(
+            "selectedNode",
+            selectedNode.grammarType
+        );
+    }
+    const argsListApplication = selectedNode.children;
+    console.log(
+        "argsListApplication",
+        argsListApplication.map((nnc) => nnc.grammarType),
+    );
+    return selectedNode;
+}
+
 export function codeToAst(code: string): TermDsAst[] {
 	const tree = parser.parse(code);
 	console.log("PARSE", tree.rootNode.toString());
 	const astn = toAst(tree.rootNode);
 	console.log("ASTN", pprintDsAst(astn));
-	console.log("Linearized--------------------------");
-	console.log(pprintDsAst(linearize(astn)));
-	console.log("Freshened--------------------------");
-	console.log(pprintDsAst(freshenTerms(astn)));
-    console.log("Typed--------------------------");
-    console.log(pprintTermT(toBasicTypes(astn)));
+	// console.log("Linearized--------------------------");
+	// console.log(pprintDsAst(linearize(astn)));
+	// console.log("Freshened--------------------------");
+	// console.log(pprintDsAst(freshenTerms(astn)));
+    // console.log("Typed--------------------------");
+    // console.log(pprintTermT(toBasicTypes(astn)));
+    // passed through
+    const passedThrough = toBasicTypes(freshenTerms(linearize(astn)));
+    console.log("linear:::::::::::::::::::::::::", verifyLinear(passedThrough));
+    console.log("Passed through--------------------------");
+    console.log(pprintTermT(passedThrough));
 	return astn;
 }
 
@@ -323,7 +399,7 @@ membero = (a, bb) =>
             membero(a, bbrest)
 
 einput = [1, 2, 3, 4, 5]
-j = 3
+j = 3 + 4
 j = v
 j = ooo
 

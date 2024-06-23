@@ -48,7 +48,7 @@ ${ast.terms
         case "predicate_call":
             return `${pprintExprAst(ast.source, printMeta, typeIOCalled)}(${pprintExprListAst(ast.args, printMeta, typeIOType)})`;
         case "predicate_definition":
-            return `DEFINE ${ast.name.value} as (${pprintExprListAst(ast.args, printMeta, typeIOType)}) => 
+            return `DEFINE [${pprintExprAst(ast.name, printMeta, typeIOType)}] as (${pprintExprListAst(ast.args, printMeta, typeIOType)}) => 
 ${indentStr(1, pprintGeneric<T>(ast.body.terms, printMeta))}`;
         case "fresh":
             return `fresh ${ast.newVars.map((v) => v.value).join(", ")}:
@@ -97,7 +97,9 @@ export function pprintType(ast: Type): string {
 		case "union":
 			return `(${ast.types.map(pprintType).join(" | ")})`;
 		case "complex":
-			return `${ast.name}<${ast.generics.map(pprintType).join(", ")}>`;
+			return `${ast.name}${
+                ast.fresh.length > 0 ? `[${ast.fresh.map(pprintType).join(", ")}]` : ""
+            }<${ast.generics.map(pprintType).join(", ")}>`;
 	}
 }
 export function pprintTypeMeta(ctx: CtxType, meta: Type): string {

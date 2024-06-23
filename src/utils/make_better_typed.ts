@@ -116,6 +116,64 @@ const constraint_type_dat = (
     constrain
 });
 
+const predicate_type_dat = (
+    fresh: string[],
+    ...args: Type[]
+): ComplexType => ({
+    type: "complex",
+    name: "predicate",
+    fresh: fresh.map(type_variable_dat),
+    generics: args
+});
+
+function flattenConjunctions<T>(
+	terms: TermGeneric<T>[],
+): TermGeneric<T>[] {
+	return terms.flatMap((term) =>
+		term.type === "conjunction"
+			? flattenConjunctions(term.terms)
+			: [term],
+	);
+}
+
+function flattenDisjunctions<T>(
+	terms: TermGeneric<T>[],
+): TermGeneric<T>[] {
+	return terms.flatMap((term) =>
+		term.type === "disjunction"
+			? flattenDisjunctions(term.terms)
+			: [term],
+	);
+}
+
+function flattenUnions(
+	types: Type[],
+): Type[] {
+	return types.flatMap((type) =>
+		type.type === "union"
+			? flattenUnions(type.types)
+			: [type],
+	);
+}
+
+function union1(
+	...types: Type[]
+): UnionType {
+	return union_type_dat(...flattenUnions(types));
+}
+
+export function conjunction1<T>(
+	...terms: TermGeneric<T>[]
+): ConjunctionGeneric<T> {
+	return make.conjunction(flattenConjunctions(terms));
+}
+
+export function disjunction1<T>(
+	...terms: TermGeneric<T>[]
+): DisjunctionGeneric<T> {
+	return make.disjunction(flattenDisjunctions(terms));
+}
+
 export const make = {
 	conjunction: conjunction_dat,
 	disjunction: disjunction_dat,
@@ -128,7 +186,13 @@ export const make = {
     // Types
     simple_type: simple_type_dat,
     complex_type: complex_type_dat,
+    predicate_type: predicate_type_dat,
     type_variable: type_variable_dat,
     union_type: union_type_dat,
-    constraint_type: constraint_type_dat, 
+    constraint_type: constraint_type_dat,
+
+	// conjunction1,
+	conjunction1,
+	disjunction1,
+	union1,
 };
