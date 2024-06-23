@@ -1,0 +1,20 @@
+
+string1_or_num = (zza) =>
+	either:
+		zza = "string1"
+		zza = 1
+membero = (a, bb) =>
+    either:
+        first(a, bb)
+        all:
+            rest(bbrest, bb)
+            membero(a, bbrest)
+
+einput = [1, 2, 3, 4, 5]
+j = 3 + 4
+j = v
+j = ooo
+ssa = 1
+string1_or_num(ssa)
+
+membero(qq, einput)

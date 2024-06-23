@@ -22,6 +22,7 @@ import {
 	make_unification,
 	operate,
 	set_key_of,
+    to_slice,
     unary_operate,
 } from "src/utils/make_desugared_ast";
 import { pprintDsAst } from "./pprintast";
@@ -138,6 +139,23 @@ export function toAst(
 				),
 			];
 		}
+		case "for_control_statement": {
+			// const [a, aterms] = expressionToAst(node.children[1]);
+			// const [b, bterms] = expressionToAst(node.children[3]);
+			const ctrltype = node.children[1].text;
+			const [c, cterms] = expressionToAst(node.children[2]);
+			const [d, dterms] = expressionToAst(node.children[4]);
+			return [
+				// ...aterms,
+				// ...bterms,
+				...cterms,
+				...dterms,
+			];
+		}
+		case "comment": {
+			return [];
+		}
+
 		default:
 			throw new Error(
 				`Unrecognized node type: ${node.type}`,
@@ -340,6 +358,20 @@ function expressionToAst(
 				make_literal_ast(Number.parseInt(node.text, 10)),
 				[],
 			];
+		case "slice": {
+			const [obj1, objTerms] = expressionToAst(
+				node.children[0],
+			);
+			const attr = node.children[2].text;
+			const val = freshLvar();
+			return [
+				val,
+				[
+					...objTerms,
+					to_slice(obj1, make_literal_ast(attr), val),
+				],
+			];
+		}
 		default:
 			throw new Error(
 				`Unrecognized node type: ${node.type}`,
@@ -383,14 +415,18 @@ export function codeToAst(code: string): TermDsAst[] {
     // console.log("Typed--------------------------");
     // console.log(pprintTermT(toBasicTypes(astn)));
     // passed through
-    const passedThrough = toBasicTypes(freshenTerms(linearize(astn)));
-    console.log("linear:::::::::::::::::::::::::", verifyLinear(passedThrough));
+    const passedThrough = toBasicTypes(astn);
+    // console.log("linear:::::::::::::::::::::::::", verifyLinear(passedThrough));
     console.log("Passed through--------------------------");
     console.log(pprintTermT(passedThrough));
 	return astn;
 }
 
 const source4 = `
+string1_or_num = (zza) =>
+	either:
+		zza = "string1"
+		zza = 1
 membero = (a, bb) =>
     either:
         first(a, bb)
@@ -402,6 +438,8 @@ einput = [1, 2, 3, 4, 5]
 j = 3 + 4
 j = v
 j = ooo
+ssa = 1
+string1_or_num(ssa)
 
 membero(qq, einput)
 `;
@@ -416,4 +454,179 @@ j = ooo
 first(qq, einput)
 `;
 
-codeToAst(source4);
+
+const source6 = `
+
+
+cwal_file << file "./target/cwal"
+
+grammar_v1 = (str, ast) =>
+    either:
+        all:
+            str = predname + "(" + remaining + ")"
+            regex("/\w+", predname)
+            grammar_v1(remaining, astremaining)
+            ast = {
+                "type": "predicate",
+                "name": predname,
+                "args": astremaining
+            }
+        all:
+            fail()
+
+fresh_pred_type = (astv, type_map, pred_type) =>
+    astv = {
+        "type": "predicate_call",
+        "source": name,
+        "args": avargs
+    }
+    for all tval in avargs:
+        type_ast(tval)
+
+type_ast = (ast, type_map) =>
+    either:
+        all:
+            ast.type = "predicate_call"
+            fresh_pred_type(ast, type_map, predtype)
+            predtype(ast.args)
+        all:
+            ast.type = "predicate_definition"
+            args = ast.args
+            type_ast_curried = (t) =>
+                type_ast(t, type_map, tblw)
+            map(args, type_ast_curried, args_typed)
+			## type_map[ast.name] = pred_type
+            pred_typing_closure = (args) =>
+                process_pred_instance(ast.body, args)
+            pred_type = {
+                "type": "predicate_definition",
+                "body": pred_typing_closure
+            }
+        all:
+            ast.type = "fresh"
+            type_ast(ast.body, type_map, typeval)
+        all:
+            ast.type = "with"
+            type_ast(ast.body, type_map, typeval)
+        all:
+			ast = {
+				"type": "conjunction",
+				"terms": ast_terms
+			}
+			split_string(ast_terms, ",", termsout)
+            type_ast(start_ts, type_map)
+        all:
+            ast = {
+				"type": "disjunction",
+				"terms": ast_terms
+			}
+			split_string(ast_terms, ",", termsout)
+            type_disjunction(termsout, type_map)
+
+
+type_disjunction = (disj_terms, type_map1) =>
+    either:
+        disj_terms = []
+        all:
+            first(dterm, disj_terms)
+            rest(remaining_dterms, disj_terms)
+            type_ast(dterm, type_map1)
+            type_disjunction(remaining_dterms, type_map1)
+
+
+
+type_map_for_file = (filestring, tmap) =>
+    INTERNAL_parse_cwal(filestring, ast)
+    type_ast(ast, tmap)
+
+
+`;
+
+const source65 = `
+
+
+type_disjunction = (disj_terms, type_map) =>
+    either:
+        disj_terms = []
+        all:
+            first(dterm, disj_terms)
+            rest(remaining_dterms, disj_terms)
+            type_ast(dterm, type_map)
+            type_disjunction(remaining_dterms, type_map)
+
+
+
+type_map_for_file = (filestring, tmap) =>
+    INTERNAL_parse_cwal(filestring, ast)
+    type_ast(ast, tmap)
+
+
+`;
+const source_file = `
+cwal_file << file "./target/cwal"
+`
+const source7 = `
+
+grammar_v1 = (str, ast) =>
+    either:
+        all:
+            str = predname + "(" + remaining + ")"
+
+            regex2("/\\w+", predname)
+            grammar_v1(remaining, astremaining)
+            ast = {
+                "type": "predicate",
+                "name": predname,
+                "args": astremaining
+            }
+        all:
+            fail()
+`;
+
+const source8 = `
+fresh_pred_type = (astv, type_map, pred_type) =>
+    astv = {
+        "type": "predicate_call",
+        "source": name,
+        "args": avargs
+    }
+    for all tval in avargs:
+        type_ast(tval)
+
+type_ast = (ast, type_map) =>
+    either:
+        all:
+            ast.type = "predicate_call"
+            fresh_pred_type(ast, type_map, predtype)
+            predtype(ast.args)
+        all:
+            ast.type = "predicate_definition"
+            args = ast.args
+            type_ast_curried = (t) =>
+                type_ast(t, type_map, tblw)
+            map(args, type_ast_curried, args_typed)
+            type_map[ast.name] << pred_type
+            pred_typing_closure = (args) =>
+                process_pred_instance(ast.body, args)
+            pred_type = {
+                "type": "predicate_definition",
+                "body": pred_typing_closure
+            }
+        all:
+            ast.type = "fresh"
+            type_ast(ast.body, type_map, typeval)
+        all:
+            ast.type = "with"
+            type_ast(ast.body, type_map, typeval)
+        all:
+            ast.type = "conjunction"
+            termsv = ast.terms
+            first(start_ts, termsv)
+            type_ast(start_ts, type_map)
+        all:
+            ast.type = "disjunction"
+            type_disjunction(ast.terms, type_map)
+`;
+
+
+codeToAst(source6);

@@ -10,165 +10,16 @@ import type { ExpressionGeneric, IdentifierGeneric, TermGeneric, TermT } from "s
 import type { Type } from "src/types/EzType";
 import { make } from "src/utils/make_better_typed";
 import { Map as ImmMap } from "immutable";
-import { conjunction1, type Builtin } from "src/utils/make_desugared_ast";
-import {reifyType, unify} from "src/type-unification/aunt";
+import { conjunction1 } from "src/utils/make_desugared_ast";
+import {reify, reifyType, unify} from "src/type-unification/aunt";
 import { generateTypeVars } from "./replace_type_vars";
 import {unifyTwoMaps} from '../type-unification/aunt';
+import { builtinTypes } from "./builtinTypes";
 
 function toEarlyMeta(
     tt: TermDsAst[]
 ): TermGeneric<'unknown'>[] {
     return mapToGeneric(tt, (tk) => make.identifier('unknown', tk.value));
-}
-
-// type Tnv = ImmMap<string, Type>[]
-
-// const typeOf = (ss: VarLogic | ExpressionGeneric<'unknown'>, tt: VarLogic): Goal => {
-//     return disj(
-//         conj(
-//             disj(
-//                 eq(tt, LogicVal.create('string')),
-//                 eq(tt, LogicVal.create('null')),
-//                 eq(tt, LogicVal.create('boolean')),
-//                 eq(tt, LogicVal.create('number')),
-//             ),
-//             ss instanceof VarLogic ? eq(ss, tt) : (
-//                 ss.type === 'literal' ? eq(LogicVal.create(ss.kind), tt) : failG
-//             )
-//         )
-
-//     )
-// }
-
-// function matchArgs(
-//     args: ExpressionGeneric<'unknown'>[],
-//     typeVar: VarLogic
-// ): Goal {
-//     return conj(
-//         ...args.map((arg, i) => {
-//             const arg_type = VarLogic.create('arg_type');
-//             return fresh(
-//                 ['arg_type'],
-//                 conj(
-//                     typeOf(arg, arg_type),
-//                     idxOf(typeVar, i, arg_type)
-//                 )
-//             )
-//         })
-//     )
-// }
-
-const builtinTypes: Record<Builtin, Type> = {
-    'unify': make.union_type(
-        make.complex_type('predicate', [
-            make.type_variable('A1')
-        ], [
-            make.type_variable('A1'),
-            make.type_variable('A1'),
-        ]),
-        make.complex_type('predicate', [
-            make.type_variable('A1')
-        ], [
-            make.type_variable('A1'),
-            make.type_variable('A1'),
-            make.type_variable('A1'),
-        ])
-    ),
-    'list': make.union_type(
-        make.complex_type('predicate', [
-            make.type_variable('L1'),
-        ], [
-            make.complex_type('list', [], [
-                make.type_variable('L1'),
-            ]),
-            make.type_variable('L1'),
-            make.type_variable('L1'),
-            make.type_variable('L1'),
-            make.type_variable('L1'),
-            make.type_variable('L1')
-        ])
-    ),
-    'first': make.union_type(
-        make.complex_type('predicate', [
-            make.type_variable('F1'),
-        ], [
-            make.type_variable('F1'),
-            make.complex_type('list', [], [
-                make.type_variable('F1'),
-            ]),
-        ])
-    ),
-    'rest': make.union_type(
-        make.complex_type('predicate', [
-            make.type_variable('R1'),
-        ], [
-            make.complex_type('list', [], [
-                make.type_variable('R1'),
-            ]),
-            make.complex_type('list', [], [
-                make.type_variable('R1'),
-            ]),
-        ])
-    ),
-    set_key_of: make.predicate_type(['K1', 'V1'], 
-        make.complex_type('dictionary', [], [
-            make.type_variable('K1'),
-            make.type_variable('V1'),
-        ]),
-        make.type_variable('K1'), 
-        make.type_variable('V1')
-    ),
-    unify_left: make.union_type(
-        make.complex_type('predicate', [
-            make.type_variable('L1')
-        ], [
-            make.type_variable('L1'),
-            make.type_variable('L1'),
-        ])
-    ),
-    unify_right: make.union_type(
-        make.complex_type('predicate', [
-            make.type_variable('UR1')
-        ], [
-            make.type_variable('UR1'),
-            make.type_variable('UR1'),
-        ])
-    ),
-    unify_equal: make.union_type(
-        make.complex_type('predicate', [
-            make.type_variable('UE1')
-        ], [
-            make.type_variable('UE1'),
-            make.type_variable('UE1'),
-        ])
-    ),
-    unify_not_equal: make.union_type(
-        make.complex_type('predicate', [
-            make.type_variable('UNE1')
-        ], [
-            make.type_variable('UNE1'),
-            make.type_variable('UNE1'),
-        ])
-    ),
-    slice: make.simple_type('never'), // Temporarily
-    length: make.simple_type('never'), // Temporarily
-    empty: make.simple_type('never'), // Temporarily
-    add: make.union_type(
-        make.complex_type('predicate', [
-            make.type_variable('A1')
-        ], [
-            make.type_variable('A1'),
-            make.type_variable('A1'),
-            make.type_variable('A1'),
-        ])
-    ), // Temporarily
-    subtract: make.simple_type('never'), // Temporarily
-    multiply: make.simple_type('never'), // Temporarily
-    divide: make.simple_type('never'), // Temporarily
-    modulo: make.simple_type('never'), // Temporarily
-    negate: make.simple_type('never'), // Temporarily
-    internal_file: make.simple_type('never'), // Temporarily
-    internal_import: make.simple_type('never'), // Temporarily
 }
 
 export function toBasicTypes(
@@ -372,21 +223,21 @@ function toBasicTypesG1<G>(tt: TermGeneric<G>, mp: ImmMap<string, Type>): TypedO
             return [make.conjunction(t1), t2];}
         case 'disjunction': {
             // instead map & unify type envs?
-            // const tList = tt.terms.map((t) => toBasicTypesG1(t, mp));
-            // const termsM = tList.map((t) => t[0]);
-            // const t2 = tList.map((t) => t[1]);
-            // const unitedMap = t2.reduce((acc, t) => {
-            //     const newMp = unifyTwoMaps(acc, t);
-            //     return newMp;
-            // });
-            // return [make.disjunction(termsM), unitedMap];
-            const [t1, t2] = tt.terms.reduce<TypedOutputConj>((acc, t) => {
-                const [t1, t2] = acc;
-                const [t3, t4] = toBasicTypesG1(t, t2);
-                t1.push(t3);
-                return [t1, t4] as TypedOutputConj;
-            }, [[], mp]);
-            return [make.disjunction(t1), t2];
+            const tList = tt.terms.map((t) => toBasicTypesG1(t, mp));
+            const termsM = tList.map((t) => t[0]);
+            const t2 = tList.map((t) => t[1]);
+            const unitedMap = t2.reduce((acc, t) => {
+                const newMp = unifyTwoMaps(reify(acc), reify(t));
+                return newMp;
+            });
+            return [make.disjunction(termsM), unitedMap];
+            // const [t1, t22] = tt.terms.reduce<TypedOutputConj>((acc, t) => {
+            //     const [t1, t2] = acc;
+            //     const [t3, t4] = toBasicTypesG1(t, t2);
+            //     t1.push(t3);
+            //     return [t1, t4] as TypedOutputConj;
+            // }, [[], mp]);
+            // return [make.disjunction(termsM), t22];
         }
         case 'predicate_call': {
             // type of the predicate source should not be bound by the specific polymorphism used
@@ -416,7 +267,8 @@ function toBasicTypesG1<G>(tt: TermGeneric<G>, mp: ImmMap<string, Type>): TypedO
             )), newMp];
         }
         case 'predicate_definition': {
-            const [body, mp2] = toBasicTypesG1(tt.body, mp);
+            const [body, mp1] = toBasicTypesG1(tt.body, mp);
+            const mp2 = reify(mp1);
             const argTypes = tt.args.map((arg) => {
                 const tsz = mp2.get(arg.value);
                 if (tsz) return tsz;
@@ -429,13 +281,17 @@ function toBasicTypesG1<G>(tt: TermGeneric<G>, mp: ImmMap<string, Type>): TypedO
             return [make.predicate_definition(
                 make.identifier(predType, tt.name.value),
                 tt.args.map((arg, i) => {
-                    return make.identifier(reifyType(argTypes[i], newMp), arg.value);
+                    return make.identifier(argTypes[i], arg.value);
                 }),
                 make.conjunction1(body)
             ), newMp];
         }
         case 'fresh': {
-            const [body, mp2] = toBasicTypesG1(tt.body, mp);
+            let mpClean = mp;
+            for (const nv of tt.newVars) {
+                mpClean = mpClean.delete(nv.value);
+            }
+            const [body, mp2] = toBasicTypesG1(tt.body, mpClean);
             const freshArgs = tt.newVars.map((v) => {
                 const mp22 = mp2.get(v.value);
                 if (mp22) {
@@ -443,6 +299,7 @@ function toBasicTypesG1<G>(tt: TermGeneric<G>, mp: ImmMap<string, Type>): TypedO
                 }
                 return make.identifier(make.type_variable(v.value), v.value);
             });
+
             return [make.fresh(freshArgs, make.conjunction1(body)), mp2];
         }
         case 'with': {

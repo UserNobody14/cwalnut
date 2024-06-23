@@ -2,6 +2,7 @@ import type { Type, ComplexType, TypeVariable, UnionType } from 'src/types/EzTyp
 import { Map as ImmMap, Set as ImmSet } from 'immutable';
 import { pprintType } from 'src/redo/pprintgeneric';
 import { make } from 'src/utils/make_better_typed';
+import { compareTypes } from './compareTypeMaps';
 // import { ComplexType } from 'src/types/Type';
 
 export function pprintTypeMap(world: ImmMap<string, Type>): string {
@@ -49,7 +50,11 @@ export function unify(t1?: Type, t2?: Type, subst = ImmMap<string, Type>()): Imm
         return unifyUnion(t2, t1, subst);
     }
     if (t1.type === 'simple' && t2.type === 'simple') {
-        return subst;
+        if (t1.name === t2.name) {
+            return subst;
+        }
+        throw new Error(`Cannot unify simple types ${pprintType(t1)} and ${pprintType(t2)} in env:
+        ${pprintTypeMap(subst)}`);
     }
     if (t1.type === 'complex' && t1.fresh.length > 0) {
         return unify(instantiate(t1), t2, subst);
@@ -174,7 +179,8 @@ function instantiate(type: Type): Type {
       const instantiatedGenerics = type.generics.map((g) => applySubstitution(g, subst));
       return make.complex_type(
         type.name,
-        type.fresh.filter((v) => instantiatedGenerics.some((g) => occursCheck(v, g, subst))),
+        // type.fresh.filter((v) => instantiatedGenerics.some((g) => occursCheck(v, g, subst))),
+        [],
         instantiatedGenerics
       );
     }
@@ -242,16 +248,28 @@ function applySubstitution(type: Type, subst: ImmMap<string, Type>): Type {
 //     return newSubst;
 // }
 
+function softUnify(t1: Type, t2?: Type, subst = ImmMap<string, Type>()): Type {
+    if (!t2) return t1;
+    const t1Plus = reifyType(t1, subst);
+    const t2Plus = reifyType(t2, subst);
+    try {
+        // return reifyType(unify(t1, t2, subst), subst);
+        const newSub = unify(t1Plus, t2Plus, subst);
+        return reifyType(t1Plus, newSub);
+    } catch (e) {
+        console.warn(`Soft unification failed: ${e}`);
+        return make.union1(t1Plus, t2Plus);
+    }
+}
+
+
 export function unifyTwoMaps(subst1: ImmMap<string, Type>, subst2: ImmMap<string, Type>): ImmMap<string, Type> {
     let newSubst = subst1;
     for (const [k, v] of subst2.entries()) {
         const bk = subst1.get(k);
         newSubst = newSubst.set(
             k,
-            bk ? make.union1(
-                v,
-                bk
-            ) : v
+            softUnify(v, bk, newSubst)
         )
     }
     for (const k of ImmSet(subst1.keys()).subtract(
@@ -272,6 +290,26 @@ export function reify(subst: ImmMap<string, Type>): ImmMap<string, Type> {
     return newSubst;
 }
 
+const collapseUnion = (types: Type[]): Type[] => {
+    const newTypes: Type[] = [];
+    for (const type of types) {
+        if (type.type === 'union') {
+            newTypes.push(...type.types);
+        } else {
+            newTypes.push(type);
+        }
+    }
+    for (let i = 0; i < newTypes.length; i++) {
+        for (let j = i + 1; j < newTypes.length; j++) {
+            if (compareTypes(newTypes[i], newTypes[j])) {
+                newTypes.splice(j, 1);
+                j--;
+            }
+        }
+    }
+    return newTypes;
+}
+
 export function reifyType(type: Type, subst: ImmMap<string, Type>): Type {
     if (type.type === 'variable') {
         const t = subst.get(type.name);
@@ -284,10 +322,15 @@ export function reifyType(type: Type, subst: ImmMap<string, Type>): Type {
         if (type.types.length === 0) {
             throw new Error("Cannot reify empty union type");
         }
-        if (type.types.length === 1) {
-            return reifyType(type.types[0], subst);
+        // if (type.types.length === 1) {
+        //     return reifyType(type.types[0], subst);
+        // }
+        const types2 = collapseUnion(type.types.map(t => reifyType(t, subst)));
+        if (types2.length === 1) {
+            return types2[0];
         }
-        return make.union_type(...type.types.map(t => reifyType(t, subst)));
+        return make.union1(...types2);
+        // return make.union1(...types2);
     } if (type.type === 'complex') {
         const finGen = type.generics.map(t => reifyType(t, subst));
         return make.complex_type(
