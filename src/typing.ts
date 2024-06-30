@@ -35,6 +35,10 @@ import {
 	to_set_key_of,
 } from "./utils/to_conjunction";
 import { pprintType, pprintTypedAst } from "./pprintType";
+import { TermGeneric } from "./types/DsAstTyped";
+import { make } from "./utils/make_better_typed";
+import { codeToAst } from "./redo/ast-desugar";
+import { TermDsAst } from "./types/DesugaredAst";
 // Conversion from Ast to TypedAst
 
 function unifyTypesDisj(t1: Type, t2: Type): Type {
@@ -1019,19 +1023,20 @@ val.father = (a, b) =>
 val.father("bob", qq)
 `;
 
-export function codeToTypedAst(source: string): TypedAst {
-	const typeEnv = new TypeEnv();
-	const codeE = ast.codeToAst(source);
-	if (codeE.type === "conjunction") {
-		const [eet, nv] = typeTermList(
-			codeE.children,
-			typeEnv,
-			"implicit",
-		);
-		return to_conjunction(eet);
-	}
-		const [eet, nv] = typeTermAst(codeE, typeEnv);
-		return to_conjunction(eet);
+export function codeToTypedAst(source: string): TermDsAst[] {
+	// const typeEnv = new TypeEnv();
+	// const codeE = ast.codeToAst(source);
+	// if (codeE.type === "conjunction") {
+	// 	const [eet, nv] = typeTermList(
+	// 		codeE.children,
+	// 		typeEnv,
+	// 		"implicit",
+	// 	);
+	// 	return make.conjunction1(eet);
+	// }
+	// 	const [eet, nv] = typeTermAst(codeE, typeEnv);
+	// 	return to_conjunction(eet);
+	return codeToAst(source);
 }
 
 function testOnSource(source: string) {

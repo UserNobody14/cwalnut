@@ -32,6 +32,7 @@ import { toBasicTypes } from "src/interpret-types/type-pipe";
 import { pprintGeneric, pprintTermT } from "./pprintgeneric";
 import { verifyLinear } from "src/verify/verify-linear";
 import { PredicateDefinitionAst } from "src/types/OldAstTyped";
+import { warnHolder, debugHolder } from "src/warnHolder";
 
 const parser = new Parser();
 parser.setLanguage(CrystalWalnut);
@@ -51,7 +52,7 @@ export function toAst(
 ): TermDsAst[] {
 	if (filterEmptyCompoundLogic(node) === false) {
 		// throw new Error('Empty compound logic');
-		console.warn(
+		warnHolder(
 			"Empty compound logic",
 			node.type,
 			node.text,
@@ -165,7 +166,7 @@ export function toAst(
 
 function logEmptyCompoundLogic(node: Parser.SyntaxNode) {
     if (filterEmptyCompoundLogic(node.children[2]) === false) {
-        console.warn(
+        warnHolder(
             "Empty compound logic",
             node.children[2].type,
             node.children[2].text
@@ -333,7 +334,7 @@ function expressionToAst(
 			const listValsDict = node.children
 				.slice(1, -1)
 				.filter((nnc) => nnc.grammarType !== ",");
-			console.log(
+			debugHolder(
 				"listValsDict",
 				listValsDict.map(
 					(nnc) => `
@@ -382,7 +383,7 @@ function expressionToAst(
 function handleEmptyCompoundLogic(selectedNode1: Parser.SyntaxNode, node: Parser.SyntaxNode) {
     let selectedNode = selectedNode1
     if (filterEmptyCompoundLogic(selectedNode) === false) {
-        console.warn(
+        warnHolder(
             "Empty compound logic",
             selectedNode.type,
             selectedNode.text
@@ -390,13 +391,13 @@ function handleEmptyCompoundLogic(selectedNode1: Parser.SyntaxNode, node: Parser
         selectedNode = node.children.find(
             (nnc) => nnc.grammarType === "block"
         ) as Parser.SyntaxNode;
-        console.log(
+        debugHolder(
             "selectedNode",
             selectedNode.grammarType
         );
     }
     const argsListApplication = selectedNode.children;
-    console.log(
+    debugHolder(
         "argsListApplication",
         argsListApplication.map((nnc) => nnc.grammarType),
     );
@@ -405,20 +406,20 @@ function handleEmptyCompoundLogic(selectedNode1: Parser.SyntaxNode, node: Parser
 
 export function codeToAst(code: string): TermDsAst[] {
 	const tree = parser.parse(code);
-	console.log("PARSE", tree.rootNode.toString());
+	debugHolder("PARSE", tree.rootNode.toString());
 	const astn = toAst(tree.rootNode);
-	console.log("ASTN", pprintDsAst(astn));
-	// console.log("Linearized--------------------------");
-	// console.log(pprintDsAst(linearize(astn)));
-	// console.log("Freshened--------------------------");
-	// console.log(pprintDsAst(freshenTerms(astn)));
-    // console.log("Typed--------------------------");
-    // console.log(pprintTermT(toBasicTypes(astn)));
+	debugHolder("ASTN", pprintDsAst(astn));
+	// debugHolder("Linearized--------------------------");
+	// debugHolder(pprintDsAst(linearize(astn)));
+	// debugHolder("Freshened--------------------------");
+	// debugHolder(pprintDsAst(freshenTerms(astn)));
+    // debugHolder("Typed--------------------------");
+    // debugHolder(pprintTermT(toBasicTypes(astn)));
     // passed through
     const passedThrough = toBasicTypes(astn);
-    // console.log("linear:::::::::::::::::::::::::", verifyLinear(passedThrough));
-    console.log("Passed through--------------------------");
-    console.log(pprintTermT(passedThrough));
+    // debugHolder("linear:::::::::::::::::::::::::", verifyLinear(passedThrough));
+    debugHolder("Passed through--------------------------");
+    debugHolder(pprintTermT(passedThrough));
 	return astn;
 }
 

@@ -5,7 +5,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "jest",
     "build-dist": "./node_modules/typescript/bin/tsc",
     "general": "ts-node src/index.ts"
   },
@@ -20,6 +20,9 @@
   },
   "devDependencies": {
     "@biomejs/biome": "1.8.2",
+    "@jest/globals": "^29.7.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.5",
     "ts-node": "^10.9.2",
     "tsx": "^4.15.2",
     "typescript": "^5.4.5"

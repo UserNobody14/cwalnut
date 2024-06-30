@@ -11,10 +11,13 @@ import type { Type } from "src/types/EzType";
 import { make } from "src/utils/make_better_typed";
 import { Map as ImmMap } from "immutable";
 import { conjunction1 } from "src/utils/make_desugared_ast";
-import {reify, reifyType, unify} from "src/type-unification/aunt";
+import {unify} from "src/type-unification/aunt";
+import { reify } from 'src/type-unification/reifyType';
+import { reifyType } from 'src/type-unification/reifyType';
 import { generateTypeVars } from "./replace_type_vars";
 import {unifyTwoMaps} from '../type-unification/aunt';
 import { builtinTypes } from "./builtinTypes";
+import { warnHolder } from "src/warnHolder";
 
 function toEarlyMeta(
     tt: TermDsAst[]
@@ -183,7 +186,7 @@ export function toBasicTypes(
 //             );
 //             // then unify the predicate call with the type
 //             const [utlf, worldz] = unify2(predTyped, pred, curr);
-//             console.log(`Unify ${predTyped} with ${pred}:\n ${pprintType(utlf)}`);
+//             warnHolder(`Unify ${predTyped} with ${pred}:\n ${pprintType(utlf)}`);
 //             return worldz;
 //         },
 //         types
@@ -191,7 +194,7 @@ export function toBasicTypes(
 
 //     if (!gl) throw new Error(`Failed to unify types ${tt} with ${types}`);
 
-//     console.log('Type map:\n', printTypeMap(gl));
+//     warnHolder('Type map:\n', printTypeMap(gl));
 
 //     return [mapVarsGeneric(tt, zg => {
 //         const tsz = walkMap(zg.value, gl);
@@ -248,7 +251,7 @@ function toBasicTypesG1<G>(tt: TermGeneric<G>, mp: ImmMap<string, Type>): TypedO
                 }
                 const tsz = mp.get(arg.value);
                 if (tsz) return tsz;
-                console.warn(`Type ${arg.value} not found in ${tt.source.value} args`);
+                warnHolder(`Type ${arg.value} not found in ${tt.source.value} args`);
                 return make.type_variable(arg.value);
             });
             const newPredType = make.predicate_type([], ...argTypes);
@@ -272,7 +275,7 @@ function toBasicTypesG1<G>(tt: TermGeneric<G>, mp: ImmMap<string, Type>): TypedO
             const argTypes = tt.args.map((arg) => {
                 const tsz = mp2.get(arg.value);
                 if (tsz) return tsz;
-                console.warn(`Type ${arg.value} not found in ${tt.name.value} args`);
+                warnHolder(`Type ${arg.value} not found in ${tt.name.value} args`);
                 return make.type_variable(arg.value);
             });
             const remainingTypeVars = [...new Set(argTypes.flatMap(ttzd => [...generateTypeVars(ttzd)]))];

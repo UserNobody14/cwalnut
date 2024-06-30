@@ -3,31 +3,15 @@ import { Map as ImmMap, Set as ImmSet } from 'immutable';
 import { pprintType } from 'src/redo/pprintgeneric';
 import { make } from 'src/utils/make_better_typed';
 import { compareTypes } from './compareTypeMaps';
-// import { ComplexType } from 'src/types/Type';
-
-export function pprintTypeMap(world: ImmMap<string, Type>): string {
-    if (world.size === 0) {
-        return '<<Empty world>>';
-    }
-    return `Type Map: {
-${[...world.entries()].map(([k, v]) => `     ${k} = ${pprintType(v)}`).join('\n')}
-    }`;
-}
-
+import { pprintTypeMap } from './pprintTypeMap';
+import { warnHolder } from 'src/warnHolder';
+import { reifyType } from './reifyType';
 const is_predicate = (type: Type): type is ComplexType => {
     return type.type === 'complex' && type.name === 'predicate';
 }
 
 const is_complex = (type: Type): type is ComplexType => {
     return type.type === 'complex';
-}
-
-const is_parametric = (type: Type): type is ComplexType => {
-    return type.type === 'complex' && type.name !== 'predicate' && type.fresh.length === 0;
-}
-
-const is_forall = (type: Type): type is ComplexType => {
-    return type.type === 'complex' && type.fresh.length > 0;
 }
 
 // Unification function
@@ -38,11 +22,7 @@ export function unify(t1?: Type, t2?: Type, subst = ImmMap<string, Type>()): Imm
         return unifyVar(t1, t2, subst);
     } if (t2.type === 'variable') {
         return unifyVar(t2, t1, subst);
-    } 
-    // if (is_predicate(t1) && is_predicate(t2)) {
-    //     // return unifyPredicate(t1, t2, subst);
-    //     return unifyFreshComplex(t1.fresh, t2.fresh, t1.generics, t2.generics, subst);
-    // }
+    }
     if (t1.type === 'union') {
         return unifyUnion(t1, t2, subst);
     }
@@ -70,32 +50,40 @@ export function unify(t1?: Type, t2?: Type, subst = ImmMap<string, Type>()): Imm
     ${pprintTypeMap(subst)}`);
 }
 
-// function unifyPredicate(t1: ComplexType, t2: ComplexType, subst: ImmMap<string, Type>): ImmMap<string, Type> {
-//     if (t1.name !== t2.name || t1.generics.length !== t2.generics.length) {
-//         throw new Error(`Cannot unify predicate types: ${t1} and ${t2}`);
-//     }
-
-//     if (t1.fresh.length > 0) {
-//         return unify(instantiate(t1), t2, subst);
-//     } else if (t2.fresh.length > 0) {
-//         return unify(t1, instantiate(t2), subst);
-//     }
-
-//     let newSubst = subst;
-//     for (let i = 0; i < t1.generics.length; i++) {
-//         newSubst = unify(t1.generics[i], t2.generics[i], newSubst);
-//     }
-//     return newSubst;
-// }
+function unifyUnionBoxed(union: UnionType, t: Type, subst: ImmMap<string, Type>): string | ImmMap<string, Type> {
+    if (union.types.length === 0) {
+        throw new Error(`Cannot unify empty union type with type ${pprintType(t)}`);
+    }
+    if (union.types.length === 1) {
+        return unify(union.types[0], t, subst);
+    }
+    //const matchedEnvs = [];
+    let matchedEnv = undefined;
+    for (const type of union.types) {
+        try {
+            const newT = unify(type, t, matchedEnv ? matchedEnv : subst);
+            // return newT;
+            matchedEnv = newT;
+        } catch (e) {
+            // warnHolder(`Within Union, failed to unify ${pprintType(type)} with ${pprintType(t)}
+            // Err: ${e}`);
+        }
+    }
+if (!matchedEnv) {
+        return `Cannot unify union type ${pprintType(union)} with type ${pprintType(t)} in env:
+        ${pprintTypeMap(subst)}`;
+    }
+    return matchedEnv;
+}
 
 function unifyUnion(union: UnionType, t: Type, subst: ImmMap<string, Type>): ImmMap<string, Type> {
-    // if (t1.types.length !== t2.types.length) {
-    //   throw new Error(`Cannot unify union types with different lengths: ${t1} and ${t2}`);
-    // }
-
-    // return t1.types.reduce((acc, type, index) => {
-    //   return unify(type, t2.types[index], acc);
-    // }, subst);
+    // temp?
+    // const boz = unifyUnionBoxed(union, t, subst);
+    // if (typeof boz === 'string') {
+    //     throw new Error(boz);
+    // } else {
+    //     return boz;
+    // } 
     if (union.types.length === 0) {
         throw new Error(`Cannot unify empty union type with type ${pprintType(t)}`);
     }
@@ -109,18 +97,19 @@ function unifyUnion(union: UnionType, t: Type, subst: ImmMap<string, Type>): Imm
             return newT;
             // matchedEnvs.push(newT);
         } catch (e) {
-            console.warn(`Within Union, failed to unify ${pprintType(type)} with ${pprintType(t)}
+            warnHolder(`Within Union, failed to unify ${pprintType(type)} with ${pprintType(t)}
             Err: ${e}`);
-            
-            // Continue trying other types in the union
         }
     }
-    throw new Error(`Cannot unify union type ${pprintType(union)} with type ${pprintType(t)} in env:
-    ${pprintTypeMap(subst)}`);
+    throw new Error(`Cannot unify union type ${pprintType(union)} with type ${pprintType(t)}`);
+    /**
+     * in env:
+    ${pprintTypeMap(subst)}
+     */
     // if (matchedEnvs.length === 0) {
     //     throw new Error(`Cannot unify union type ${pprintType(union)} with type ${pprintType(t)}`);
     // } else if (matchedEnvs.length > 1) {
-    //     console.warn(`Multiple unifications found for union type ${pprintType(union)} with type ${pprintType(t)}`);        
+    //     warnHolder(`Multiple unifications found for union type ${pprintType(union)} with type ${pprintType(t)}`);        
     // }
     // return matchedEnvs[0];
 }
@@ -150,7 +139,7 @@ function unifyVar(v: TypeVariable, t: Type, subst: ImmMap<string, Type>): ImmMap
     return subst.set(v.name, t);
 }
 
-function occursCheck(v: TypeVariable, t: Type, subst: ImmMap<string, Type>): boolean {
+export function occursCheck(v: TypeVariable, t: Type, subst: ImmMap<string, Type>): boolean {
     if (t.type === 'variable') {
         return v.name === t.name || (subst.has(t.name) && occursCheck(v, subst.get(t.name) as Type, subst));
     } if (is_predicate(t)) {
@@ -257,7 +246,7 @@ function softUnify(t1: Type, t2?: Type, subst = ImmMap<string, Type>()): Type {
         const newSub = unify(t1Plus, t2Plus, subst);
         return reifyType(t1Plus, newSub);
     } catch (e) {
-        console.warn(`Soft unification failed: ${e}`);
+        warnHolder(`Soft unification failed: ${e}`);
         return make.union1(t1Plus, t2Plus);
     }
 }
@@ -282,15 +271,7 @@ export function unifyTwoMaps(subst1: ImmMap<string, Type>, subst2: ImmMap<string
     return newSubst;
 }
 
-export function reify(subst: ImmMap<string, Type>): ImmMap<string, Type> {
-    let newSubst = subst;
-    for (const [k, v] of subst.entries()) {
-        newSubst = newSubst.set(k, reifyType(v, subst));
-    }
-    return newSubst;
-}
-
-const collapseUnion = (types: Type[]): Type[] => {
+export const collapseUnion = (types: Type[]): Type[] => {
     const newTypes: Type[] = [];
     for (const type of types) {
         if (type.type === 'union') {
@@ -310,34 +291,3 @@ const collapseUnion = (types: Type[]): Type[] => {
     return newTypes;
 }
 
-export function reifyType(type: Type, subst: ImmMap<string, Type>): Type {
-    if (type.type === 'variable') {
-        const t = subst.get(type.name);
-        if (!t) return type;
-        if (occursCheck(type, t, subst)) {
-            throw new Error(`Occurs check failed: ${pprintType(type)} in ${pprintType(t)}`);
-        }
-        return reifyType(t, subst);
-    } if (type.type === 'union') {
-        if (type.types.length === 0) {
-            throw new Error("Cannot reify empty union type");
-        }
-        // if (type.types.length === 1) {
-        //     return reifyType(type.types[0], subst);
-        // }
-        const types2 = collapseUnion(type.types.map(t => reifyType(t, subst)));
-        if (types2.length === 1) {
-            return types2[0];
-        }
-        return make.union1(...types2);
-        // return make.union1(...types2);
-    } if (type.type === 'complex') {
-        const finGen = type.generics.map(t => reifyType(t, subst));
-        return make.complex_type(
-            type.name,
-            type.fresh.filter(v => finGen.some(g => occursCheck(v, g, subst))),
-            finGen
-        );
-    }
-    return type;
-}

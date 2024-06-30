@@ -1,5 +1,6 @@
 import type { Type } from 'src/types/EzType';
 import type { Map as ImmMap } from 'immutable';
+import { reify } from './reifyType';
 
 export function compareTypes(a: Type, b?: Type): boolean {
     switch (a.type) {
@@ -15,7 +16,9 @@ export function compareTypes(a: Type, b?: Type): boolean {
                 a.generics.length === b.generics.length && a.generics.every((t, i) => compareTypes(t, b.generics[i]));
     }
 }
-export function compareTypeMaps(a: ImmMap<string, Type>, b: ImmMap<string, Type>): boolean {
+export function compareTypeMaps(a1: ImmMap<string, Type>, b1: ImmMap<string, Type>): boolean {
+    const a = reify(a1);
+    const b = reify(b1);
     if (a.size === 0 && b.size !== 0) {
         return compareTypeMaps(b, a);
     }

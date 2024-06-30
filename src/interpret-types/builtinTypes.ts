@@ -79,6 +79,26 @@ export const builtinTypes: Record<Builtin, Type> = {
             make.type_variable('L1'),
             make.type_variable('L1')
         ]),
+
+        make.complex_type('predicate', [
+            make.type_variable('L1'),
+        ], [
+            make.complex_type('list', [], [
+                make.type_variable('L1'),
+            ]),
+            make.type_variable('L1'),
+            make.type_variable('L1'),
+            make.type_variable('L1'),
+        ]),
+        make.complex_type('predicate', [
+            make.type_variable('L1'),
+        ], [
+            make.complex_type('list', [], [
+                make.type_variable('L1'),
+            ]),
+            make.type_variable('L1'),
+            make.type_variable('L1'),
+        ]),
     ),
     'first': make.union_type(
         make.complex_type('predicate', [
@@ -190,7 +210,10 @@ export const builtinTypes: Record<Builtin, Type> = {
             make.simple_type('number'),
         ])
     ),
-    empty: make.simple_type('never'), // Temporarily
+    empty: make.predicate_type(
+        ['E1'],
+        make.complex_type('list', [], [make.type_variable('E1')])
+    ), // Temporarily
     add: make.union_type(
         make.complex_type('predicate', [
             make.type_variable('A1')

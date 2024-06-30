@@ -20,6 +20,7 @@ import {
 	unify_term,
 } from "src/utils/make_desugared_ast";
 import { to_unify } from "src/utils/to_conjunction";
+import { debugHolder } from "src/warnHolder";
 
 type FreeVarsData = {
 	vars: Set<string>;
@@ -181,7 +182,7 @@ function walkNewName(
 	name: string,
 	variableContext: FreeVarsData,
 ): string {
-	console.log("name", name, "variableContext");
+	debugHolder("name", name, "variableContext");
 	if (!(typeof name === "string")) {
 		throw `Invalid name: ${name}`;
 	}
@@ -202,7 +203,7 @@ function linearizeQuick(
 		return [expr, [], { ...variableContext }];
 	}
 	if (!newName) {
-		console.log(
+		debugHolder(
 			"expr.value",
 			expr.value,
 			variableContext.newNames.get(expr.value),
@@ -270,7 +271,7 @@ function updateFreeVarsData(
 	newName2: string,
 	actualName: string,
 ): FreeVarsData {
-	// console.log(
+	// debugHolder(
 	// 	"latestName",
 	// 	latestName,
 	// 	"newName2",
@@ -413,15 +414,15 @@ function countVarUsage(
 export function linearize(
 	term: TermDsAst | TermDsAst[],
 ): TermDsAst[] {
-	const oldVf = printFreeVars(
-		countVarUsage(term, {
-			vars: new Set(),
-			varCounter: new Map(),
-			originalVarCounter: new Map(),
-			newNames: new Map(),
-			counter: 0,
-		}),
-	);
+	// const oldVf = printFreeVars(
+	// 	countVarUsage(term, {
+	// 		vars: new Set(),
+	// 		varCounter: new Map(),
+	// 		originalVarCounter: new Map(),
+	// 		newNames: new Map(),
+	// 		counter: 0,
+	// 	}),
+	// );
 	const [newTerm, frVars] = linearizeVars(term, {
 		vars: new Set(),
 		varCounter: new Map(),
@@ -429,18 +430,18 @@ export function linearize(
 		newNames: new Map(),
 		counter: 0,
 	});
-	console.log(
-		"frVars---------------------------",
-		printFreeVars(
-			countVarUsage(newTerm, {
-				vars: new Set(),
-				varCounter: new Map(),
-				originalVarCounter: new Map(),
-				newNames: new Map(),
-				counter: 0,
-			}),
-		),
-	);
-	console.log("oldVf---------------------------", oldVf);
+	// debugHolder(
+	// 	"frVars---------------------------",
+	// 	printFreeVars(
+	// 		countVarUsage(newTerm, {
+	// 			vars: new Set(),
+	// 			varCounter: new Map(),
+	// 			originalVarCounter: new Map(),
+	// 			newNames: new Map(),
+	// 			counter: 0,
+	// 		}),
+	// 	),
+	// );
+	// debugHolder("oldVf---------------------------", oldVf);
 	return newTerm;
 }
