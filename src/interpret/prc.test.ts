@@ -83,12 +83,38 @@ membero(qq, einput)
 appendo = (a, b, ab) =>
     either:
         all:
+            b = ab
+            empty(a)
+        all:
+            rest(r, ab)
+            rest(d, a)
+            appendo(d, b, r)
+
+einput = [1, 2, 3]
+input2 = [4, 5, 6]
+appendo(einput, input2, qq)
+`;
+        const res = interpretPlus(prcs(sourceCode));
+        // runFor(interpretPlus(prcs(sourceCode)), ['qq'])
+        const resrun = runFor(res, ['qq']);
+        expect(resrun).toEqual([{ qq: [
+            "1", "2", "3", "4", "5"
+        ] }]);
+    });
+
+
+
+    test('appendo program 2', () => {
+        const sourceCode = `
+appendo = (a, b, ab) =>
+    either:
+        all:
             empty(a)
             b = ab
         all:
             rest(d, a)
-            appendo(d, b, r)
             rest(r, ab)
+            appendo(d, b, r)
 
 einput = [1, 2, 3]
 input2 = [4, 5, 6]

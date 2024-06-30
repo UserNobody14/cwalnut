@@ -6,8 +6,8 @@ import {
 	LogicPredicate,
 	LogicLvar,
 	LogicLiteral,
-	eq,
 } from "src/WorldGoal";
+import { eq } from "src/eq";
 import { builtinWorld } from "src/interpret/builtins";
 import { codeToTypedAst } from "src/typing";
 import { pprintTypedAst } from "src/pprintType";
@@ -15,11 +15,74 @@ import type {
 	ExpressionTyped,
 	TermTyped,
 } from "src/types/DesugaredAstTyped";
-import { ExpressionGeneric, TermGeneric } from "src/types/DsAstTyped";
+import { ExpressionGeneric, IdentifierGeneric, PredicateDefinitionGeneric, TermGeneric } from "src/types/DsAstTyped";
 import { Type } from "src/types/EzType";
 import { codeToAst, toAst } from "src/redo/ast-desugar";
 import { toBasicTypes } from "src/interpret-types/type-pipe";
 import { pprintTermT } from "src/redo/pprintgeneric";
+import { renameVarBatch } from "src/redo/freshenvar";
+
+let varCounter = 0;
+function newVar() {
+    return `var${varCounter++}`;
+}
+
+function argsRenameFn(ar: IdentifierGeneric<Type>[]): Map<string, string> {
+    const newMap = new Map<string, string>();
+    for (const aar of ar) {
+        newMap.set(aar.value, newVar());
+    }
+    return newMap;
+}
+
+const defToPredicate = (ast: PredicateDefinitionGeneric<Type>) => {
+    return new PredicateLogic((...args: LogicValue[]) => {
+        return new WorldGoal((world) => {
+            // const argRenameMap = argsRenameFn(ast1.args); 
+            // const ast = renameVarBatch(argRenameMap, ast1) as PredicateDefinitionGeneric<Type>;
+            const newWorld1 = new World(
+                builtinWorld.lvars,
+            );
+            for (let i = 0; i < ast.args.length; i++) {
+                newWorld1.addLvar(
+                    ast.args[i].value,
+                    args[i],
+                );
+            }
+            const runTerms = interpretPlus(ast.body);
+            const res = runTerms.run(newWorld1);
+            return new WorldGoal((world2) => {
+                const res2 = new World(
+                    new Map(world.lvars),
+                );
+                const walkedArgsReturned = ast.args.map(
+                    (arg) => {
+                        const respLvar = world2.getLvar(
+                            arg.value,
+                        );
+                        if (respLvar) {
+                            return world2.walk(respLvar);
+                        }
+                            return undefined;
+                    },
+                );
+                if (
+                    walkedArgsReturned.some(
+                        (w) => w === undefined,
+                    )
+                ) {
+                    return [World.fail];
+                }
+                const walkGoals = walkedArgsReturned.map(
+                    (walked, i) => eq(args[i], walked),
+                );
+                return WorldGoal.and(...walkGoals).run(
+                    res2,
+                );
+            }).runAll(res);
+        });
+    });
+}
 
 export function interpretPlus(
 	ast: TermGeneric<Type> | TermGeneric<Type>[],
@@ -48,81 +111,7 @@ export function interpretPlus(
 			return eq(
 				new LogicLvar(ast.name.value),
 				new LogicPredicate(
-					new PredicateLogic((...args: LogicValue[]) => {
-						return new WorldGoal((world) => {
-							const newWorld1 = new World(
-								builtinWorld.lvars,
-							);
-							for (let i = 0; i < ast.args.length; i++) {
-								// const freshened = world.walk(args[i]);
-								newWorld1.addLvar(
-									ast.args[i].value,
-									args[i],
-								);
-							}
-							const runTerms = interpretPlus(ast.body);
-							const res = runTerms.run(newWorld1);
-							return new WorldGoal((world2) => {
-								// console.log(':::::::::::applying predicate', ast.name.value, args.map(a => a.toString()));
-								const res2 = new World(
-									new Map(world.lvars),
-								);
-								// const res2 = world
-								// const walkGoals: WorldGoal[] = [];
-								// for (let i = 0; i < ast.args.length; i++) {
-								//     const walkRes = world2.getLvar(ast.args[i].value);
-								//     if (walkRes) {
-								//         // res2.addLvar(ast.args[i].value, walkRes);
-								//         if (walkRes instanceof LogicLvar) {
-								//             const walked = world2.walk(walkRes);
-								//             if (walked) {
-								//                 walkGoals.push(eq(args[i], walked));
-								//             } else {
-								//                 console.error('walked is undefined', walkRes);
-								//                 return [World.fail];
-								//             }
-								//         } else {
-								//             walkGoals.push(eq(args[i], walkRes));
-								//         }
-								//     } else {
-								//         return [World.fail];
-								//     }
-								// }
-								const walkedArgsReturned = ast.args.map(
-									(arg) => {
-										const respLvar = world2.getLvar(
-											arg.value,
-										);
-										if (respLvar) {
-											return world2.walk(respLvar);
-										}
-											return undefined;
-									},
-								);
-								if (
-									walkedArgsReturned.some(
-										(w) => w === undefined,
-									)
-								) {
-									return [World.fail];
-								}
-								const walkGoals = walkedArgsReturned.map(
-									(walked, i) => eq(args[i], walked),
-								);
-								return WorldGoal.and(...walkGoals).run(
-									res2,
-								);
-							}).runAll(res);
-							// const wgg = WorldGoal.and(
-							//     freshenVarsGoal,
-							//     // ...ast.args.map((arg, i) => WorldGoal.eq(new LogicValue(SLogic.lvar(arg.value)), args[i])),
-							//     interpretPlus(ast.body)
-							// );
-							// return wgg.run(newWorld);
-							// const astvv = interpretPlus(ast.body);
-							// return astvv.run(newWorld);
-						});
-					}),
+					defToPredicate(ast)
 				),
 			);
 		default:

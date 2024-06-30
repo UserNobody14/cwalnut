@@ -1,18 +1,88 @@
 import {
-	WorldGoal,
-	type LogicValue,
-	PredicateLogic,
-	World,
-	LogicPredicate,
-	LogicList,
-	LogicMap,
-	eq,
-	LogicLiteral,
-	LogicLvar,
+    WorldGoal,
+    type LogicValue,
+    PredicateLogic,
+    World,
+    LogicPredicate,
+    LogicList,
+    LogicMap,
+    LogicLiteral,
+    LogicLvar,
+    LogicCons,
 } from "src/WorldGoal";
+import { eq } from "src/eq";
 import { Builtin } from "src/utils/make_desugared_ast";
 import fs from "fs";
 import { debugHolder, warnHolder } from "src/warnHolder";
+
+const generateRestFunction = (remainder1: LogicValue, fullList1: LogicValue) => {
+    debugHolder(
+        "rest: remainder",
+        remainder1.toString(),
+        fullList1.toString()
+    );
+    console.log(`
+        remainder1: ${remainder1.toString()}
+        fullList1: ${fullList1.toString()}
+        `);
+    if (fullList1 instanceof LogicList) {
+        if (fullList1.value.length === 0 && fullList1.type === "finite") {
+            warnHolder("rest: b is empty");
+            return WorldGoal.fail;
+        }
+        if (fullList1.value.length === 1 && fullList1.type === "finite") {
+            return eq(emptyList, remainder1);
+        }
+        const slicedValue = [...fullList1.value].slice(1);
+        debugHolder("slicedValue", slicedValue);
+        return eq(new LogicList(slicedValue, fullList1.type, fullList1.size === null ? null : fullList1.size - 1), remainder1);
+    } if (remainder1 instanceof LogicList) {
+        // return eq(fullList1, new LogicList([]));
+        return new WorldGoal((world) => {
+            return eq(
+                fullList1,
+                new LogicList([
+                    world.getFreshLvar(),
+                    ...remainder1.value,
+                ],
+                    remainder1.type,
+                    remainder1.size === null ? null : remainder1.size + 1
+                )
+            ).run(world);
+        });
+    } else if (fullList1 instanceof LogicLvar && remainder1 instanceof LogicLvar) {
+        if (fullList1.getName() === remainder1.getName()) {
+            console.error("rest: a and b are the same lvar");
+            return WorldGoal.fail;
+        }
+        return new WorldGoal((world): World[] => {
+            const aWalked = world.walk(remainder1);
+            const bWalked = world.walk(fullList1);
+            if (!aWalked || !bWalked) { return [World.fail]; }
+            if (aWalked instanceof LogicLvar && bWalked instanceof LogicLvar) {
+                // const freshLvar = world.getFreshLvar();
+                return WorldGoal.and(eq(
+                    fullList1,
+                    LogicCons.from(world.getFreshLvar(), remainder1)
+                ),
+                ).run(world);
+            } else {
+                return generateRestFunction(aWalked, bWalked).run(world);
+            }
+        });
+        // return eq(
+        //     fullList1,
+        //     LogicList.fromInfinite(remainder1)
+        // )
+    }
+    console.log("rest: b is not a list or lvar: ", remainder1.toString(), fullList1.toString());
+    warnHolder(
+        "rest: b is not a list or lvar: ",
+        remainder1.toString(),
+        fullList1.toString()
+    );
+    return WorldGoal.fail;
+};
 
 
 const toVal = (val?: LogicValue): any => {
@@ -31,7 +101,7 @@ const toVal = (val?: LogicValue): any => {
     return val;
 }
 
-const emptyList = new LogicList([]);
+const emptyList = new LogicList([], 'finite', 0);
 type BuiltinRecord = Record<Builtin, (...args: LogicValue[]) => WorldGoal>;
 const builtins2: BuiltinRecord = {
     unify: (itema: any, itemb: any) => {
@@ -62,9 +132,23 @@ const builtins2: BuiltinRecord = {
     },
     first: (firstElem: LogicValue, fullList: LogicValue) => {
         if (fullList instanceof LogicList) {
-            if (fullList.value.length === 0) {
+            if (fullList.value.length === 0 && fullList.type === "finite") {
                 warnHolder("first: b is empty");
+                console.warn("first: b is empty");
                 return WorldGoal.fail;
+            }
+            if (fullList.value.length === 0 && fullList.type === "infinite") {
+                warnHolder("first: b is empty");
+                console.warn("first: b is empty");
+                return new WorldGoal(
+                    (world) => WorldGoal.and(
+                        eq(firstElem, world.getFreshLvar()),
+                        eq(
+                            fullList,
+                            LogicCons.from(firstElem, world.getFreshLvar())
+                        )
+                    ).run(world)
+                );
             }
             return eq(firstElem, fullList.value[0]);
         } if (fullList instanceof LogicLvar) {
@@ -77,44 +161,10 @@ const builtins2: BuiltinRecord = {
             "first: b is not a list or lvar: ",
             fullList.toString()
         );
+        console.warn("first: b is not a list or lvar: ", fullList.toString());
         return WorldGoal.fail;
     },
-    rest: (remainder1: LogicValue, fullList1: LogicValue) => {
-        debugHolder(
-            "rest: remainder",
-            remainder1.toString(),
-            fullList1.toString()
-        );
-        if (fullList1 instanceof LogicList) {
-            if (fullList1.value.length === 0) {
-                warnHolder("rest: b is empty");
-                return WorldGoal.fail;
-            }
-            if (fullList1.value.length === 1) {
-                return eq(emptyList, remainder1);
-            }
-            const slicedValue = [...fullList1.value].slice(1);
-            debugHolder("slicedValue", slicedValue);
-            return eq(new LogicList(slicedValue), remainder1);
-        } if (remainder1 instanceof LogicList) {
-            // return eq(fullList1, new LogicList([]));
-            return new WorldGoal((world) => {
-                return eq(
-                    fullList1,
-                    new LogicList([
-                        world.getFreshLvar(),
-                        ...remainder1.value,
-                    ])
-                ).run(world);
-            });
-        }
-        warnHolder(
-            "rest: b is not a list or lvar: ",
-            remainder1.toString(),
-            fullList1.toString()
-        );
-        return WorldGoal.fail;
-    },
+    rest: generateRestFunction,
     empty: (a: LogicValue) => {
         return eq(a, emptyList);
     },
@@ -207,161 +257,161 @@ const builtins2: BuiltinRecord = {
             return [world];
         });
     },
-// slice(a, b, c) means that a[b] = c
-slice: function (...args: LogicValue[]): WorldGoal {
-    return new WorldGoal((world) => {
-        // const a = toVal(world.walk(args[0]) ?? args[0]);
-        // const b = toVal(world.walk(args[1]) ?? args[1]);
-        // const c = toVal(world.walk(args[2]) ?? args[2]);
+    // slice(a, b, c) means that a[b] = c
+    slice: function (...args: LogicValue[]): WorldGoal {
+        return new WorldGoal((world) => {
+            // const a = toVal(world.walk(args[0]) ?? args[0]);
+            // const b = toVal(world.walk(args[1]) ?? args[1]);
+            // const c = toVal(world.walk(args[2]) ?? args[2]);
 
-        const a = world.walk(args[0]) ?? args[0];
-        const b = world.walk(args[1]) ?? args[1];
-        const c = world.walk(args[2]) ?? args[2];
+            const a = world.walk(args[0]) ?? args[0];
+            const b = world.walk(args[1]) ?? args[1];
+            const c = world.walk(args[2]) ?? args[2];
 
-        if (a instanceof LogicList) {
-            if (b instanceof LogicLiteral) {
-                if (c instanceof LogicLvar) {
-                    return eq(c, a.value[Number(b.value)]).run(world);
-                } else {
-                    return eq(c, a.value[Number(b.value)]).run(world);
+            if (a instanceof LogicList) {
+                if (b instanceof LogicLiteral) {
+                    if (c instanceof LogicLvar) {
+                        return eq(c, a.value[Number(b.value)]).run(world);
+                    } else {
+                        return eq(c, a.value[Number(b.value)]).run(world);
+                    }
                 }
-            }
-            return WorldGoal.disj(
-                ...a.value.map((item, index) => {
-                    return WorldGoal.and(
-                        eq(c, item),
-                        eq(b, new LogicLiteral(index))
-                    );
-                })
-            ).run(world);
-        } else if (Array.isArray(a)) {
-            if (typeof b === "number") {
-                if (c instanceof LogicLvar) {
-                    return eq(c, a[b]).run(world);
-                } else {
-                    return eq(c, a[b]).run(world);
+                return WorldGoal.disj(
+                    ...a.value.map((item, index) => {
+                        return WorldGoal.and(
+                            eq(c, item),
+                            eq(b, new LogicLiteral(index))
+                        );
+                    })
+                ).run(world);
+            } else if (Array.isArray(a)) {
+                if (typeof b === "number") {
+                    if (c instanceof LogicLvar) {
+                        return eq(c, a[b]).run(world);
+                    } else {
+                        return eq(c, a[b]).run(world);
+                    }
                 }
+                return WorldGoal.disj(
+                    ...a.map((item, index) => {
+                        return WorldGoal.and(
+                            eq(c, item),
+                            eq(b, new LogicLiteral(index))
+                        );
+                    })
+                ).run(world);
+            } else {
+                throw new Error("a is not a list: " + a.toString());
+                // return [World.fail];
             }
-            return WorldGoal.disj(
-                ...a.map((item, index) => {
-                    return WorldGoal.and(
-                        eq(c, item),
-                        eq(b, new LogicLiteral(index))
-                    );
-                })
-            ).run(world);
-        } else {
-            throw new Error("a is not a list: " + a.toString());
-            // return [World.fail];
-        }
-    });
-},
-// add(a, b, c) means a + b = c
-add: function (...args: LogicValue[]): WorldGoal {
-    return new WorldGoal((world) => {
-        const a = toVal(world.walk(args[0]));
-        const b = toVal(world.walk(args[1]));
-        const c = toVal(world.walk(args[2]));
+        });
+    },
+    // add(a, b, c) means a + b = c
+    add: function (...args: LogicValue[]): WorldGoal {
+        return new WorldGoal((world) => {
+            const a = toVal(world.walk(args[0]));
+            const b = toVal(world.walk(args[1]));
+            const c = toVal(world.walk(args[2]));
 
-        if (a instanceof LogicLvar) {
-            return world.eq(a, c - b);
-        } else if (b instanceof LogicLvar) {
-            return world.eq(b, c - a);
-        } else if (c instanceof LogicLvar) {
-            return world.eq(c, a + b);
-        } else {
-            return a + b === c ? [world] : [World.fail];
-        }
-    });
-},
-// subtract(a, b, c) means a - b = c
-subtract: function (...args: LogicValue[]): WorldGoal {
-    return new WorldGoal((world) => {
-        const a = toVal(world.walk(args[0]));
-        const b = toVal(world.walk(args[1]));
-        const c = toVal(world.walk(args[2]));
+            if (a instanceof LogicLvar) {
+                return world.eq(a, c - b);
+            } else if (b instanceof LogicLvar) {
+                return world.eq(b, c - a);
+            } else if (c instanceof LogicLvar) {
+                return world.eq(c, a + b);
+            } else {
+                return a + b === c ? [world] : [World.fail];
+            }
+        });
+    },
+    // subtract(a, b, c) means a - b = c
+    subtract: function (...args: LogicValue[]): WorldGoal {
+        return new WorldGoal((world) => {
+            const a = toVal(world.walk(args[0]));
+            const b = toVal(world.walk(args[1]));
+            const c = toVal(world.walk(args[2]));
 
-        if (a instanceof LogicLvar) {
-            return world.eq(a, c + b);
-        } else if (b instanceof LogicLvar) {
-            return world.eq(b, a - c);
-        } else if (c instanceof LogicLvar) {
-            return world.eq(c, a - b);
-        } else {
-            return a - b === c ? [world] : [World.fail];
-        }
-    });
-},
-// multiply(a, b, c) means a * b = c
-multiply: function (...args: LogicValue[]): WorldGoal {
-    return new WorldGoal((world) => {
-        const a = toVal(world.walk(args[0]));
-        const b = toVal(world.walk(args[1]));
-        const c = toVal(world.walk(args[2]));
+            if (a instanceof LogicLvar) {
+                return world.eq(a, c + b);
+            } else if (b instanceof LogicLvar) {
+                return world.eq(b, a - c);
+            } else if (c instanceof LogicLvar) {
+                return world.eq(c, a - b);
+            } else {
+                return a - b === c ? [world] : [World.fail];
+            }
+        });
+    },
+    // multiply(a, b, c) means a * b = c
+    multiply: function (...args: LogicValue[]): WorldGoal {
+        return new WorldGoal((world) => {
+            const a = toVal(world.walk(args[0]));
+            const b = toVal(world.walk(args[1]));
+            const c = toVal(world.walk(args[2]));
 
-        if (a instanceof LogicLvar) {
-            return world.eq(a, c / b);
-        } else if (b instanceof LogicLvar) {
-            return world.eq(b, c / a);
-        } else if (c instanceof LogicLvar) {
-            return world.eq(c, a * b);
-        } else {
-            return a * b === c ? [world] : [World.fail];
-        }
-    });
-},
-// divide(a, b, c) means a / b = c
-divide: function (...args: LogicValue[]): WorldGoal {
-    return new WorldGoal((world) => {
-        const a = toVal(world.walk(args[0]));
-        const b = toVal(world.walk(args[1]));
-        const c = toVal(world.walk(args[2]));
+            if (a instanceof LogicLvar) {
+                return world.eq(a, c / b);
+            } else if (b instanceof LogicLvar) {
+                return world.eq(b, c / a);
+            } else if (c instanceof LogicLvar) {
+                return world.eq(c, a * b);
+            } else {
+                return a * b === c ? [world] : [World.fail];
+            }
+        });
+    },
+    // divide(a, b, c) means a / b = c
+    divide: function (...args: LogicValue[]): WorldGoal {
+        return new WorldGoal((world) => {
+            const a = toVal(world.walk(args[0]));
+            const b = toVal(world.walk(args[1]));
+            const c = toVal(world.walk(args[2]));
 
-        if (a instanceof LogicLvar) {
-            return world.eq(a, c * b);
-        } else if (b instanceof LogicLvar) {
-            return world.eq(b, a / c);
-        } else if (c instanceof LogicLvar) {
-            return world.eq(c, a / b);
-        } else {
-            return a / b === c ? [world] : [World.fail];
-        }
-    });
-},
-// modulo(a, b, c) means a % b = c
-modulo: function (...args: LogicValue[]): WorldGoal {
-    return new WorldGoal((world) => {
-        const a = toVal(world.walk(args[0]));
-        const b = toVal(world.walk(args[1]));
-        const c = toVal(world.walk(args[2]));
+            if (a instanceof LogicLvar) {
+                return world.eq(a, c * b);
+            } else if (b instanceof LogicLvar) {
+                return world.eq(b, a / c);
+            } else if (c instanceof LogicLvar) {
+                return world.eq(c, a / b);
+            } else {
+                return a / b === c ? [world] : [World.fail];
+            }
+        });
+    },
+    // modulo(a, b, c) means a % b = c
+    modulo: function (...args: LogicValue[]): WorldGoal {
+        return new WorldGoal((world) => {
+            const a = toVal(world.walk(args[0]));
+            const b = toVal(world.walk(args[1]));
+            const c = toVal(world.walk(args[2]));
 
-        if (a instanceof LogicLvar) {
-            return [World.fail]; // Cannot solve for a
-        } else if (b instanceof LogicLvar) {
-            return [World.fail]; // Cannot solve for b
-        } else if (c instanceof LogicLvar) {
-            return world.eq(c, a % b);
-        } else {
-            return a % b === c ? [world] : [World.fail];
-        }
-    });
-},
-// negate(a, b) means -a = b
-negate: function (...args: LogicValue[]): WorldGoal {
-    return new WorldGoal((world) => {
-        const a = toVal(world.walk(args[0]));
-        const b = toVal(world.walk(args[1]));
+            if (a instanceof LogicLvar) {
+                return [World.fail]; // Cannot solve for a
+            } else if (b instanceof LogicLvar) {
+                return [World.fail]; // Cannot solve for b
+            } else if (c instanceof LogicLvar) {
+                return world.eq(c, a % b);
+            } else {
+                return a % b === c ? [world] : [World.fail];
+            }
+        });
+    },
+    // negate(a, b) means -a = b
+    negate: function (...args: LogicValue[]): WorldGoal {
+        return new WorldGoal((world) => {
+            const a = toVal(world.walk(args[0]));
+            const b = toVal(world.walk(args[1]));
 
-        if (a instanceof LogicLvar) {
-            return world.eq(a, -b);
-        } else if (b instanceof LogicLvar) {
-            return world.eq(b, -a);
-        } else {
-            return -a === b ? [world] : [World.fail];
-        }
-    });
-},
-// file(a, b) means read file a and store the contents in b
+            if (a instanceof LogicLvar) {
+                return world.eq(a, -b);
+            } else if (b instanceof LogicLvar) {
+                return world.eq(b, -a);
+            } else {
+                return -a === b ? [world] : [World.fail];
+            }
+        });
+    },
+    // file(a, b) means read file a and store the contents in b
     internal_file: function (...args: LogicValue[]): WorldGoal {
         return new WorldGoal((world) => {
             const a = toVal(world.walk(args[0]));
@@ -388,15 +438,15 @@ negate: function (...args: LogicValue[]): WorldGoal {
 };
 export const builtinWorld = new World(new Map(), false);
 for (const [key, value] of Object.entries(builtins2)) {
-	// truev key === 'unify'
-	const ignoreVals = ["unify", "set_key_of", "length"];
-	builtinWorld.addLvar(
-		key,
-		new LogicPredicate(
-			new PredicateLogic(
-				value as any,
-				ignoreVals.includes(key),
-			),
-		),
-	);
+    // truev key === 'unify'
+    const ignoreVals = ["unify", "set_key_of", "length"];
+    builtinWorld.addLvar(
+        key,
+        new LogicPredicate(
+            new PredicateLogic(
+                value as any,
+                ignoreVals.includes(key),
+            ),
+        ),
+    );
 }

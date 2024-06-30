@@ -6,8 +6,8 @@ import {
 	LogicPredicate,
 	LogicLvar,
 	LogicLiteral,
-	eq,
 } from "./WorldGoal";
+import { eq } from "./eq";
 import { builtinWorld } from "./builtinWorld";
 import { SLogic } from "./logic";
 import { codeToTypedAst } from "./typing";

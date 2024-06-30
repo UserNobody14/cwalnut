@@ -1,3 +1,5 @@
+import { eq } from "./eq";
+import { LogicVal } from "./interpret/logic";
 import { type LVar, SLogic } from "./logic";
 import { warnHolder, debugHolder } from "./warnHolder";
 
@@ -44,7 +46,7 @@ export class World {
 		return this.lvars.get(name);
 	}
 
-	getFreshLvar(): LogicValue {
+	getFreshLvar(): LogicLvar {
 		const lvar = new LogicLvar(
 			`_lvar${this.lvarIncrement++}`,
 		);
@@ -151,6 +153,53 @@ export class World {
 	// Just for convenience
 	eq(a: LogicValue, b: LogicValue | number): World[] {
 		return eq(a, typeof b === 'number' ? new LogicLiteral(b) : b).run(this);
+	}
+
+	equals(other: World): boolean {
+		if (this.failed && other.failed) {
+			return true;
+		}
+		if (this.failed || other.failed) {
+			return false;
+		}
+		if (this.lvars.size !== other.lvars.size) {
+			return false;
+		}
+		for (const [key, value] of this.lvars.entries()) {
+			if (!other.lvars.has(key)) {
+				return false;
+			}
+			const otherValue = other.lvars.get(key);
+			if (otherValue === undefined) {
+				return false;
+			}
+			if (!value.unite(otherValue)) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	intersects(other: World[]): boolean {
+		if (other.length === 0) {
+			return false;
+		}
+		for (const o of other) {
+			for (const [key, value] of this.lvars.entries()) {
+				if (!o.lvars.has(key)) {
+					continue;
+				}
+				const otherValue = o.lvars.get(key);
+				if (otherValue === undefined) {
+					continue;
+				}
+				if (!value.unite(otherValue)) {
+					console.log("Intersection failed", key, value.toString(), otherValue.toString());
+					return false;
+				}
+			}
+		}
+		return true;
 	}
 
 	static fail = new World(new Map(), true);
@@ -277,18 +326,16 @@ export class PredicateLogic {
 		});
 	}
 }
+type LogicDataType = LVar | string | number | Map<string, LogicValue> | LogicValue[] | PredicateLogic;
+type LogicReified = LogicLvar | string | number | Map<string, LogicReified> | LogicReified[] | PredicateLogic | { [key: string]: LogicReified };
+
 export abstract class LogicValue {
 	// Can be either a plain, unbound logic variable, a bound literal value (string/number)
 	// or a deep value: (map/list)
 	// or a predicate
 	constructor(
 		public value:
-			| LVar
-			| string
-			| number
-			| Map<string, LogicValue>
-			| LogicValue[]
-			| PredicateLogic,
+			LogicDataType,
 	) {
 		// Verify that the value is a valid logic value
 		if (
@@ -477,342 +524,7 @@ export abstract class LogicValue {
 	};
 
 	abstract unite(other: LogicValue): LogicValue | null;
-}
-
-export function eq(
-	a: LogicValue | undefined,
-	b: LogicValue | undefined,
-): WorldGoal {
-	return new WorldGoal((world) => {
-		if (a === undefined || b === undefined) {
-			warnHolder(`Undefined values in eq: ${a} ${b}`);
-			return [World.fail];
-		}
-		const aWalked = world.walk(a);
-		const bWalked = world.walk(b);
-		if (aWalked === undefined || bWalked === undefined) {
-			warnHolder(
-				`Undefined values in eq walked: ${aWalked} ${bWalked}`,
-			);
-			return [World.fail];
-		}
-		if (
-			aWalked instanceof LogicLiteral &&
-			bWalked instanceof LogicLiteral
-		) {
-			if (aWalked.value === bWalked.value) {
-				return [world];
-			}if (
-				aWalked.toString() ===
-				bWalked.toString()
-			) {
-				warnHolder(
-					`Literal values questionably equal: ${aWalked.value} ${bWalked.value}`,
-				);
-				return [world];
-			}
-				warnHolder(
-					`Literal values not equal: ${aWalked.value} ${bWalked.value}`,
-				);
-				return [World.fail];
-		}
-		if (
-			aWalked instanceof LogicLvar &&
-			bWalked instanceof LogicLiteral
-		) {
-			return [world.bind(aWalked.getName(), bWalked)];
-		}
-		if (
-			aWalked instanceof LogicLiteral &&
-			bWalked instanceof LogicLvar
-		) {
-			return [world.bind(bWalked.getName(), aWalked)];
-		}
-		if (
-			aWalked instanceof LogicLvar &&
-			bWalked instanceof LogicLvar
-		) {
-			return [world.bind(bWalked.getName(), aWalked)];
-		}
-		if (
-			aWalked instanceof LogicMap &&
-			bWalked instanceof LogicMap
-		) {
-			debugHolder(`Comparing maps: ${aWalked.toString()} ${bWalked.toString()}
-                For: (${a.getNameSafe()} ${b.getNameSafe()})
-                sizes: ${aWalked.size} ${bWalked.size}
-                sizeVals: ${aWalked.value.size} ${bWalked.value.size}`);
-			if (aWalked.size !== null && bWalked.size !== null) {
-				if (aWalked.size !== bWalked.size) {
-					warnHolder(
-						`Map sizes not equal: ${aWalked.size} ${bWalked.size}`,
-					);
-					return [World.fail];
-				}
-			}
-			if (
-				aWalked.type === "finite" &&
-				bWalked.type === "infinite" &&
-				aWalked.size !== null &&
-				bWalked.value.size > aWalked.size
-			) {
-				warnHolder(
-					`Map sizes not equal: ${aWalked.size} ${bWalked.size}`,
-				);
-				return [World.fail];
-			}
-			if (
-				aWalked.type === "infinite" &&
-				bWalked.type === "finite" &&
-				bWalked.size !== null &&
-				aWalked.value.size > bWalked.size
-			) {
-				warnHolder(
-					`Map sizes not equal: ${aWalked.size} ${bWalked.size}`,
-				);
-				return [World.fail];
-			}
-			if (
-				aWalked.type === "infinite" ||
-				bWalked.type === "infinite"
-			) {
-				// const aMap = aWalked.value as Map<string, LogicValue>;
-				// const bMap = bWalked.value as Map<string, LogicValue>;
-				const aMap = aWalked;
-				const bMap = bWalked;
-				// let newWorld = new World(new Map(world.lvars));
-				const subGoals = [];
-				for (const [key, value] of aMap.entries()) {
-					if (
-						!bMap.value.has(key) &&
-						bWalked.type === "infinite"
-					) {
-						// TODO: this is a bit of a hack, we should be able to bind the key as well
-						debugHolder("adding keyA", key, value);
-						bMap.set(key, value);
-						subGoals.push(eq(value, bMap.get(key)));
-					} else {
-						subGoals.push(eq(value, bMap.get(key)));
-					}
-				}
-				for (const [key, value] of bMap.entries()) {
-					if (
-						!aMap.value.has(key) &&
-						aWalked.type === "infinite"
-					) {
-						// TODO: this is a bit of a hack, we should be able to bind the key as well
-						debugHolder(
-							"adding keyB",
-							key,
-							value,
-							`
-                            For: (${a.getNameSafe()} ${b.getNameSafe()})
-                            ${aWalked.toString()}
-
-                            ${bWalked.toString()}
-                            `,
-						);
-						aMap.set(key, value);
-						subGoals.push(eq(value, aMap.get(key)));
-					} else {
-						subGoals.push(eq(value, aMap.get(key)));
-					}
-				}
-				if (
-					aWalked.type === "finite" &&
-					bWalked.type === "infinite"
-				) {
-					// ensure that size constraints aren't exceeded
-					if (aMap.value.size > bMap.value.size) {
-						warnHolder(
-							`Map sizes not equal: ${aMap.size} ${bMap.size}`,
-						);
-						return [World.fail];
-					}
-				}
-				if (
-					a instanceof LogicLvar &&
-					aWalked.type === "infinite"
-				) {
-					// world.addLvar(a.getName(), new LogicMap(aMap, 'infinite'));
-					subGoals.unshift(
-						new WorldGoal((world2) => {
-							return [
-								world2.bindSafe(
-									a.getNameSafe(),
-									new LogicMap(
-										aMap.value,
-										"infinite",
-										aMap.size,
-									),
-								),
-							];
-						}),
-					);
-				} else if (
-					b instanceof LogicLvar &&
-					bWalked.type === "infinite"
-				) {
-					subGoals.unshift(
-						new WorldGoal((world2) => {
-							return [
-								world2.bindSafe(
-									b.getNameSafe(),
-									new LogicMap(
-										bMap.value,
-										"infinite",
-										bMap.size,
-									),
-								),
-							];
-						}),
-					);
-				}
-				return WorldGoal.and(...subGoals).run(world);
-			}
-				const aMap = aWalked.value as Map<
-					string,
-					LogicValue
-				>;
-				const bMap = bWalked.value as Map<
-					string,
-					LogicValue
-				>;
-				if (aMap.size !== bMap.size) {
-					warnHolder(
-						`Map sizes not equal: ${aMap.size} ${bMap.size}`,
-					);
-					return [World.fail];
-				}
-				// let newWorld = new World(new Map(world.lvars));
-				const subGoals = [];
-				for (const [key, value] of aMap.entries()) {
-					if (!bMap.has(key)) {
-						warnHolder("Map keys missing");
-						return [World.fail];
-					}
-						subGoals.push(eq(value, bMap.get(key)));
-				}
-				return WorldGoal.and(...subGoals).run(world);
-		}
-		if (
-			aWalked instanceof LogicList &&
-			bWalked instanceof LogicList
-		) {
-			const aList = aWalked.value;
-			const bList = bWalked.value;
-			if (aWalked.size !== null && bWalked.size !== null) {
-				if (aList.length !== bList.length) {
-					warnHolder(`List sizes not equal: ${aList.length} ${bList.length}
-						in ${aWalked.toString()} ${bWalked.toString()}`);
-					return [World.fail];
-				}
-				const subGoals = [];
-				for (let i = 0; i < aList.length; i++) {
-					subGoals.push(eq(aList[i], bList[i]));
-				}
-				return WorldGoal.and(...subGoals).run(world);
-			} else if (aWalked.size !== null) {
-				if (aList.length > aWalked.size || bList.length > aList.length) {
-					warnHolder(
-						`List size exceeds constraint: ${bList.length} ${aList.length}`,
-					);
-					return [World.fail];
-				}
-				// make b the same size as a, set all the extra values to the same position vals in alist
-				const subGoals = [];
-				for (let i=0; i < aList.length; i++) {
-					if (i < bList.length) {
-						subGoals.push(eq(aList[i], bList[i]));
-					}
-				}
-				const newBlist = [...bList, ...aList.slice(bList.length)];
-				// subGoals.push(
-				// 	eq(
-				// 		b,
-				// 		new LogicList(newBlist, 'finite', aList.length),
-				// 	)
-				// );
-				return WorldGoal.and(...subGoals).run(world.bindSafe(
-					b.getNameSafe(),
-					new LogicList(newBlist, 'finite', aList.length),
-				));
-			} else if (bWalked.size !== null) {
-				if (bList.length > bWalked.size || aList.length > bList.length) {
-					warnHolder(
-						`List size exceeds constraint: ${aList.length} ${bList.length}`,
-					);
-					return [World.fail];
-				}
-				// make a the same size as b, set all the extra values to the same position vals in blist
-				const subGoals = [];
-				for (let i=0; i < bList.length; i++) {
-					if (i < aList.length) {
-						subGoals.push(eq(aList[i], bList[i]));
-					}
-				}
-				const newAlist = [...aList, ...bList.slice(aList.length)];
-				// subGoals.push(
-				// 	eq(
-				// 		a,
-				// 		new LogicList(newAlist, 'finite', bList.length),
-				// 	)
-				// );
-				return WorldGoal.and(...subGoals).run(world.bindSafe(
-					a.getNameSafe(),
-					new LogicList(newAlist, 'finite', bList.length)
-				));
-			} else {
-				// if both are infinite, just set everything up to the min size to equal
-				// and everything up to the max size to be that of the larger list
-				// then set both to this new list, w/ the max size + infinite type
-				const subGoals = [];
-				const minSize = Math.min(aList.length, bList.length);
-				const maxSize = Math.max(aList.length, bList.length);
-				for (let i=0; i < minSize; i++) {
-					subGoals.push(eq(aList[i], bList[i]));
-				}
-				let newAlist;
-				if (aList.length < bList.length) {
-					newAlist = [...aList, ...bList.slice(aList.length)];
-				} else {
-					newAlist = [...bList, ...aList.slice(bList.length)];
-				}
-				subGoals.push(
-					eq(
-						a,
-						new LogicList(newAlist, 'infinite'),
-					)
-				);
-			}
-		}
-		if (aWalked instanceof LogicLvar) {
-			// const newWorld = new World(new Map(world.lvars));
-			// world.addLvar(aWalked.getName(), bWalked);
-			// if (bWalked instanceof LogicLvar) {
-			//     world.addLvar(bWalked.getName(), aWalked);
-			// }
-			// return [world];
-			return [world.bind(aWalked.getName(), bWalked)];
-		}
-		if (bWalked instanceof LogicLvar) {
-			// const newWorld = new World(new Map(world.lvars));
-			// world.addLvar(bWalked.getName(), aWalked);
-			// world.addLvar(bWalked.getName(), aWalked);
-			// if (aWalked instanceof LogicLvar) {
-			//     world.addLvar(aWalked.getName(), bWalked);
-			// }
-			// return [world];
-			return [world.bind(bWalked.getName(), aWalked)];
-		}
-		if (aWalked instanceof LogicPredicate && bWalked instanceof LogicPredicate) {
-			return [world];
-		}
-		debugHolder(
-			`Values not equal: ${aWalked.toString()} ${bWalked.toString()}`,
-		);
-		return [World.fail];
-	});
+	abstract reify(): LogicReified;
 }
 
 export class LogicLvar extends LogicValue {
@@ -821,10 +533,18 @@ export class LogicLvar extends LogicValue {
 	}
 
 	override unite(other: LogicValue): LogicValue {
-		if (other instanceof LogicLvar) {
-			return this;
-		}
+		// if (other instanceof LogicLvar) {
+		// 	return this;
+		// }
 			return other;
+	}
+
+	reify() {
+		return this;
+	}
+
+	static from(name: string): LogicLvar {
+		return new LogicLvar(name);
 	}
 
 	toString = () => {
@@ -846,7 +566,14 @@ export class LogicLiteral extends LogicValue {
 				// throw new Error(`Literal values not equal: ${this.value} ${other.value}`);
 				return null;
 		}
+		if (other instanceof LogicLvar) {
+			return this;
+		}
 			return null;
+	}
+
+	reify() {
+		return this.value;
 	}
 
 	static from(value: string | number): LogicLiteral {
@@ -947,6 +674,53 @@ export class LogicMap extends LogicValue {
 		return this.value.entries();
 	};
 
+	static fromSize(size: number | null) {
+		if (size === null) {
+			return (value: Map<string, LogicReified>) => {
+				return LogicMap.fromInfinite(value);
+			};
+		}
+		return (value: Map<string, LogicReified>) => {
+			return LogicMap.fromFinite(value, size);
+		};
+	}
+
+	static fromFinite(
+		value: Map<string, LogicReified> | { [key: string]: LogicReified },
+		size: number,
+	): LogicMap {
+		const newMap = new Map<string, LogicValue>();
+		for (const [key, val] of value instanceof Map ? value.entries() : Object.entries(value)) {
+			if (typeof val === "string") {
+				newMap.set(key, new LogicLiteral(val));
+			} else if (typeof val === "number") {
+				newMap.set(key, new LogicLiteral(val));
+			} else if (Array.isArray(val)) {
+				newMap.set(key, LogicList.fromFinite(...val));
+			} else {
+				newMap.set(key, val as LogicValue);
+			}
+		}
+		return new LogicMap(newMap, "finite", size);
+	}
+
+	static fromInfinite(
+		value: Map<string, LogicReified> | { [key: string]: LogicReified },
+	): LogicMap {
+		const newMap = LogicMap.fromFinite(value, 
+			value instanceof Map ? value.size : Object.keys(value).length).value;
+		return new LogicMap(newMap, "infinite", null);
+	}
+
+	reify() {
+		// const newMap = new Map<string, LogicReified>();
+		const newMap: Record<string, LogicReified> = {};
+		for (const [key, value] of this.value.entries()) {
+			newMap[key] = value.reify();
+		}
+		return newMap;
+	}
+
 	toString = () => {
 		let str = "{";
 		for (const [key, value] of this.value.entries()) {
@@ -963,12 +737,120 @@ export class LogicList extends LogicValue {
 		public size: number | null = null,
 	) {
 		super(value);
+		if (type === "finite" && size === null) {
+			this.size = value.length;
+		}
+	}
+
+	transformRight(other: LogicList): LogicList | null {
+		if (this.type === "infinite") {
+			throw new Error("Incorrect use of transform finite");
+			// return null;
+		}
+		if (other.type === "finite") {
+			throw new Error("Incorrect use of transform finite");
+			// return null;
+		}
+		// This is an infinite list
+		// Other is a finite list
+		// We need to make sure that the size of the infinite list is less than the size of the other list
+		// Then we need to unite the values of the finite list with the values of this list
+		if (other.value.length > this.value.length) {
+			console.warn(
+				`List size exceeds constraint1: ${other.value.length} ${this.value.length}`,
+			);
+			// throw new Error(
+			// 	`List size exceeds constraint: ${other.value.length} ${this.value.length}`,
+			// );
+			return null;
+		}
+		// Unite the values up to the size of this list
+		// then add the rest of the values from the other list
+		const newList = [];
+		for (let i = 0; i < other.value.length; i++) {
+			const newVal = this.value[i].unite(other.value[i]);
+			if (newVal === null) {
+				return null;
+			}
+			newList.push(newVal);
+		}
+		const rest = this.value.slice(other.value.length);
+		return new LogicList([...newList, ...rest], "finite", this.size);
+	}
+
+	transformLeft(other: LogicList): LogicList | null {
+		if (this.type === "finite") {
+			throw new Error("Incorrect use of transform finite");
+			// return null;
+		}
+		if (other.type === "infinite") {
+			throw new Error("Incorrect use of transform finite");
+			// return null;
+		}
+		// This is an infinite list
+		// Other is a finite list
+		// We need to make sure that the size of the finite list is less than the size of this list
+		// Then we need to unite the values of the finite list with the values of this list
+		if (this.value.length > other.value.length) {
+			console.warn(
+				`List size exceeds constraint2: ${this.value.length} ${other.value.length}`,
+			)
+			// throw new Error(
+			// 	`List size exceeds constraint: ${this.value.length} ${other.value.length}`,
+			// );
+			return null;
+		}
+		// Unite the values up to the size of this list
+		// then add the rest of the values from the other list
+		const newList = [];
+		for (let i = 0; i < this.value.length; i++) {
+			const newVal = this.value[i].unite(other.value[i]);
+			if (newVal === null) {
+				return null;
+			}
+			newList.push(newVal);
+		}
+		const rest = other.value.slice(this.value.length);
+		return new LogicList([...newList, ...rest], "finite", other.size);
 	}
 
 	override unite(other: LogicValue): LogicValue | null {
 		if (other instanceof LogicList) {
-			if (this.value.length !== other.value.length && this.type === "finite") {
+			if (this.value.length !== other.value.length && this.type === "finite" && other.type === "finite") {
+				console.warn(
+					`List sizes not equal: ${this.value.length} ${other.value.length}`,
+				);
 				return null;
+			}
+			const aList = this.value;
+			const bList = other.value;
+			if (this.type === "infinite" && other.type === "finite") {
+				return this.transformLeft(other);
+			} else if (this.type === "finite" && other.type === "infinite") {
+				return this.transformRight(other);
+			} else if (this.type === "infinite" && other.type === "infinite") {
+				// if both are infinite, just set everything up to the min size to equal
+				// and everything up to the max size to be that of the larger list
+				// then set both to this new list, w/ the max size + infinite type
+				const aList2: LogicValue[] = [];
+				const minSize = Math.min(aList.length, bList.length);
+				for (let i = 0; i < minSize; i++) {
+					const uniteed = aList[i].unite(bList[i]);
+					if (uniteed === null) {
+						return null;
+					}
+					aList2.push(uniteed);
+				}
+				if (aList2.some((val) => val === null)) {
+					return null;
+				}
+				let newAlist;
+				if (aList.length < bList.length) {
+					newAlist = [...aList2, ...bList.slice(aList.length)];
+				} else {
+					newAlist = [...aList2, ...aList.slice(bList.length)];
+				}
+				return new LogicList(newAlist, 'infinite', null);
 			}
 			const newList = [];
 			for (let i = 0; i < this.value.length; i++) {
@@ -979,9 +861,13 @@ export class LogicList extends LogicValue {
 				newList.push(newVal);
 			}
 			return new LogicList(newList, this.type, this.size);
-		}if (other instanceof LogicLvar) {
+		}
+		if (other instanceof LogicLvar) {
 			return other;
 		}
+		console.warn(`
+			Unite failed: ${this?.toString?.()} ${other?.toString?.()}
+			`);
 			return null;
 	}
 
@@ -989,8 +875,45 @@ export class LogicList extends LogicValue {
 		return new LogicList(value, size === null ? "infinite" : "finite", size);
 	}
 
+	static fromSize(size: number | null) {
+		if (size === null) {
+			return (...value: LogicReified[]) => {
+				return LogicList.fromInfinite(...value);
+			}
+		} else {
+			return (...value: LogicReified[]) => {
+				return LogicList.fromFinite(...value);
+			}
+		}
+	}
+
+	static fromFinite(...value: LogicReified[]): LogicList {
+		const values: LogicValue[] = [];
+		for (const val of value) {
+			if (typeof val === "string") {
+				values.push(new LogicLiteral(val));
+			} else if (typeof val === "number") {
+				values.push(new LogicLiteral(val));
+			} else if (Array.isArray(val)) {
+				values.push(LogicList.fromFinite(...val));
+			} else {
+				values.push(val as LogicValue);
+			}
+		}
+		return new LogicList(values, "finite", value.length);
+	}
+
+	static fromInfinite(...value: LogicReified[]): LogicList {
+		const values = LogicList.fromFinite(...value).value;
+		return new LogicList(values, "infinite", null);
+	}
+
+	reify() {
+		return this.value.map((val) => val.reify());
+	}
+
 	toString = () => {
-		let str = "[";
+		let str = `${this.type}.${this.size}.[`;
 		for (const item of this.value) {
 			str += `${item.toString()}, `;
 		}
@@ -1012,7 +935,70 @@ export class LogicPredicate extends LogicValue {
 			return null;
 	}
 
+	reify() {
+		return this.value;
+	}
+
 	toString = () => {
 		return "Predicate";
+	};
+}
+
+export class LogicCons extends LogicValue {
+	constructor(public head: LogicValue, public tail: LogicValue) {
+		super([head, tail]);
+	}
+
+	override unite(other: LogicValue): LogicValue | null {
+		if (other instanceof LogicCons) {
+			const newHead = this.head.unite(other.head);
+			if (newHead === null) {
+				return null;
+			}
+			const newTail = this.tail.unite(other.tail);
+			if (newTail === null) {
+				return null;
+			}
+			return new LogicCons(newHead, newTail);
+		}
+		if (other instanceof LogicLvar) {
+			return this;
+		}
+		if (other instanceof LogicList) {
+			if (other.value.length === 0 && other.type === "finite") {
+				return null;
+			}
+			if (other.type === "infinite" && other.value.length === 0) {
+				return this;
+			}
+			const newHead = this.head.unite(other.value[0]);
+			let newTail: LogicCons | null = null;
+			if (other.value.length > 1) {
+				const tv = other.value.slice(1);
+				newTail = tv.reduce(
+					(acc, val) => {
+						return new LogicCons(val, acc);
+					}, new LogicList([])) as LogicCons;
+			}
+			const newTail2 = newTail ?? new LogicList([]);
+			if (newHead === null || newTail2 === null) {
+				return null;
+			}
+			return this.unite(new LogicCons(newHead, newTail2));
+		}
+
+		return null;
+	}
+
+	static from(head: LogicValue, tail: LogicValue): LogicCons {
+		return new LogicCons(head, tail);
+	}
+
+	reify() {
+		return [this.head.reify(), this.tail.reify()];
+	}
+
+	toString = () => {
+		return `(${this.head.toString()} . ${this.tail.toString()})`;
 	};
 }

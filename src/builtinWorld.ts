@@ -6,10 +6,10 @@ import {
 	LogicPredicate,
 	LogicList,
 	LogicMap,
-	eq,
 	LogicLiteral,
 	LogicLvar,
 } from "./WorldGoal";
+import { eq } from "./eq";
 
 const emptyList = new LogicList([]);
 const builtins2 = {
