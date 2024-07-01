@@ -11,7 +11,7 @@ type LSymbol = {
     type: "symbol",
     value: string
 };
-type LTerm = LLVar | string | LSymbol | Boolean | LPair | [];
+type LTerm = LLVar | string | LSymbol | boolean | LPair | [];
 
 type Subst = LPair[];
 type State = [Subst, number];
@@ -28,16 +28,19 @@ export const makelvar = (name: string): LLVar => ({
 
 const isPair = (ll: LTerm): ll is LPair => {
     return Array.isArray(ll) && ll.length > 0;
-}, isDStream = (d: LStream): d is ImmatureStream => {
+};
+const isDStream = (d: LStream): d is ImmatureStream => {
     return typeof d === 'function';
-}, isNullStream = (d: LStream): d is [] => {
+};
+const isNullStream = (d: LStream): d is [] => {
     return Array.isArray(d) && d.length === 0;
-}, assertPair = (ll: LTerm) => {
+};
+const assertPair = (ll: LTerm) => {
     if (!isPair(ll)) throw new Error("Not a pair");
 
-}
+};
 export function eq(u: LTerm, v: LTerm): Goal {
-    return function (sc): LStream {
+    return (sc): LStream => {
         const s = sc[0];
         const sz = unify(find(u, s), find(v, s), s);
         if (sz) {
@@ -157,10 +160,14 @@ export const mapStateList = (s: State[]): {[k: string]: string}[] => {
     return s.map(([v, val]) => {
         return v.reduce((acc, [v, val]) => {
             if (isVar(v)) {
-                return {...acc, [v.name]: val};
+                // return {...acc, [v.name]: val};
+                acc[v.name] = val as string;
+                return acc;
             }
-            return {...acc, [v + ""]: val};
-        }, {});
+            acc[`${v}`] = val as string;
+            return acc;
+            // return {...acc, [v + ""]: val};
+        }, {} as {[k: string]: string});
     });
 }
 
@@ -169,7 +176,8 @@ const take = (n: number | null, s: MatureStreamE): Array<State> => {
     if (isNullStream(s)) return [];
     if (n && (n - 1) === 0) return [s[0]];
     return [s[0], ...take((n ?? 0) - 1, s[1])];
-}, pull = (s: LStream): MatureStreamE => {
+};
+const pull = (s: LStream): MatureStreamE => {
     if (isNullStream(s)) return [];
     if (isDStream(s)) {
         return pull(s());
@@ -185,7 +193,8 @@ function isVar(x1: LTerm): x1 is LLVar {
 const ext_s = (x: LLVar, v: LTerm, s: Subst): Subst | null => {
     if (doesOccur(x, v, s)) return null;
     return [[x, v], ...s];
-}, doesOccur = (x: LLVar, v: LTerm, s: Subst): boolean => {
+}
+const doesOccur = (x: LLVar, v: LTerm, s: Subst): boolean => {
     if (isVar(v)) {
         return x.name === v.name;
     } else if (isPair(v)) {
@@ -203,31 +212,33 @@ const ext_s = (x: LLVar, v: LTerm, s: Subst): Subst | null => {
 // Utility functions:
 
 export const all = (...g: Goal[]): Goal => {
-    if (g.length == 0) throw new Error("Cannot do that");
-    if (g.length == 1) return g[0];
+    if (g.length === 0) throw new Error("Cannot do that");
+    if (g.length === 1) return g[0];
     return g.reduce((acc, gg) => conj(acc, gg));
 }
 
 export const either = (...g: Goal[]): Goal => {
-    if (g.length == 0) throw new Error("Cannot do that");
-    if (g.length == 1) return g[0];
+    if (g.length === 0) throw new Error("Cannot do that");
+    if (g.length === 1) return g[0];
     return g.reduce((acc, gg) => disj(acc, gg));
 }
 
-const projectVar0 = (sc: Subst) => {
-    return find(makelvar('$0'), sc);
-}, applySubst = (v1: LTerm, s: Subst): LTerm => {
-    const v = find(v1, s);
-    if (isVar(v)) {
-        return v;
-    } else if (isPair(v)) {
-        return [applySubst(v[0], s), applySubst(v[1], s)];
-    } else {
-        return v;
-    }
-}, buildR = (v: LTerm, s: Subst, c: number): LTerm => {
-    return applySubst(find(makelvar(`$${c}`), s), s);
-};
+// const projectVar0 = (sc: Subst) => {
+//     return find(makelvar('$0'), sc);
+// };
+// const applySubst = (v1: LTerm, s: Subst): LTerm => {
+//     const v = find(v1, s);
+//     if (isVar(v)) {
+//         return v;
+//     } else if (isPair(v)) {
+//         return [applySubst(v[0], s), applySubst(v[1], s)];
+//     } else {
+//         return v;
+//     }
+// };
+// const buildR = (v: LTerm, s: Subst, c: number): LTerm => {
+//     return applySubst(find(makelvar(`$${c}`), s), s);
+// };
 
 
 
