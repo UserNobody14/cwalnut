@@ -209,7 +209,11 @@ describe("Test1", () => {
                         (a, d, res) => kn.all(
                             kn.eq(kn.makePair(a, d), l),
                             kn.eq(kn.makePair(a, res), o),
-                            appendo(d, s, res)
+                            // appendo(d, s, res)
+                            kn.apply_pred(
+                                kn.makelvar("wq"),
+                                d, s, res
+                            )
                         )
                     )
                 )(scc);

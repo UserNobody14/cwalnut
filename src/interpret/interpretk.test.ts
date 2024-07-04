@@ -140,29 +140,29 @@ membero(qq, einput)
     );
 
 
-    test('appendo program', () => {
-        const sourceCode = `
-appendo = (a, b, ab) =>
-    either:
-        all:
-            b = ab
-            empty(a)
-        all:
-            rest(r, ab)
-            rest(d, a)
-            appendo(d, b, r)
+//     test('appendo program', () => {
+//         const sourceCode = `
+// appendo = (a, b, ab) =>
+//     either:
+//         all:
+//             b = ab
+//             empty(a)
+//         all:
+//             rest(r, ab)
+//             rest(d, a)
+//             appendo(d, b, r)
 
-einput = [1, 2, 3]
-input2 = [4, 5, 6]
-appendo(einput, input2, qq)
-`;
-        const res = interpretPlus(prcs(sourceCode));
-        // runFor(interpretPlus(prcs(sourceCode)), ['qq'])
-        const resrun = runFor(res, false, ['qq']);
-        expect(resrun).toEqual([{ qq: [
-            "1", "2", "3", "4", "5"
-        ] }]);
-    });
+// einput = [1, 2, 3]
+// input2 = [4, 5, 6]
+// appendo(einput, input2, qq)
+// `;
+//         const res = interpretPlus(prcs(sourceCode));
+//         // runFor(interpretPlus(prcs(sourceCode)), ['qq'])
+//         const resrun = runFor(res, false, ['qq']);
+//         expect(resrun).toEqual([{ qq: [
+//             "1", "2", "3", "4", "5", "6"
+//         ] }]);
+//     });
 
 
 
@@ -175,8 +175,11 @@ appendo = (a, b, ab) =>
             b = ab
         all:
             rest(r, ab)
+            first(q, ab)
+            first(q, a)
             rest(d, a)
             appendo(d, b, r)
+
 
 einput = [1, 2, 3]
 input2 = [4, 5, 6]
@@ -185,9 +188,9 @@ appendo(einput, input2, qq)
         const res = interpretPlus(prcs(sourceCode));
         // runFor(interpretPlus(prcs(sourceCode)), ['qq'])
         // const resrun = runFor(res, false, ['qq']);
-        const resrun = runFor(res, true);
+        const resrun = runFor(res, false, ["qq"], null);
         expect(resrun).toEqual([{ qq: [
-            "1", "2", "3", "4", "5"
+            "1", "2", "3", "4", "5", "6"
         ] }]);
     });
 

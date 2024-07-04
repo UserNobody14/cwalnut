@@ -37,6 +37,9 @@ const builtins2: BuiltinRecord = {
     rest: (r, l) => {
         return resto(l, r);
     },
+    cons: (a, b, l) => {
+        return eq(l, kn.makePair(a, b));
+    },
     set_key_of: (key, obj, val) => {
         throw new Error("Not implemented");
     },

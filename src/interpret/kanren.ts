@@ -47,6 +47,7 @@ export abstract class LTerm {
     public reify(s: Subst): LTerm {
         return this;
     }
+    public abstract cleanOutput(): CleanOutput;
 }
 export class LLVar extends LTerm {
     type = 'lvar';
@@ -73,6 +74,9 @@ export class LLVar extends LTerm {
         if (fv instanceof LLVar) return fv;
         return fv.reify(s);
     }
+    cleanOutput(): CleanOutput {
+        return `?${this.name}`;
+    }
 }
 
 export class LLiteral extends LTerm {
@@ -94,6 +98,9 @@ export class LLiteral extends LTerm {
     public nonEquivalentUnite(s: Subst, v: LTerm): Subst | null {
         if (v instanceof LLiteral && this.value === v.value) return s;
         return null;
+    }
+    cleanOutput(): CleanOutput {
+        return this.value;
     }
 }
 
@@ -118,6 +125,9 @@ export class LEmpty extends LTerm {
 
     public nonEquivalentUnite(s: Subst, v: LTerm): Subst | null {
         return s;
+    }
+    cleanOutput(): CleanOutput {
+        return [];
     }
 }
 
@@ -150,6 +160,14 @@ export class LPair extends LTerm {
     override reify(s: Subst): LTerm {
         return new LPair(this.first.reify(s), this.second.reify(s));    
     }
+    public cleanOutput(): CleanOutput {
+        const sc1 = this.second.cleanOutput();
+        if (Array.isArray(sc1)) {
+            return [this.first.cleanOutput(), ...sc1];
+        }
+        throw new Error("Not a list");
+        // return [this.first.cleanOutput(), sc];
+    }
 }
 
 export class LFunctor extends LTerm {
@@ -181,6 +199,15 @@ export class LFunctor extends LTerm {
         if (sz) return sz;
         return null;
     }
+
+    public cleanOutput(): CleanOutput {
+        return {
+            name: this.name,
+            fields: this.fields,
+            args: this.args.map((arg) => arg.cleanOutput())
+        };
+    }
+
     override reify(s: Subst): LTerm {
         return new LFunctor(this.name, this.fields, this.args.map((arg) => arg.reify(s)));
     }
@@ -205,6 +232,9 @@ export class LNom extends LTerm {
         if (v instanceof LNom && this.name === v.name) return s;
         return null;
     }
+    public cleanOutput(): CleanOutput {
+        return `Nom(${this.name})`;
+    }
 }
 export class LTie extends LTerm {
     type: 'tie' = 'tie';
@@ -226,6 +256,12 @@ export class LTie extends LTerm {
         const sz = s.unify(s.find(this.term), s.find(v.term));
         if (sz) return sz;
         return null;
+    }
+    public cleanOutput(): CleanOutput {
+        return {
+            name: this.name.cleanOutput(),
+            term: this.term.cleanOutput()
+        };
     }
 }
 
@@ -249,6 +285,9 @@ export class LPredicate extends LTerm {
     public nonEquivalentUnite(s: Subst, v: LTerm): Subst | null {
         // if (v instanceof LPredicate && this.name === v.name) return s;
         return null;
+    }
+    public cleanOutput(): CleanOutput {
+        return `Predicate(${this.name})`;
     }
 }
 
@@ -322,7 +361,7 @@ export class Subst extends ImmRecord(substDefaults) {
     }
 }
 
-
+type CleanOutput = string | number | boolean | {[k: string]: CleanOutput} | CleanOutput[];
 
 export class State {
     constructor(public subst: Subst, public number: number) {}
@@ -331,7 +370,6 @@ export class State {
         const vars2seek = vars2seek1.map((v) => {
             if (v instanceof LLVar) return v;
             return new LLVar(v);
-            // throw new Error("Not a var");
         });
         const seekvars = vars2seek.length > 0;
         return this.subst.pairs.reduce((acc, spair) => {
@@ -353,6 +391,28 @@ export class State {
             }
             throw new Error("Not a var");
         }, {} as {[k: string]: string});
+    }
+
+    toClean(showInternals = false, vars2seek1: string[] | LLVar[]): CleanOutput {
+        const vars2seek = vars2seek1.map((v) => {
+            if (v instanceof LLVar) return v;
+            return new LLVar(v);
+        });
+        return this.subst.pairs.reduce((acc, spair) => {
+            const v = spair.first;
+            const val = spair.second.reify(this.subst);
+            if (v instanceof LLVar) {
+                if (v.name.startsWith('$') && !showInternals) {
+                    return acc;
+                }
+                if (vars2seek.some((v2) => v2.name === v.name)) {
+                    return {...acc, [v.name]: val.cleanOutput()};
+                } else {
+                    return acc;
+                }
+            }
+            throw new Error("Not a var");
+        }, {} as {[k: string]: CleanOutput});
     }
 
     toString(): string {
@@ -539,10 +599,10 @@ export function all(...g: Goal[]): Goal {
 export function either(...g: Goal[]): Goal {
     if (g.length === 0) throw new Error("Cannot do that");
     if (g.length === 1) return g[0];
-    // return g.reduce((acc, gg) => disj(acc, gg));
-    return (sc) => {
-        return g.map((gg) => gg(sc)).reduce((acc, gg) => append_1(acc, gg));
-    }
+    return g.reduce((acc, gg) => disj(acc, gg));
+    // return (sc) => {
+    //     return g.map((gg) => gg(sc)).reduce((acc, gg) => append_1(acc, gg));
+    // }
 };
 
 export function apply_pred(
@@ -554,7 +614,7 @@ export function apply_pred(
         const lpp = sc.subst.find(lp);
         if (!(lpp instanceof LPredicate)) throw new Error("Not a predicate");
         // map(ag => ag.reify(sc.subst))
-        const arggs = lpp.fn(...args);
+        const arggs = lpp.fn(...args.map((arg) => sc.subst.find(arg)));
         if (typeof arggs === 'function') {
             // console.log("apply_pred", lp.toString(), args.map(a => a.toString()));
             return arggs(sc);
@@ -630,6 +690,14 @@ in 𝜙; otherwise, the result is Nothing.
     }
     toString(): string {
         return `Closure(${this.closure})`;
+    }
+    public cleanOutput(): CleanOutput {
+        return {
+            level: this.level,
+            scope: 'YET TO IMPLEMENT',
+            name: this.name.cleanOutput(),
+            closure: this.closure.cleanOutput()
+        };
     }
 }
 // export const makelvar = (name: string): LLVar => ({

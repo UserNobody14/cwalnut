@@ -103,17 +103,26 @@ const defToPredicate = (ast: PredicateDefinitionGeneric<Type>): kn.Goal => {
                 //     }),
                 //     interpretPlus(ast2.body),
                 // )(sc2);
-                return new kn.ImmatureStream(() => {
-                    return kn.all(
-                        ...newArgs.map((arg, i) => {
-                            return kn.eq(
-                                arg,
-                                kn.makelvar(ast2.args[i].value),
-                            );
-                        }),
-                        interpretPlus(ast2.body),
-                    )(sc2)
-                });
+                // return new kn.ImmatureStream(() => {
+                //     return kn.all(
+                //         ...newArgs.map((arg, i) => {
+                //             return kn.eq(
+                //                 arg,
+                //                 kn.makelvar(ast2.args[i].value),
+                //             );
+                //         }),
+                //         interpretPlus(ast2.body),
+                //     )(sc2)
+                // });
+                return kn.all(
+                    ...newArgs.map((arg, i) => {
+                        return kn.eq(
+                            arg,
+                            kn.makelvar(ast2.args[i].value),
+                        );
+                    }),
+                    interpretPlus(ast2.body),
+                )(sc2);
             }
             })
         );//(sc);
@@ -181,13 +190,13 @@ function interpretExpr(
 // 	return worlds.flatMap((world) => goal.run(world));
 // }
 
-export function runFor(goal: kn.Goal, showInternals = false, vars2seek: string[] = []) {
-    const runs = kn.run(null, kn.conj(
+export function runFor(goal: kn.Goal, showInternals = false, vars2seek: string[] = [], numb: number | null = null) {
+    const runs = kn.run(numb, kn.conj(
         builtinGoals,
         goal
     ));
     return runs.map((run) => {
-        return run.toMap(showInternals, vars2seek);
+        return run.toClean(showInternals, vars2seek);
     });
 }
 

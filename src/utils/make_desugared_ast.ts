@@ -102,6 +102,7 @@ export const builtinList = [
     "negate",
     "internal_file",
     "internal_import",
+	"cons"
 ] as const;
 
 export type Builtin = typeof builtinList[number];

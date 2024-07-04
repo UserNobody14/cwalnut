@@ -1,3 +1,6 @@
 node_modules
 dist
 coverage
+coverage/lcov-report/index.html
+coverage/**
+coverage/lcov-report/src/interpret-types/type-pipe.ts.html

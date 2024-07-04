@@ -223,6 +223,15 @@ export const builtinTypes: Record<Builtin, Type> = {
             make.type_variable('A1'),
         ])
     ), // Temporarily
+    cons: make.union_type(
+        make.complex_type('predicate', [
+            make.type_variable('C1')
+        ], [
+            make.type_variable('C1'),
+            make.complex_type('list', [], [make.type_variable('C1')]),
+            make.complex_type('list', [], [make.type_variable('C1')]),
+        ])
+    ), // Temporarily
     subtract: make.simple_type('never'), // Temporarily
     multiply: make.simple_type('never'), // Temporarily
     divide: make.simple_type('never'), // Temporarily
