@@ -1,5 +1,5 @@
 import { gatherVarInstanceInfo, mapPredCalls } from "src/lens/into-vars";
-import type { TermT } from "src/types/DsAstTyped";
+import type { IdentifierGeneric, TermT } from "src/types/DsAstTyped";
 import type { Type } from "src/types/EzType";
 import { make } from "src/utils/make_better_typed";
 import { builtinList } from "src/utils/make_desugared_ast";
@@ -14,8 +14,8 @@ export function verifyLinear(tt: TermT[]): boolean {
                 (arg) => arg.type === 'identifier' ? make.identifier('called', arg.value) : arg
             )
         ),
-        (ctx, idv) => {
-            return idv.map(
+        (ctx, idv): IdentifierGeneric<Uses>[] => {
+            return idv.map<IdentifierGeneric<Uses>>(
                 (id) => {
                     switch (ctx) {
                         case 'definition-args':
@@ -24,6 +24,8 @@ export function verifyLinear(tt: TermT[]): boolean {
                             return make.identifier('allocated', id.value);
                         case 'name':
                             return make.identifier('called', id.value);
+                        default:
+                            throw new Error(`Invalid context ${ctx}`);
                     }
                 }
             )

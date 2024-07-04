@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">88.57% </span>
+                <span class="strong">51.42% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>31/35</span>
-            </div>
-        
-            
-            <div class='fl pad1y space-right2'>
-                <span class="strong">89.47% </span>
-                <span class="quiet">Branches</span>
-                <span class='fraction'>17/19</span>
+                <span class='fraction'>18/35</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
-                <span class="quiet">Functions</span>
-                <span class='fraction'>2/2</span>
+                <span class="quiet">Branches</span>
+                <span class='fraction'>12/12</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">88.57% </span>
+                <span class="strong">50% </span>
+                <span class="quiet">Functions</span>
+                <span class='fraction'>1/2</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">51.42% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>31/35</span>
+                <span class='fraction'>18/35</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line high'></div>
+    <div class='status-line medium'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -102,37 +102,37 @@
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">7989x</span>
-<span class="cline-any cline-yes">7989x</span>
-<span class="cline-any cline-yes">7989x</span>
-<span class="cline-any cline-yes">315x</span>
-<span class="cline-any cline-yes">7989x</span>
-<span class="cline-any cline-yes">4028x</span>
-<span class="cline-any cline-yes">7989x</span>
-<span class="cline-any cline-yes">58x</span>
-<span class="cline-any cline-yes">7989x</span>
-<span class="cline-any cline-yes">3588x</span>
-<span class="cline-any cline-yes">3588x</span>
-<span class="cline-any cline-yes">3588x</span>
-<span class="cline-any cline-yes">7989x</span>
-<span class="cline-any cline-yes">7989x</span>
-<span class="cline-any cline-yes">8x</span>
-<span class="cline-any cline-yes">8x</span>
-<span class="cline-any cline-yes">8x</span>
-<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">7633x</span>
+<span class="cline-any cline-yes">7633x</span>
+<span class="cline-any cline-yes">7633x</span>
+<span class="cline-any cline-yes">167x</span>
+<span class="cline-any cline-yes">7633x</span>
+<span class="cline-any cline-yes">4011x</span>
+<span class="cline-any cline-yes">7633x</span>
+<span class="cline-any cline-yes">54x</span>
+<span class="cline-any cline-yes">7633x</span>
+<span class="cline-any cline-yes">3401x</span>
+<span class="cline-any cline-yes">3401x</span>
+<span class="cline-any cline-yes">3401x</span>
+<span class="cline-any cline-yes">7633x</span>
+<span class="cline-any cline-yes">7633x</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-yes">8x</span>
-<span class="cline-any cline-yes">17x</span>
-<span class="cline-any cline-yes">17x</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-yes">17x</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-yes">17x</span>
-<span class="cline-any cline-yes">8x</span>
-<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import type { Type } from 'src/types/EzType';
 import type { Map as ImmMap } from 'immutable';
 import { reify } from './reifyType';
@@ -151,23 +151,23 @@ export function compareTypes(a: Type, b?: Type): boolean {
                 a.generics.length === b.generics.length &amp;&amp; a.generics.every((t, i) =&gt; compareTypes(t, b.generics[i]));
     }
 }
-export function compareTypeMaps(a1: ImmMap&lt;string, Type&gt;, b1: ImmMap&lt;string, Type&gt;): boolean {
-    const a = reify(a1);
-    const b = reify(b1);
-    if (a.size === 0 &amp;&amp; b.size !== 0) <span class="branch-0 cbranch-no" title="branch not covered" >{</span>
+<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >export function compareTypeMaps(a1: ImmMap&lt;string, Type&gt;, b1: ImmMap&lt;string, Type&gt;): boolean {</span></span>
+<span class="cstat-no" title="statement not covered" >    const a = reify(a1);</span>
+<span class="cstat-no" title="statement not covered" >    const b = reify(b1);</span>
+<span class="cstat-no" title="statement not covered" >    if (a.size === 0 &amp;&amp; b.size !== 0) {</span>
 <span class="cstat-no" title="statement not covered" >        return compareTypeMaps(b, a);</span>
 <span class="cstat-no" title="statement not covered" >    }</span>
-    for (const [k, v] of a.entries()) {
-        // Skip the tt0, tt1, etc. type variables
-        if (k.startsWith('tt')) {
-            continue;
-        }
-        if (!compareTypes(v, b.get(k))) <span class="branch-0 cbranch-no" title="branch not covered" >{</span>
+<span class="cstat-no" title="statement not covered" >    for (const [k, v] of a.entries()) {</span>
+<span class="cstat-no" title="statement not covered" >        // Skip the tt0, tt1, etc. type variables</span>
+<span class="cstat-no" title="statement not covered" >        if (k.startsWith('tt')) {</span>
+<span class="cstat-no" title="statement not covered" >            continue;</span>
+<span class="cstat-no" title="statement not covered" >        }</span>
+<span class="cstat-no" title="statement not covered" >        if (!compareTypes(v, b.get(k))) {</span>
 <span class="cstat-no" title="statement not covered" >            return false;</span>
 <span class="cstat-no" title="statement not covered" >        }</span>
-    }
-    return true;
-}
+<span class="cstat-no" title="statement not covered" >    }</span>
+<span class="cstat-no" title="statement not covered" >    return true;</span>
+<span class="cstat-no" title="statement not covered" >}</span>
 &nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
@@ -175,7 +175,7 @@ export function compareTypeMaps(a1: ImmMap&lt;string, Type&gt;, b1: ImmMap&lt;st
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2024-06-30T17:08:10.477Z
+                at 2024-07-04T13:53:22.756Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

@@ -1,6 +1,7 @@
 import type { IdentifierDsAst, TermDsAst } from "src/types/DesugaredAst";
 import { Map as ImmMap } from "immutable";
 import type { ExpressionGeneric, IdentifierGeneric, PredicateCallGeneric, PredicateDefinitionGeneric, TermGeneric } from "src/types/DsAstTyped";
+import { P, match } from "ts-pattern";
 
 export function* intoVars(tt: TermDsAst[]): Generator<string> {
     for (const t of tt) {

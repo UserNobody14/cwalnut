@@ -6,6 +6,7 @@ import type {
 	ConjunctionDsAst,
 	DisjunctionDsAst,
 	ExpressionDsAst,
+	FreshDsAst,
 	IdentifierDsAst,
 	LiteralDsAst,
 	PredicateCallDsAst,
@@ -64,6 +65,14 @@ export const make_conjunction = (
 		type: "predicate_call",
 		source,
 		args,
+	}),
+	make_fresh = (
+		newVars: IdentifierDsAst[],
+		body: ConjunctionDsAst,
+	): FreshDsAst => ({
+		type: "fresh",
+		newVars,
+		body,
 	});
 export const make_identifier = (
 	name: string,

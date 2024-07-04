@@ -119,7 +119,7 @@ describe("Test1", () => {
                 (v) => kn.eq(kn.makePair(a, v), l)
             );
         };
-        const resto = (l: kn.LTerm, r: kn.LTerm): kn.Goal => {
+        const resto = (r: kn.LTerm, l: kn.LTerm): kn.Goal => {
             return kn.call_fresh(
                 (v) => kn.eq(kn.makePair(v, r), l)
             );
@@ -177,6 +177,74 @@ describe("Test1", () => {
         );
         expect(outv2.map(kkn => kkn.toMap())).toEqual([
             { "init1": "[c, [d, []]]" }
+        ]);
+    });
+
+    test("Kn Save and Call Pred", () => {
+        // Make an append predicate, then unify it as a predicate with lvar wq
+        // Then in a goal, retrieve wq and call it with some arguments
+        const appendo = (l: kn.LTerm, s: kn.LTerm, o: kn.LTerm): kn.Goal => {
+            // console.log("appendo save & call:", l.toString(), s.toString(), o.toString());
+            // return kn.either(
+            //     kn.all(
+            //         kn.eq(kn.makeEmpty(), l),
+            //         kn.eq(s, o)
+            //     ),
+            //     kn.fresh3(
+            //         (a, d, res) => kn.all(
+            //             kn.eq(kn.makePair(a, d), l),
+            //             kn.eq(kn.makePair(a, res), o),
+            //             appendo(d, s, res)
+            //         )
+            //     )
+            // );
+            return (scc: kn.State): kn.LStream => {
+                console.log("appendo save & call:", scc.subst.find(l).toString(), scc.subst.find(s).toString(), scc.subst.find(o).toString());
+                return kn.either(
+                    kn.all(
+                        kn.eq(l, kn.makeEmpty()),
+                        kn.eq(s, o)
+                    ),
+                    kn.fresh3(
+                        (a, d, res) => kn.all(
+                            kn.eq(kn.makePair(a, d), l),
+                            kn.eq(kn.makePair(a, res), o),
+                            appendo(d, s, res)
+                        )
+                    )
+                )(scc);
+            }
+        };
+
+        const outv = kn.run(
+            null,
+            kn.all(
+                kn.eq(kn.makelvar("wq"), new kn.LPredicate("appendo", appendo)),
+                kn.fresh4(
+                    (a, b) => {
+                        return kn.all(
+                            kn.eq(
+                                kn.makeList([kn.makeLiteral("a"), kn.makeLiteral("b")]),
+                                a
+                            ),
+                            kn.eq(
+                                kn.makeList([kn.makeLiteral("c"), kn.makeLiteral("d")]),
+                                b
+                            ),
+                            kn.apply_pred(
+                                kn.makelvar("wq"),
+                                a, b, kn.makelvar("c")
+                            )
+                        );
+                    }
+                )
+            )
+        );
+
+        console.log("SCM", outv.map(ooo => ooo.toString()));
+
+        expect(outv.map(kkn => kkn.toMap(false))).toEqual([
+            { "wq": "appendo", "c": "[a, [b, [c, [d, []]]]]" }
         ]);
     });
 

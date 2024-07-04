@@ -11,9 +11,11 @@ import {
     type PredicateDefinitionDsAst,
 } from "src/types/DesugaredAst";
 import {
+	conjunction1,
 	make_conjunction,
 	make_dictionary_ast,
 	make_disjunction,
+	make_fresh,
 	make_identifier,
 	make_list_ast,
 	make_literal_ast,
@@ -152,6 +154,21 @@ export function toAst(
 				...cterms,
 				...dterms,
 			];
+		}
+		case "fresh_statement": {
+			const ids = node.children.filter(
+				nc => nc.grammarType === "identifier"
+			)
+			console.log(
+				"Grammarvs",
+				node.children.map((nc) => nc.grammarType)
+			)
+			const allIds = ids.map((nc) => make_identifier(nc.text));
+			const block = node.children[node.children.length - 1];
+			const blockTerms = block.children.flatMap((nc) => toAst(nc));
+			return [
+				make_fresh(allIds, conjunction1(...blockTerms))
+			]
 		}
 		case "comment": {
 			return [];

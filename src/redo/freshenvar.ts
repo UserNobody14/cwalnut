@@ -1,3 +1,4 @@
+import { mapVarsGeneric } from "src/lens/into-vars";
 import type {
 	ConjunctionDsAst,
 	ExpressionDsAst,
@@ -5,6 +6,8 @@ import type {
 	TermDsAst,
 } from "src/types/DesugaredAst";
 import { ConjunctionGeneric, ExpressionGeneric, IdentifierGeneric, TermGeneric } from "src/types/DsAstTyped";
+import { make } from "src/utils/make_better_typed";
+import { pprintGeneric, pprintTermT } from "./pprintgeneric";
 
 export function renameVar(
 	inputName: string,
@@ -187,12 +190,47 @@ function renameIdGeneric<T>(
 }
 
 export function renameVarBatch<T>(
-	inputToOutputNameMap1: Map<string, string> | Record<string, string>,
+	inputToOutputNameMap1: Map<string, string> | Record<string, string> | Array<[string, string]>,
 	term: TermGeneric<T>
 ): TermGeneric<T> {
-	const inputToOutputNameMap = inputToOutputNameMap1 instanceof Map ? inputToOutputNameMap1 : new Map(Object.entries(inputToOutputNameMap1));
+	const inputToOutputNameMap = inputToOutputNameMap1 instanceof Map ? inputToOutputNameMap1 : 
+	Array.isArray(inputToOutputNameMap1) ? new Map([...inputToOutputNameMap1]) : 
+	new Map(Object.entries(inputToOutputNameMap1));
 	const oo = Array.from(inputToOutputNameMap.entries()).reduce((acc, [inputName, outputName]) => {
 		return acc.map((t) => renameVarGeneric(inputName, outputName, t));
 	}, [term]);
 	return oo[0];
+}
+
+export function renameVarBatch2<T>(
+	inputToOutputNameMap1: Map<string, string> | Record<string, string> | Array<[string, string]>,
+	term: TermGeneric<T>
+): TermGeneric<T>[] {
+	const inputToOutputNameMap = inputToOutputNameMap1 instanceof Map ? inputToOutputNameMap1 : 
+	Array.isArray(inputToOutputNameMap1) ? new Map([...inputToOutputNameMap1]) : 
+	new Map(Object.entries(inputToOutputNameMap1));
+	const outval = mapVarsGeneric<T, T>(
+		[term],
+		(v) => {
+			return make.identifier(v.info, inputToOutputNameMap.get(v.value) ?? v.value);
+		}
+	);
+	// Verify
+	const ver = mapVarsGeneric<T, T>(
+		outval,
+		(v) => {
+			if (inputToOutputNameMap.has(v.value)) {
+				throw new Error(`renameVarBatch2: ${v.value} not renamed`);
+			} else {
+				return v;
+			}
+		}
+	);
+	if (ver) {
+		console.log("InputToOutputNameMap", inputToOutputNameMap);
+		console.log("renameVarBatch2: ver", pprintGeneric(ver, (ctx, meta) => ""));
+	} else {
+		throw new Error("renameVarBatch2: ver failed");
+	}
+	return outval;
 }

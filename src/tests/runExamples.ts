@@ -1,4 +1,4 @@
-import { interpretFromCode } from "src/interpretPlus";
+// import { interpretFromCode } from "src/interpretPlus";
 
 // basic example
 const source1 = `
@@ -136,19 +136,19 @@ type_ast = (ast, type_map) =>
             type_disjunction(ast.terms, type_map)
 `;
 
-function displayVars(
-	source: string = source2,
-	varsv: string[] = ["qq"],
-) {
-	const vfr = interpretFromCode(source, varsv);
-	console.log("-----------------------");
-	for (const f of vfr) {
-		for (const k in f) {
-			console.log(k, f[k].toString());
-		}
-	}
-}
+// function displayVars(
+// 	source: string = source2,
+// 	varsv: string[] = ["qq"],
+// ) {
+// 	const vfr = interpretFromCode(source, varsv);
+// 	console.log("-----------------------");
+// 	for (const f of vfr) {
+// 		for (const k in f) {
+// 			console.log(k, f[k].toString());
+// 		}
+// 	}
+// }
 // displayVars(source2, ['qq', 'a', 'b']);
 // displayVars(source4, ['qq']);
 // displayVars(source3, ['a']);
-displayVars(source7, ["qq"]);
+// displayVars(source7, ["qq"]);
