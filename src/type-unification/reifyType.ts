@@ -1,5 +1,5 @@
 import type { Type } from 'src/types/EzType';
-import { Map as ImmMap } from 'immutable';
+import type { Map as ImmMap } from 'immutable';
 import { pprintType } from 'src/redo/pprintgeneric';
 import { make } from 'src/utils/make_better_typed';
 import { occursCheck, collapseUnion } from './aunt';

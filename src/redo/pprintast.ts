@@ -7,34 +7,35 @@ import { indentStr } from "./indentStr";
 
 export function pprintDsAst(
 	ast: TermDsAst | TermDsAst[],
+	notypes: "withtype" | "without_type" = "without_type",
 ): string {
 	if (Array.isArray(ast)) {
-		return ast.map(pprintDsAst).join("\n");
+		return ast.map((a) => pprintDsAst(a, notypes)).join("\n");
 	}
 	switch (ast.type) {
 		case "conjunction":
 			return `conj:
 ${ast.terms
-	.map(pprintDsAst)
+	.map((a) => pprintDsAst(a, notypes))
 	.map((ii) => indentStr(1, ii))
 	.join("\n")}`;
 		case "disjunction":
 			return `disj:
 ${ast.terms
-	.map(pprintDsAst)
+	.map((a) => pprintDsAst(a, notypes))
 	.map((ii) => indentStr(1, ii))
 	.join("\n")}`;
 		case "predicate_call":
-			return `${pprintExprAst(ast.source)}(${pprintExprListAst(ast.args, "withtype")})`;
+			return `${pprintExprAst(ast.source)}(${pprintExprListAst(ast.args, notypes)})`;
 		case "predicate_definition":
 			return `DEFINE ${ast.name.value} as (${pprintExprListAst(ast.args)}) => 
-${indentStr(1, pprintDsAst(ast.body.terms))}`;
+${indentStr(1, pprintDsAst(ast.body.terms, notypes))}`;
 		case "fresh":
 			return `fresh ${ast.newVars.map((v) => v.value).join(", ")}:
-${indentStr(1, pprintDsAst(ast.body))}`;
+${indentStr(1, pprintDsAst(ast.body, notypes))}`;
 		case "with":
 			return `with ${ast.name.value}:
-${indentStr(1, pprintDsAst(ast.body))}`;
+${indentStr(1, pprintDsAst(ast.body, notypes))}`;
 		default:
 			throw `Invalid ast type: ${ast}`;
 	}

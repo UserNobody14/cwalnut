@@ -31,6 +31,11 @@ export function toBasicTypes(
     const tt = toEarlyMeta(tsss);
     return toBasicTypesG(tt);
 }
+export function toDummyTypes(
+    tsss: TermDsAst[]
+): TermT[] {
+    return mapToGeneric(tsss, (tk) => make.identifier(make.simple_type('unknown'), tk.value));
+}
 
 // const unifyTypeList = (types: Type[]): Type => {
 //     if (types.length === 0) {

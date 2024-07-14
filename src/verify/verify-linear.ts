@@ -2,7 +2,7 @@ import { gatherVarInstanceInfo, mapPredCalls } from "src/lens/into-vars";
 import type { IdentifierGeneric, TermT } from "src/types/DsAstTyped";
 import type { Type } from "src/types/EzType";
 import { make } from "src/utils/make_better_typed";
-import { builtinList } from "src/utils/make_desugared_ast";
+import { builtinList } from "src/utils/builtinList";
 
 
 export function verifyLinear(tt: TermT[]): boolean {

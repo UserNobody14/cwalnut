@@ -1,0 +1,41 @@
+// repeat = (items, item) =>
+//     either:
+//         items = []
+//         all:
+//             items = item + remainder
+//             repeat(remainder, item)
+//     
+// 
+// module = statements
+// repeat(statements, statement)
+// statement = statement_binary_operator | unification | predicate | block_statement
+// 
+// statement_binary_operator
+// 
+// unification_operator = "=" | "==" | "!=" | "<<" | ">>"
+// unification = expression + unification_operator + expression
+// predicate = expression + "(" + arglist + ")"
+// 
+// block_statement = 
+
+gaction = (grammarout, newitem) =>
+    match grammarout.grammarType:
+        case "module":
+            map(grammarout.children, gaction, allterms)
+            join(allterms, ",", allterms_with_commas)
+            newitem = "all(" + allterms_with_commas + ")"
+        case "either_statement":
+            map(grammarout.children, gaction, allterms)
+            join(allterms, ",", allterms_with_commas)
+            newitem = "either(" + allterms_with_commas + ")"
+        case "all_statement":
+            map(grammarout.children, gaction, allterms)
+            join(allterms, ",", allterms_with_commas)
+            newitem = "all(" + allterms_with_commas + ")"
+        case "unification":
+            lhs = grammarout.children[0]
+            rhs = grammarout.children[2]
+            op = grammarout.children[1]
+            either:
+                
+        

@@ -11,7 +11,7 @@ import {
     LogicCons,
 } from "src/WorldGoal";
 import { eq } from "src/eq";
-import { Builtin } from "src/utils/make_desugared_ast";
+import { Builtin } from "src/utils/builtinList";
 import fs from "fs";
 import { debugHolder, warnHolder } from "src/warnHolder";
 

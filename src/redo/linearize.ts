@@ -12,13 +12,13 @@ import {
 	type ExpressionDsAst,
 } from "src/types/DesugaredAst";
 import {
-	builtinList,
 	make_conjunction,
 	make_identifier,
 	make_unification,
 	unify,
 	unify_term,
 } from "src/utils/make_desugared_ast";
+import { builtinList } from "src/utils/builtinList";
 import { to_unify } from "src/utils/to_conjunction";
 import { debugHolder } from "src/warnHolder";
 

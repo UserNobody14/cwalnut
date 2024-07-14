@@ -5,13 +5,15 @@
 import { Set as ImmSet } from "immutable";
 import type { TermDsAst } from "src/types/DesugaredAst";
 import {
-    Builtin,
-	builtinList,
-	conjunction1,
+    conjunction1,
 	disjunction1,
 	make_conjunction,
 	make_identifier,
 } from "src/utils/make_desugared_ast";
+import {
+	Builtin,
+	builtinList
+} from "src/utils/builtinList";
 // find out the *greatest* common term for the variables
 interface ResponseItem {
 	// All variables used in a term or set of terms

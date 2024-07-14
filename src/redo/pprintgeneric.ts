@@ -105,7 +105,9 @@ export function pprintType(ast: Type): string {
 export function pprintTypeMeta(ctx: CtxType, meta: Type): string {
     return ctx.withtype === "withtype" ? `: ${pprintType(meta)}` : "";
 }
-
 export function pprintTermT(terms: TermT | TermT[]): string {
-    return pprintGeneric(terms, pprintTypeMeta);
+    return pprintTermTFlex(terms, 'withtype');
+}
+export function pprintTermTFlex(terms: TermT | TermT[], displayTypes: 'withtype' | 'withouttype'): string {
+    return pprintGeneric(terms, displayTypes === 'withtype' ? pprintTypeMeta : () => "");
 }

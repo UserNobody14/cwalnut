@@ -1,6 +1,6 @@
 import type { Type } from "src/types/EzType";
 import { make } from "src/utils/make_better_typed";
-import type { Builtin } from "src/utils/make_desugared_ast";
+import type { Builtin } from "src/utils/builtinList";
 
 // type Tnv = ImmMap<string, Type>[]
 // const typeOf = (ss: VarLogic | ExpressionGeneric<'unknown'>, tt: VarLogic): Goal => {
@@ -246,4 +246,6 @@ export const builtinTypes: Record<Builtin, Type> = {
         ]
     ), // Temporarily
     internal_import: make.simple_type('never'), // Temporarily
+    internal_append: make.simple_type('never'), // Temporarily
+    string_to_list: make.simple_type('never'), // Temporarily
 };

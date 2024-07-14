@@ -1,127 +1,6 @@
 import { Map as ImmMap } from 'immutable';
 
 
-// type Thunk<T> = () => T;
-// type Susp = ['susp', unknown, Thunk<Susp>];
-
-// const varThunk = (): Susp => {
-//   const s: Susp = ['susp', [], () => s];
-//   return s;
-// };
-
-// type UnificationPackage = [Substitution, Constraint[]];
-// type Substitution = any; // Define the actual type of Substitution
-// type Constraint = any; // Define the actual type of Constraint
-// type FailureContinuation = (val: boolean) => void;
-
-// // const unify = (u: any, v: any, p: UnificationPackage): UnificationPackage => {
-// // //   return callCC((fk: FailureContinuation) => {
-
-// //     const [sigma, _delta] = p;
-// //     const newEquation = applySubst(sigma, [u, v]);
-// //     const newEquations = [newEquation, ...sigma];
-// //     const [newsigma, δ] = applySigmaRules(newEquations, fk);
-// //     const updatedδ = applySubst(newsigma, deltaUnion(_delta, δ));
-// //     const updated_delta = applyDeltaRules(updatedδ, fk);
-// //     return [newsigma, updated_delta];
-// // //   });
-// // };
-
-// type Eqtns = [Susp, Susp];
-// type Smc = Substitution;
-
-// const unify = (eqns: Eqtns, sigma: Smc, nabla: Nbla, fk: Continuation) => {
-//     const newEquation = applySubst(sigma, eqns);
-//     const newEquations = [newEquation, ...sigma];
-//     const [newsigma, delta] = applySigmaRules(newEquations, fk);
-//     const updatedDelta = applySubst(newsigma, deltaUnion(nabla, delta));
-//     const updatedDelta2 = applyDeltaRules(updatedDelta, fk);
-//     return [newsigma, updatedDelta2];
-// }
-
-// const applySigmaRules = (equations: Substitution[], fk: FailureContinuation): [Substitution, Constraint] => {
-//   if (equations.length === 0) {
-//     return [emptySigma, emptyDelta];
-//   } else {
-//     const [firstEquation, ...restEquations] = equations;
-//     const [newEquations, sigma, δ] = oneStep(sigmaRules, [firstEquation, ...restEquations], fk);
-//     const [composedsigma, composedδ] = applySigmaRules(newEquations, fk);
-//     return [composeSubst(sigma, composedsigma), deltaUnion(composedδ, δ)];
-//   }
-// };
-
-// const applyDeltaRules = (delta: Constraint[], fk: FailureContinuation): Constraint[] => {
-//   if (delta.length === 0) {
-//     return emptyDelta;
-//   } else {
-//     const [newDelta, _delta] = oneStep(deltaRules, delta, fk);
-//     return deltaUnion(_delta, applyDeltaRules(newDelta, fk));
-//   }
-// };
-
-// const oneStep = (rules: (c: Constraint, rest: Constraint[]) => boolean, constraints: Constraint[], fk: FailureContinuation): [Constraint[], Substitution, Constraint] => {
-//   const loop = (tried: Constraint[], untried: Constraint[]): [Constraint[], Substitution, Constraint] => {
-//     if (untried.length === 0) {
-//       fk(false);
-//       return [[], emptySigma, emptyDelta];
-//     } else {
-//       const [constraint, ...restConstraints] = untried;
-//       if (rules(constraint, [...tried, ...restConstraints])) {
-//         return [[], emptySigma, emptyDelta]; // Assuming this modifies in place or similar
-//       } else {
-//         return loop([constraint, ...tried], restConstraints);
-//       }
-//     }
-//   };
-//   return loop([], constraints);
-// };
-
-// // Helper functions
-// const callCC = <T>(f: (fk: FailureContinuation) => T): T => {
-//     return f((val: boolean) => {
-//         if (val) {
-//         return;
-//         }
-//     });
-// };
-
-// const applySubst = (subst: Substitution, term: any): any => {
-//   // Placeholder for actual implementation
-//   return term;
-// };
-
-// const deltaUnion = (a: Constraint[], b: Constraint[]): Constraint[] => {
-//   // Placeholder for actual implementation
-//   return [...a, ...b];
-// };
-
-// const composeSubst = (a: Substitution, b: Substitution): Substitution => {
-//   // Placeholder for actual implementation
-//   return a;
-// };
-
-// const emptySigma: Substitution = [];
-// const emptyDelta: Constraint[] = [];
-// const emptyConjunction: Constraint[] = [];
-
-// // Placeholder rules functions
-// const sigmaRules = (c: Constraint, rest: Constraint[]): boolean => {
-//   // Placeholder for actual implementation
-//   return false;
-// };
-
-// const deltaRules = (c: Constraint, rest: Constraint[]): boolean => {
-//   // Placeholder for actual implementation
-//   return false;
-// };
-
-// // Usage
-// const [u, v] = [varThunk(), varThunk()];
-// const pkg: UnificationPackage = [emptySigma, emptyConjunction];
-// const result = unify(u, v, pkg);
-// console.log(result);
-
-
 type Name = {
     type: 'name';
     symb: string;
@@ -136,17 +15,17 @@ const isConstant = (x: null | string | number | boolean) => {
     return typeof x === 'string' || typeof x === 'number' || typeof x === 'boolean' || x === null;
 }
 
-type Literal = null | string | number | boolean;
+export type Literal = null | string | number | boolean;
 
-type Tie = {
+export type Tie = {
     type: 'tie';
     name: Name;
     term: Term;
 };
 
-type Term = LVar | Literal | Tie | Name | [Term, Term];
+export type Term = LVar | Literal | Tie | Name | [Term, Term];
 
-type Scope = {
+export type Scope = {
     type: 'scope';
     nameToLevel: ImmMap<string, number>;
     levelToName: ImmMap<number, Name>;
@@ -200,6 +79,7 @@ function initScope(): Scope {
 }
 
 
+// biome-ignore lint/suspicious/noExplicitAny: <explanation>
 function constant(x: any): boolean {
     return typeof x === "symbol" || typeof x === "boolean" || typeof x === "number" || typeof x === "string" || x === null;
 }
@@ -250,7 +130,8 @@ function makeName(s: string, uniq = false): Name {
     return { type: 'name', symb: s };
 };
 
-function makeLvar (s?: string): LVar {
+function makeLvar (s1?: string): LVar {
+  let s = s1;
     if (!s) s = `_${Math.random().toString(36).substring(7)}`;
     return { type: 'lvar', symb: s };
 }
@@ -266,14 +147,17 @@ function sameName(phi1: Scope, n1: Name, phi2: Scope, n2: Name): boolean {
     return l1 !== false && l2 !== false && l1 === l2;
 }
 
+// biome-ignore lint/suspicious/noExplicitAny: <explanation>
 function isName(t: any): t is Name {
     return typeof t === 'object' && 'type' in t && t.type === 'name';
 }
 
+// biome-ignore lint/suspicious/noExplicitAny: <explanation>
 function isTie(t: any): t is Tie {
     return typeof t === 'object' && 'type' in t && t.type === 'tie';
 }
 
+// biome-ignore lint/suspicious/noExplicitAny: <explanation>
 function isLVar(t: any): t is LVar {
     return typeof t === 'object' && 'type' in t && t.type === 'lvar';
 }
@@ -337,11 +221,11 @@ function conj2(g1: Goal, g2: Goal): Goal {
 
 // type Goal = (state: State) => State[];
 
-function availableo(n: Term, t: Term): Goal {
+function availableo(n1: Term, t1: Term): Goal {
     return (state): Streamof<State> => {
         const { sigma, chi, fenv, fenv2, inc } = state;
-        n = walk(sigma, n);
-        t = walk(sigma, t);
+        const n = walk(sigma, n1);
+        const t = walk(sigma, t1);
         if (isName(n)) {
             const r = freeIn(n, t, initScope(), fenv);
             if (!r) return [{ sigma, chi, fenv, fenv2, inc}, null];
@@ -372,8 +256,8 @@ function extFenv(fenv: FEnv, t: LVar, n: Name, phi: Scope): FEnv | false {
 
 const availableoAlias = availableo;
 
-function walkStar(sigma: Substitution, t: Term): Term {
-    t = walk(sigma, t);
+function walkStar(sigma: Substitution, t1: Term): Term {
+    const t = walk(sigma, t1);
     if (Array.isArray(t)) {
       return [walkStar(sigma, t[0]), walkStar(sigma, t[1])];
     } else if (isTie(t)) {
@@ -385,8 +269,8 @@ function walkStar(sigma: Substitution, t: Term): Term {
     return t;
   }
   
-  function reifyS(sigma: Substitution, t: Term): Substitution {
-    t = walk(sigma, t);
+  function reifyS(sigma: Substitution, t1: Term): Substitution {
+    const t = walk(sigma, t1);
     if (isLVar(t)) {
       const n = sigma.size;
       const rn = makeLvar(`_${n}`);
@@ -469,7 +353,7 @@ function walkStar(sigma: Substitution, t: Term): Term {
     return runGoal(i, g).map((s) => vs.map((v) => walkStar(s.sigma, v)));
   }
 
-  function run(i: number, vs: string[], g: Goal): {[key: string]: string}[] {
+  export function run(i: number, vs: string[], g: Goal): {[key: string]: string}[] {
     return projectRun(i, vs.map(makeLvar), g).map((row) => {
         const obj: {[key: string]: string} = {};
         vs.forEach((v, i) => {
@@ -501,15 +385,15 @@ type UnifOut = [Substitution, Partition, LVar[]];
   
 function unif(
     phi1: Scope,
-    t1: Term,
+    t1p: Term,
     phi2: Scope,
-    t2: Term,
+    t2p: Term,
     sigma: Substitution,
     chi: Partition,
     xs: LVar[]
   ): UnifOut | false {
-    t1 = walk(sigma, t1);
-    t2 = walk(sigma, t2);
+    const t1 = walk(sigma, t1p);
+    const t2 = walk(sigma, t2p);
   
     if (emptyScope(phi1)) {
       // First-order case
@@ -749,13 +633,14 @@ function unif(
     return validateFenv(rest, sigma, fenv);
   }
   
-  function validateFenvEach(t: Term | undefined, prs: [Name, Scope][], fenv: FEnv): FEnv | false {
+  function validateFenvEach(t: Term | undefined, prs: [Name, Scope][], fenv1: FEnv): FEnv | false {
     if (!t) {
         console.warn('validateFenvEach: t is undefined');
         return false;
     }
+    let fenv = fenv1;
     for (const [n, phi] of prs) {
-      const r = freeIn(n, t, phi, fenv);
+      const r = freeIn(n, t, phi, fenv1);
       if (r) {
         if (r === true) return false;
         fenv = r;
@@ -783,7 +668,8 @@ function unif(
     return validateFenv2(rest, sigma, fenv, fenv2);
   }
   
-  function validateFenv2Each(n: Name, ts: Term[], fenv: FEnv): FEnv | false {
+  function validateFenv2Each(n: Name, ts: Term[], fenv1: FEnv): FEnv | false {
+    let fenv = fenv1;
     for (const t of ts) {
       const r = freeIn(n, t, initScope(), fenv);
       if (r) {
@@ -828,30 +714,30 @@ function unif(
     return JSON.stringify(t);
   }
 
-  const conj = (...g: Goal[]): Goal => {
+  export const conj = (...g: Goal[]): Goal => {
     if (g.length === 0) return fail;
     if (g.length === 1) return g[0];
     return g.reduce((acc, goal) => conj2(acc, goal));
   }
 
-  const disj = (...g: Goal[]): Goal => {
+  export const disj = (...g: Goal[]): Goal => {
     if (g.length === 0) return fail;
     if (g.length === 1) return g[0];
     return g.reduce((acc, goal) => disj2(acc, goal));
   };
 
 
-  const makeTie = (n: Name, t: Term): Term => {
+  export const makeTie = (n: Name, t: Term): Term => {
     return { type: "tie", name: n, term: t };
   };
 
   //////
   // Verify
 
-  const qvar = (t: Term): [Term, Term] => {
+  export const qvar = (t: Term): [Term, Term] => {
     return ["var", t];
   }
-  const qapp = (rator: Term, rand: Term): [Term, [Term, Term]] => {
+  export const qapp = (rator: Term, rand: Term): [Term, [Term, Term]] => {
     return ["app", [rator, rand]];
   }
 

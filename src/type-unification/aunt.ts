@@ -142,10 +142,12 @@ function unifyVar(v: TypeVariable, t: Type, subst: ImmMap<string, Type>): ImmMap
 export function occursCheck(v: TypeVariable, t: Type, subst: ImmMap<string, Type>): boolean {
     if (t.type === 'variable') {
         return v.name === t.name || (subst.has(t.name) && occursCheck(v, subst.get(t.name) as Type, subst));
+    }  if (t.type === 'union') {
+        return t.types.some((g) => occursCheck(v, g, subst));
+    } if (t.type === 'complex' && t.name !== 'predicate') {
+        return t.generics.some((g) => occursCheck(v, g, subst));
     } if (is_predicate(t)) {
         return t.generics.some((g) => occursCheck(v, g, subst));
-    } if (t.type === 'union') {
-        return t.types.some((g) => occursCheck(v, g, subst));
     }
     return false;
 }
