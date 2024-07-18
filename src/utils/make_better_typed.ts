@@ -174,6 +174,16 @@ export function disjunction1<T>(
 	return make.disjunction(flattenDisjunctions(terms));
 }
 
+// Use Proxy to generate identifiers super easily
+
+export const ezlvar: Record<string, <T>(t: T) => IdentifierGeneric<T>> = new Proxy(
+	{},
+	{
+		get: (_, prop) => <T>(t: T) => identifier_dat(t, prop.toString()),
+	},
+);
+
+
 export const make = {
 	conjunction: conjunction_dat,
 	disjunction: disjunction_dat,
@@ -182,6 +192,7 @@ export const make = {
 	predicate_call: predicate_call_dat,
 	predicate_definition: predicate_definition_dat,
 	identifier: identifier_dat,
+	lvar: ezlvar,
 	literal: literal_dat,
     // Types
     simple_type: simple_type_dat,

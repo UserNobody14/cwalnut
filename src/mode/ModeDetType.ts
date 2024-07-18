@@ -53,4 +53,22 @@ export const commonModes = {
         from: 'ground',
         to: 'ground',
     },
-};
+    pass: {
+        from: 'free',
+        to: 'free',
+    },
+};function compareModes(mode1: Mode, mode2: Mode) {
+    return mode1.to === mode2.to && mode1.from === mode2.from;
+}
+export function compareModeDetTypes(mode1: ModeDetType, mode2: ModeDetType) {
+    if (mode1.det !== mode2.det) {
+        return false;
+    }
+    for (const mode of mode1.varModes) {
+        if (!mode2.varModes.some((m) => compareModes(m, mode))) {
+            return false;
+        }
+    }
+    return true;
+}
+

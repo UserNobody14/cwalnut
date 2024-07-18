@@ -142,11 +142,11 @@ export const defaultModes = ImmMap<string, ModeDetType[]>({
             commonModes.in,
             commonModes.in
         ),
-        makeDet.semidet(
+        makeDet.det(
             commonModes.in,
             commonModes.out
         ),
-        makeDet.semidet(
+        makeDet.det(
             commonModes.out,
             commonModes.in
         )

@@ -50,25 +50,6 @@ function* mergeGeneral(queue: Array<Iterator<State>>): Iterable<State> {
     }
 }
 
-// function* mergeGeneral2(queue: Array<Iterator<State>>): Iterable<State> {
-//     while (queue.length > 0) {
-//         const iterator = queue.shift();
-//         if (iterator) {
-//             const result = iterator.next();
-//             if (!result.done) {
-//                 if (!result.value) throw new Error("No value????");
-//                 if (result.value.fail) {
-//                     // yield result.value;
-//                     // queue.push(iterator); // Put the iterator back in the queue for further processing
-//                     continue;
-//                 }
-//                 yield result.value;
-//                 queue.push(iterator); // Put the iterator back in the queue for further processing
-//             }
-//         }
-//     }
-// }
-
 function* mapStreams(goal: (s: State) => Iterable<State>, stream: Iterable<State>): MatureStream {
     // Breadth first merger & mapping of the streams
     const queue: Array<Iterator<State>> = [];
@@ -376,33 +357,6 @@ export class LPredicate extends LTerm {
     }
 }
 
-// export class LNonfiniteMap extends LTerm {
-//     type: 'nonfinitemap' = 'nonfinitemap';
-//     public leftRank = 7;
-//     constructor(public map: ImmMap<string, LTerm>) {
-//         super();
-//     }
-//     equiv(v: LNonfiniteMap): boolean {
-//         return this.map.equals(v.map);
-//     }
-//     public doesOccur(x: string, find: (z: LTerm) => LTerm): boolean {
-//         return this.map.some((v) => v.doesOccur(x, find));
-//     }
-//     toString(): string {
-//         return `{${this.map.map((v, k) => `${k}: ${v.toString()}`).join(', ')}}`;
-//     }
-//     public nonEquivalentUnite(s: Subst, v: LTerm): Subst | null {
-//         if (!(v instanceof LNonfiniteMap)) return null;
-//         if (!this.map.equals(v.map)) return null;
-//         return s;
-//     }
-//     public cleanOutput(): CleanOutput {
-//         return {
-//             map: this.map.map((v) => v.cleanOutput()).toObject()
-//         };
-//     }
-// }
-
 export class LConstraint<T extends LTerm, Z extends LTerm> extends LTerm {
     // Wraps a term in a constraint, when the term is reified/unified, the constraint is applied
     type = 'constraint' as const;
@@ -462,7 +416,6 @@ function assv(pairs: ImmList<LPair>, u: LLVar): LPair | false {
             // not same second
             !ppr.second.selfEquiv(u)
         ) return ppr;
-        // if (u instanceof LLVar && u.name === v.name) return [v, val];
     }
     return false;
 }
@@ -622,164 +575,8 @@ export class State extends ImmRecord(stateDefaults) {
         return new State({fail: true, subst: new Subst({pairs: ImmList()}), number: 0, c: new ConstraintStore(ImmList()), i: new InfoStore(ImmMap())});
     }
 }
-// export abstract class LStream {
-//     public abstract type: string;
-//     public abstract getStream(): LStream | null;
-//     public abstract getState(): State | null;
-//     public abstract pull(sn: number | null): Iterable<State>;
-// }
-
-// export abstract class LStream2 {
-//     public abstract type: string;
-//     public abstract thunk(
-//         s: State
-//     ): Iterable<State>;
-// }
-
-// export class MatureStream extends LStream {
-//     type = 'mature';
-//     constructor(public state: State, public stream: LStream) {
-//         super();
-//     }
-//     override getStream() {
-//         return this.stream;
-//     }
-//     *pull(sn: number | null): Iterable<State> {
-//         if (sn !== null && sn <= 0) return;
-//         yield this.state;
-//         const thisStream = this.getStream();
-//         yield* thisStream.pull(sn ? sn - 1 : null);
-//     }
-//     override getState() {
-//         return this.state;
-//     }
-// }
-
-// export class ImmatureStream extends LStream {
-//     type = 'immature';
-//     constructor(public thunk: () => LStream) {
-//         super();
-//     }
-//     override getStream() {
-//         return this.thunk();
-//     }
-//     *pull(sn: number | null): Iterable<State> {
-//         if (sn !== null && sn <= 0) return;
-//         yield* this.thunk().pull(sn ? sn - 1 : null);
-//     }
-//     override getState() {
-//         return null;
-//     }
-// }
-
-// // export class DisjStream2 extends LStream2 {
-// //     type = 'immature';
-// //     constructor(public goals: ((s: State) => LStream2)[]) {
-// //         super();
-// //     }
-
-// //     *thunk(st: State): Iterable<State> {
-// //         for (const goal of this.goals) {
-// //             yield goal(st).thunk(st);
-// //         }
-// //     }
-// // }
-
-// export class DisjunctionStream extends LStream {
-//     type = 'disjunction';
-//     constructor(public streams: LStream[]) {
-//         super();
-//     }
-//     override getStream() {
-//         return this;
-//     }
-//     *pull(sn: number | null): Iterable<State> {
-//         yield* mergeGeneral(this.streams.map((stream) => stream.pull(sn)[Symbol.iterator]()));
-//         // if (sn !== null && sn <= 0) return;
-//         // // Interleave the streams, pulling one state from each, one at a time
-//         // const astr = this.streams.map((stream) => stream.pull(sn)[Symbol.iterator]());
-//         // while (true) {
-//         //     let doneAll = true;
-//         //     for (const str of astr) {
-//         //         const {value, done} = str.next();
-//         //         if (!done) {
-//         //             yield value;
-//         //             doneAll = false;
-//         //         }
-//         //     }
-//         //     if (doneAll) break;
-//         // }
-//         // return;
-//     }
-//     override getState() {
-//         return null;
-//     }
-// }
-
-// export class ConjunctionStream extends LStream {
-//     type = 'conjunction';
-//     constructor(public op: Goal, public stream: LStream) {
-//         super();
-//     }
-//     override getStream() {
-//         return this;
-//     }
-//     *pull(sn: number | null): Iterable<State> {
-//         yield* mapStreams((sc) => this.op(sc).pull(null), this.stream.pull(null));
-//         // if (sn !== null && sn <= 0) return;
-//         // const iter = this.stream.pull(sn)[Symbol.iterator]();
-//         // let done = false;
-//         // let counter = sn === null ? 0 : sn;
-//         // const useCounter = sn !== null;
-//         // while (!done) {
-//         //     const {value, done: done1} = iter.next();
-//         //     if (done1) {
-//         //         done = true;
-//         //         break;
-//         //     } else {
-//         //         if (useCounter) {
-//         //             if (counter === 0) {
-//         //                 done = true;
-//         //                 break;
-//         //             } else {
-//         //                 counter--;
-//         //             }
-//         //             yield* this.op(value).pull(counter);
-//         //         } else {
-//         //             yield* this.op(value).pull(null);
-//         //         }
-//         //     }
-//         // }
-//     }
-//     override getState() {
-//         return this.stream.getState();
-//     }
-// }
-
-// export class EmptyStream extends LStream {
-//     type = 'empty';
-//     override getStream() {
-//         return null;
-//     }
-//     override getState() {
-//         return null;
-//     }
-//     *pull(_sn: number | null): Iterable<State> {}
-// }
 
 export type Goal = (sc: State) => Iterable<State>;
-// type LStream = MatureStream | ImmatureStream;
-// type MatureStream = [] | [State, LStream];
-// type MatureStreamE = [] | [State, MatureStreamE];
-// type ImmatureStream = () => LStream;
-
-
-// const notEqualConstraint = <A extends LTerm, B extends LTerm>(a: A, b: B): LConstraint<A, B> => {
-//     return new LConstraint(a, '!=', [b], (s, curr, args) => {
-//         if (curr.selfEquiv(args[0])) return null;
-//         return s;
-//     });
-// }
 
 export const makelvar = (name: string, mp?: ImmMap<string, LLVar>): LLVar => mp?.has?.(name) ? mp.get(name, new LLVar(name)) : new LLVar(name);
 export const makeLvar = makelvar;
@@ -792,23 +589,11 @@ export const makePair = (first: LTerm, second: LTerm): LPair => {
 }
 export const makeList = (list: LTerm[]): LPair | LTerm => {
     if (list.length === 0) return makeEmpty();
-    // if (list.length === 1) return list[0];
     return list.reduceRight((acc, el) => makePair(el, acc), makeEmpty());
-    // return list.reduceRight((acc, el) => makePair(el, acc));
 }
 
 
 export function eq(u: LTerm, v: LTerm): Goal {
-    // return (sc): LStream => {
-    //     const s = sc.subst;
-    //     if (!(s instanceof Subst)) throw new Error("Not a subst");
-    //     const sz = s.unify(s.find(u), s.find(v));
-    //     if (sz) {
-    //         return new MatureStream(sc.increment().setSubst(sz), new EmptyStream());
-    //     } else {
-    //         return new EmptyStream();
-    //     }
-    // }
     return function* (sc: State): Iterable<State> {
         const s = sc.subst;
         if (!(s instanceof Subst)) throw new Error("Not a subst");
@@ -816,13 +601,11 @@ export function eq(u: LTerm, v: LTerm): Goal {
         if (sz) {
             yield sc.increment().setSubst(sz);
         } else {
-            // return fail(sc);
             yield State.toFail();
         }
     }
 }
 
-// const emptyState = new State(new Subst({pairs: ImmList()}), 0, new ConstraintStore(ImmList()), new InfoStore(ImmMap()));
 const emptyState = new State(stateDefaults);
 
 function* takeT(iterable: Iterable<State>, length1: number) {
@@ -869,12 +652,6 @@ export function conj(g1: Goal, g2: Goal): Goal {
     }
 }
 
-// export function disj(g1: Goal, g2: Goal): Goal {
-//     return (sc) => {
-//         return append_1(g1(sc), g2(sc));
-//     }
-// }
-
 function append_1(l1: Iterable<State>, l2: Iterable<State>): Iterable<State> {
     return mergeGeneral([l1[Symbol.iterator](), l2[Symbol.iterator]()]);
 }
@@ -883,18 +660,9 @@ function append_map(gg: Goal, l: Iterable<State>): Iterable<State> {
     return mapStreams(gg, l);
 }
 
-// function append_1(l1: LStream, l2: LStream): LStream {
-//     return new DisjunctionStream([l1, l2]);
-// }
-
-// function append_map(gg: Goal, l: LStream): LStream {
-//     return new ConjunctionStream(gg, l);
-// }
-
 export function all(...g: Goal[]): Goal {
     if (g.length === 0) throw new Error("Cannot do that");
     if (g.length === 1) return g[0];
-    // return g.reduce((acc, gg) => conj(acc, gg));
     return (sc: State) => {
         return g.reduce((acc, gg) => append_map(gg, acc), g[0](sc));        
     }
@@ -903,13 +671,9 @@ export function all(...g: Goal[]): Goal {
 export function either(...g: Goal[]): Goal {
     if (g.length === 0) throw new Error("Cannot do that");
     if (g.length === 1) return g[0];
-    // return g.reduce((acc, gg) => disj(acc, gg));
     return (sc) => {
         return mergeStreams(sc, g);
     }
-    // return (sc) => {
-    //     return g.map((gg) => gg(sc)).reduce((acc, gg) => append_1(acc, gg));
-    // }
 };
 
 export function apply_pred(
@@ -919,39 +683,15 @@ export function apply_pred(
 ): Goal {
     return (sc) => {
         const lpp = sc.subst.find(lp);
-        // console.log("apply_pred", lp.toString(), lpp.toString(), args.map(a => a.toString()));
         if (!(lpp instanceof LPredicate)) throw new Error(`Not a predicate: < ${lp.toString()} >`);
-        // map(ag => ag.reify(sc.subst))
         const arggs = lpp.fn(...args.map((arg) => sc.subst.find(arg)));
-        // const arggs = lpp.fn(...args);
         if (typeof arggs === 'function') {
-            // console.log("apply_pred", lp.toString(), args.map(a => a.toString()));
-            // return new ImmatureStream(() => arggs(sc));
             return arggs(sc);
-            // return arggs(sc);
         } else {
             throw new Error("Not a function??");
         }
-        // console.log("apply_pred", lp.toString(), args.map(a => a.toString()));
-        // return new ImmatureStream(
-        //     () => {
-        //         const lpp = sc.subst.find(lp);
-        //         if (!(lpp instanceof LPredicate)) throw new Error("Not a predicate");
-        //         // map(ag => ag.reify(sc.subst))
-        //         return lpp.fn(...args)(sc);
-        //     }
-        // )
     }
 }
-
-
-
-
-
-
-
-
-
 
 //////////
 ///////////
