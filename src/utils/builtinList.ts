@@ -1,4 +1,3 @@
-
 export const builtinList = [
 	"set_key_of",
 	"unify",
@@ -24,7 +23,10 @@ export const builtinList = [
 	"internal_append",
 	"string_to_list",
 ] as const;
-export const builtinsByRecursiveness: Record<Builtin, number> = {
+export const builtinsByRecursiveness: Record<
+	Builtin,
+	number
+> = {
 	set_key_of: 0,
 	unify: 0,
 	unify_left: 0,

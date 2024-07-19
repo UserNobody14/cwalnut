@@ -2,12 +2,24 @@ import { test, describe, expect } from "@jest/globals";
 
 import { codeToAst } from "src/redo/ast-desugar";
 import { ExpressionDsAst } from "src/types/DesugaredAst";
-import { conjunction1, disjunction1, ezlvar, list, make_literal_ast, make_predicate, mk_cons, mk_internal_append, set_key_of, to_empty, unify } from "src/utils/make_desugared_ast";
-import { pprintDsAst } from "./pprintast";
+import {
+	conjunction1,
+	disjunction1,
+	ezlvar,
+	list,
+	make_literal_ast,
+	make_predicate,
+	mk_cons,
+	mk_internal_append,
+	set_key_of,
+	to_empty,
+	unify,
+} from "src/utils/make_desugared_ast";
+import { pprintDsAst } from "../pprint/pprintast";
 
 describe("ast-desugar", () => {
-    test("codeToAst", () => {
-        const sourceCode = `
+	test("codeToAst", () => {
+		const sourceCode = `
             father = (aaa, bbb) =>
                 either:
                     all:
@@ -18,90 +30,102 @@ describe("ast-desugar", () => {
                         aaa = "bob"
             father("bob", qq)
             `;
-        const res = codeToAst(sourceCode);
-        const expectation1 = [conjunction1({
-            type: "predicate_definition",
-            name: ezlvar.father,
-            args: [
-                ezlvar.aaa,
-                ezlvar.bbb,
-            ],
-            body: conjunction1(
-                disjunction1(
-                    conjunction1(
-                        unify(
-                            ezlvar.aaa,
-                            make_literal_ast("mcbob")
-                        ),
-                        unify(
-                            ezlvar.bbb,
-                            make_literal_ast("bob")
-                        )
-                    ),
-                    conjunction1(
-                        unify(
-                            ezlvar.bbb,
-                            make_literal_ast("bill")
-                        ),
-                        unify(
-                            ezlvar.aaa,
-                            make_literal_ast("bob")
-                        )
-                    )
-                )
-            ),
-        },
-            make_predicate(ezlvar.father, [make_literal_ast("bob"), ezlvar.qq])
-        )];
-        expect(res).toEqual(expectation1);
-    });
+		const res = codeToAst(sourceCode);
+		const expectation1 = [
+			conjunction1(
+				{
+					type: "predicate_definition",
+					name: ezlvar.father,
+					args: [ezlvar.aaa, ezlvar.bbb],
+					body: conjunction1(
+						disjunction1(
+							conjunction1(
+								unify(
+									ezlvar.aaa,
+									make_literal_ast("mcbob"),
+								),
+								unify(ezlvar.bbb, make_literal_ast("bob")),
+							),
+							conjunction1(
+								unify(ezlvar.bbb, make_literal_ast("bill")),
+								unify(ezlvar.aaa, make_literal_ast("bob")),
+							),
+						),
+					),
+				},
+				make_predicate(ezlvar.father, [
+					make_literal_ast("bob"),
+					ezlvar.qq,
+				]),
+			),
+		];
+		expect(res).toEqual(expectation1);
+	});
 
-    test("append", () => {
-        const sourceCode = `
+	test("append", () => {
+		const sourceCode = `
 either:
     qq = [1, ...mid, 6]
     qq = [45]`;
-        const res = codeToAst(sourceCode);
-        const expectation1 = [
-            // conjunction1(
-            disjunction1(
-                conjunction1(
-                    mk_cons(make_literal_ast(1), ezlvar.__fresh_2, ezlvar.__fresh_3),
-                    mk_internal_append(ezlvar.mid, ezlvar.__fresh_1, ezlvar.__fresh_2),
-                    mk_cons(make_literal_ast(6), ezlvar.__fresh_0, ezlvar.__fresh_1),
-                    to_empty(ezlvar.__fresh_0),
-                    unify(ezlvar.qq, ezlvar.__fresh_3),
-                ),
-                conjunction1(
-                    list(ezlvar.qq, make_literal_ast(45)),
-                )
-            )
-            // )
-        ];
-        expect(res).toEqual(expectation1);
-    });
+		const res = codeToAst(sourceCode);
+		const expectation1 = [
+			// conjunction1(
+			disjunction1(
+				conjunction1(
+					mk_cons(
+						make_literal_ast(1),
+						ezlvar.__fresh_2,
+						ezlvar.__fresh_3,
+					),
+					mk_internal_append(
+						ezlvar.mid,
+						ezlvar.__fresh_1,
+						ezlvar.__fresh_2,
+					),
+					mk_cons(
+						make_literal_ast(6),
+						ezlvar.__fresh_0,
+						ezlvar.__fresh_1,
+					),
+					to_empty(ezlvar.__fresh_0),
+					unify(ezlvar.qq, ezlvar.__fresh_3),
+				),
+				conjunction1(list(ezlvar.qq, make_literal_ast(45))),
+			),
+			// )
+		];
+		expect(res).toEqual(expectation1);
+	});
 
-    test("append2", () => {
-        const sourceCode = `
+	test("append2", () => {
+		const sourceCode = `
 qq = [...einput, ...input2]
 `;
-        const res = codeToAst(sourceCode);
-        const expectation1 = [
-            // conjunction1(
-            // mk_internal_append(ezlvar.__fresh_27, ezlvar.__fresh_28, ezlvar.input2),
-            // // mk_internal_append(ezlvar.einput, ezlvar.__fresh_28, ezlvar.__fresh_29),
-            // mk_internal_append(ezlvar.__fresh_28, ezlvar.__fresh_29, ezlvar.einput),
-            mk_internal_append(ezlvar.einput, ezlvar.__fresh_1, ezlvar.__fresh_2),
-            mk_internal_append(ezlvar.input2, ezlvar.__fresh_0, ezlvar.__fresh_1),
-            to_empty(ezlvar.__fresh_0),
-            unify(ezlvar.qq, ezlvar.__fresh_2),
-            // )
-        ];
-        expect(res).toEqual(expectation1);
-    });
+		const res = codeToAst(sourceCode);
+		const expectation1 = [
+			// conjunction1(
+			// mk_internal_append(ezlvar.__fresh_27, ezlvar.__fresh_28, ezlvar.input2),
+			// // mk_internal_append(ezlvar.einput, ezlvar.__fresh_28, ezlvar.__fresh_29),
+			// mk_internal_append(ezlvar.__fresh_28, ezlvar.__fresh_29, ezlvar.einput),
+			mk_internal_append(
+				ezlvar.einput,
+				ezlvar.__fresh_1,
+				ezlvar.__fresh_2,
+			),
+			mk_internal_append(
+				ezlvar.input2,
+				ezlvar.__fresh_0,
+				ezlvar.__fresh_1,
+			),
+			to_empty(ezlvar.__fresh_0),
+			unify(ezlvar.qq, ezlvar.__fresh_2),
+			// )
+		];
+		expect(res).toEqual(expectation1);
+	});
 
-    test("append3", () => {
-        const sourceCode = `
+	test("append3", () => {
+		const sourceCode = `
         einput = [1, 2, 3]
 input2 = [4, 5, 6]
 qq = [...einput, ...input2]
@@ -109,71 +133,111 @@ qq = [...einput, ...input2]
 either:
     qq = [1, ...mid, 6]
     qq = [45]`;
-        const res = codeToAst(sourceCode);
-        const expectation1 = [
-            conjunction1(
-                list(ezlvar.einput, make_literal_ast(1), make_literal_ast(2), make_literal_ast(3)),
-                list(ezlvar.input2, make_literal_ast(4), make_literal_ast(5), make_literal_ast(6)),
-                mk_internal_append(ezlvar.einput, ezlvar.__fresh_1, ezlvar.__fresh_2),
-                mk_internal_append(ezlvar.input2, ezlvar.__fresh_0, ezlvar.__fresh_1),
-                to_empty(ezlvar.__fresh_0),
-                unify(ezlvar.qq, ezlvar.__fresh_2),            
-                disjunction1(
-                    conjunction1(
-                        mk_cons(make_literal_ast(1), ezlvar.__fresh_5, ezlvar.__fresh_6),
-                        mk_internal_append(ezlvar.mid, ezlvar.__fresh_4, ezlvar.__fresh_5),
-                        mk_cons(make_literal_ast(6), ezlvar.__fresh_3, ezlvar.__fresh_4),
-                        to_empty(ezlvar.__fresh_3),
-                        unify(ezlvar.qq, ezlvar.__fresh_6),
-                    ),
-                    conjunction1(
-                        list(ezlvar.qq, make_literal_ast(45)),
-                    )
-                ),
-            )
-        ];
-        expect(pprintDsAst(res)).toEqual(pprintDsAst(expectation1));
-        expect(res).toEqual(expectation1);
-    });
+		const res = codeToAst(sourceCode);
+		const expectation1 = [
+			conjunction1(
+				list(
+					ezlvar.einput,
+					make_literal_ast(1),
+					make_literal_ast(2),
+					make_literal_ast(3),
+				),
+				list(
+					ezlvar.input2,
+					make_literal_ast(4),
+					make_literal_ast(5),
+					make_literal_ast(6),
+				),
+				mk_internal_append(
+					ezlvar.einput,
+					ezlvar.__fresh_1,
+					ezlvar.__fresh_2,
+				),
+				mk_internal_append(
+					ezlvar.input2,
+					ezlvar.__fresh_0,
+					ezlvar.__fresh_1,
+				),
+				to_empty(ezlvar.__fresh_0),
+				unify(ezlvar.qq, ezlvar.__fresh_2),
+				disjunction1(
+					conjunction1(
+						mk_cons(
+							make_literal_ast(1),
+							ezlvar.__fresh_5,
+							ezlvar.__fresh_6,
+						),
+						mk_internal_append(
+							ezlvar.mid,
+							ezlvar.__fresh_4,
+							ezlvar.__fresh_5,
+						),
+						mk_cons(
+							make_literal_ast(6),
+							ezlvar.__fresh_3,
+							ezlvar.__fresh_4,
+						),
+						to_empty(ezlvar.__fresh_3),
+						unify(ezlvar.qq, ezlvar.__fresh_6),
+					),
+					conjunction1(
+						list(ezlvar.qq, make_literal_ast(45)),
+					),
+				),
+			),
+		];
+		expect(pprintDsAst(res)).toEqual(
+			pprintDsAst(expectation1),
+		);
+		expect(res).toEqual(expectation1);
+	});
 
-    test("binary oneline", () => {
-        const sourceCode = `all:
+	test("binary oneline", () => {
+		const sourceCode = `all:
     vv = 1 or zz = 2
     ww = w.e`;
-        const res = codeToAst(sourceCode);
-        const expectation1 = [
-            conjunction1(
-                disjunction1(
-                    unify(ezlvar.vv, make_literal_ast(1)),
-                    unify(ezlvar.zz, make_literal_ast(2)),
-                ),
-                set_key_of(ezlvar.w, make_literal_ast("e"), ezlvar.ww),
-            )
-        ];
-        expect(res).toEqual(expectation1);
-    });
+		const res = codeToAst(sourceCode);
+		const expectation1 = [
+			conjunction1(
+				disjunction1(
+					unify(ezlvar.vv, make_literal_ast(1)),
+					unify(ezlvar.zz, make_literal_ast(2)),
+				),
+				set_key_of(
+					ezlvar.w,
+					make_literal_ast("e"),
+					ezlvar.ww,
+				),
+			),
+		];
+		expect(res).toEqual(expectation1);
+	});
 
-    test("binary twoline", () => {
-        const sourceCode = `all:
+	test("binary twoline", () => {
+		const sourceCode = `all:
     vv = 1 or zz = 2 or ww = 3
 
     ww = w.e`;
-        const res = codeToAst(sourceCode);
-        const expectation1 = [
-            conjunction1(
-                disjunction1(
-                    unify(ezlvar.vv, make_literal_ast(1)),
-                    unify(ezlvar.zz, make_literal_ast(2)),
-                    unify(ezlvar.ww, make_literal_ast(3)),
-                ),
-                set_key_of(ezlvar.w, make_literal_ast("e"), ezlvar.ww),
-            )
-        ];
-        expect(res).toEqual(expectation1);
-    });
+		const res = codeToAst(sourceCode);
+		const expectation1 = [
+			conjunction1(
+				disjunction1(
+					unify(ezlvar.vv, make_literal_ast(1)),
+					unify(ezlvar.zz, make_literal_ast(2)),
+					unify(ezlvar.ww, make_literal_ast(3)),
+				),
+				set_key_of(
+					ezlvar.w,
+					make_literal_ast("e"),
+					ezlvar.ww,
+				),
+			),
+		];
+		expect(res).toEqual(expectation1);
+	});
 
-    test("compiles and runs on stuff", () => {
-        const source4 = `
+	test("compiles and runs on stuff", () => {
+		const source4 = `
 string1_or_num = (zza) =>
 	either:
 		zza = "string1"
@@ -195,7 +259,7 @@ string1_or_num(ssa)
 membero(qq, einput)
 `;
 
-        const source5 = `
+		const source5 = `
 
 einput = [1, 2, 3, 4, 5]
 j = 3
@@ -205,8 +269,7 @@ j = ooo
 first(qq, einput)
 `;
 
-
-        const source6 = `
+		const source6 = `
 
 
 cwal_file << file "./target/cwal"
@@ -293,7 +356,7 @@ type_map_for_file = (filestring, tmap) =>
 
 `;
 
-        const source65 = `
+		const source65 = `
 
 
 type_disjunction = (disj_terms, type_map) =>
@@ -313,10 +376,10 @@ type_map_for_file = (filestring, tmap) =>
 
 
 `;
-        const source_file = `
+		const source_file = `
 cwal_file << file "./target/cwal"
-`
-        const source7 = `
+`;
+		const source7 = `
 
 grammar_v1 = (str, ast) =>
     either:
@@ -334,7 +397,7 @@ grammar_v1 = (str, ast) =>
             fail()
 `;
 
-        const source8 = `
+		const source8 = `
 fresh_pred_type = (astv, type_map, pred_type) =>
     astv = {
         "type": "predicate_call",
@@ -379,11 +442,11 @@ type_ast = (ast, type_map) =>
             type_disjunction(ast.terms, type_map)
 `;
 
-        expect(() => codeToAst(source4)).not.toThrow();
-        expect(() => codeToAst(source5)).not.toThrow();
-        expect(() => codeToAst(source6)).not.toThrow();
-        expect(() => codeToAst(source65)).not.toThrow();
-        expect(() => codeToAst(source_file)).not.toThrow();
-        expect(() => codeToAst(source7)).not.toThrow();
-    });
+		expect(() => codeToAst(source4)).not.toThrow();
+		expect(() => codeToAst(source5)).not.toThrow();
+		expect(() => codeToAst(source6)).not.toThrow();
+		expect(() => codeToAst(source65)).not.toThrow();
+		expect(() => codeToAst(source_file)).not.toThrow();
+		expect(() => codeToAst(source7)).not.toThrow();
+	});
 });

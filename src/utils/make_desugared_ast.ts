@@ -13,14 +13,25 @@ import type {
 	PredicateDefinitionDsAst,
 	TermDsAst,
 } from "src/types/DesugaredAst";
-import { builtinList, type Builtin, builtinsByRecursiveness } from "./builtinList";
+import {
+	builtinList,
+	type Builtin,
+	builtinsByRecursiveness,
+} from "./builtinList";
 
-export type FullExpression =  [ExpressionDsAst, TermDsAst[], number];
-export type Expression = [ExpressionDsAst, TermDsAst[]] | FullExpression;
+export type FullExpression = [
+	ExpressionDsAst,
+	TermDsAst[],
+	number,
+];
+export type Expression =
+	| [ExpressionDsAst, TermDsAst[]]
+	| FullExpression;
 export type FlexExpression = ExpressionDsAst | Expression;
 
 export const deflex = (
-	expr: FlexExpression, counter = 0,
+	expr: FlexExpression,
+	counter = 0,
 ): FullExpression => {
 	if (Array.isArray(expr)) {
 		if (expr.length === 3) {
@@ -30,20 +41,22 @@ export const deflex = (
 	} else {
 		return [expr, [], counter];
 	}
-}
+};
 
 export const counterFn = <A, B>(
-	fn: (x: [A, B, number | undefined] | [A, B]) => [A, B, number | undefined] | [A, B],
+	fn: (
+		x: [A, B, number | undefined] | [A, B],
+	) => [A, B, number | undefined] | [A, B],
 ) => {
-	return (arr:[A, B, number | undefined] | [A, B]): [A, B, number] =>  {
+	return (
+		arr: [A, B, number | undefined] | [A, B],
+	): [A, B, number] => {
 		if (arr.length < 3 || arr[2] === undefined) {
 			throw new Error("Counter is undefined");
 		}
 		return arr as [A, B, number];
-	}
+	};
 };
-
-
 
 export const make_conjunction = (
 	...children: TermDsAst[]
@@ -111,13 +124,13 @@ export const make_identifier = (
 
 // Use Proxy to generate identifiers super easily
 
-export const ezlvar: Record<string, IdentifierDsAst> = new Proxy(
-	{},
-	{
-		get: (_, prop) => make_identifier(prop.toString()),
-	},
-);
-
+export const ezlvar: Record<string, IdentifierDsAst> =
+	new Proxy(
+		{},
+		{
+			get: (_, prop) => make_identifier(prop.toString()),
+		},
+	);
 
 export const [
 	set_key_of,
@@ -154,20 +167,20 @@ export const make_literal_ast = (
 ): LiteralDsAst =>
 	typeof value === "string"
 		? {
-			type: "literal",
-			kind: "string",
-			value,
-		}
+				type: "literal",
+				kind: "string",
+				value,
+			}
 		: {
-			type: "literal",
-			kind:
-				typeof value === "number"
-					? "number"
-					: typeof value === "boolean"
-						? "boolean"
-						: "null",
-			value: value.toString(),
-		};
+				type: "literal",
+				kind:
+					typeof value === "number"
+						? "number"
+						: typeof value === "boolean"
+							? "boolean"
+							: "null",
+				value: value.toString(),
+			};
 
 export const make_list_ast = (
 	obj: IdentifierDsAst,
@@ -195,10 +208,14 @@ export const make_internal_append = (
 			...leftTerms,
 			...rightTerms,
 			...outTerms,
-			make_predicate(make_identifier("internal_append"), [left, right, out]),
+			make_predicate(make_identifier("internal_append"), [
+				left,
+				right,
+				out,
+			]),
 		],
 	];
-}
+};
 
 export const make_pred_expr = (
 	pred: Builtin,
@@ -206,15 +223,20 @@ export const make_pred_expr = (
 	out_index: number,
 	args2: FlexExpression[],
 ): FullExpression => {
-
 	// splice in the id into the out_index
-	const args = args2.toSpliced(out_index, 0, deflex(out_id));
+	const args = args2.toSpliced(
+		out_index,
+		0,
+		deflex(out_id),
+	);
 
 	const [out, outTerms] = deflex(args[out_index]);
-	const otherTerms = args.map(deflex).flatMap(([e, t], i) => (i === out_index ? [] : t));
+	const otherTerms = args
+		.map(deflex)
+		.flatMap(([e, t], i) => (i === out_index ? [] : t));
 	const passCounter = Math.max(
 		...args.map(deflex).map(
-			([_, __, c]) => c ?? 0
+			([_, __, c]) => c ?? 0,
 			// finalTerm => Array.isArray(finalTerm) && finalTerm.length === 3 ? finalTerm[2] : 0
 		),
 	);
@@ -223,32 +245,54 @@ export const make_pred_expr = (
 		[
 			...otherTerms,
 			...outTerms,
-			make_predicate(make_identifier(pred), args.map(deflex).map(([e, t]) => e)),
+			make_predicate(
+				make_identifier(pred),
+				args.map(deflex).map(([e, t]) => e),
+			),
 		],
-		passCounter
+		passCounter,
 	];
-}
+};
 
 export const ezmake = {
 	// The rest of (l) is out_id, the remainder of the list
-	rest: (out_id: IdentifierDsAst, l: Expression) => make_pred_expr("rest", out_id, 0, [l]),
-	restRev: (out_id: IdentifierDsAst, l: Expression) => make_pred_expr("rest", out_id, 1, [l]),
+	rest: (out_id: IdentifierDsAst, l: Expression) =>
+		make_pred_expr("rest", out_id, 0, [l]),
+	restRev: (out_id: IdentifierDsAst, l: Expression) =>
+		make_pred_expr("rest", out_id, 1, [l]),
 	// The first of (l) is out_id
-	first: (out_id: IdentifierDsAst, l: Expression) => make_pred_expr("first", out_id, 0, [l]),
+	first: (out_id: IdentifierDsAst, l: Expression) =>
+		make_pred_expr("first", out_id, 0, [l]),
 	// Append a and b, result is in l
-	append: (out_id: IdentifierDsAst, a: FlexExpression, b: FlexExpression) => make_pred_expr("internal_append", out_id, 2, [a, b]),
+	append: (
+		out_id: IdentifierDsAst,
+		a: FlexExpression,
+		b: FlexExpression,
+	) => make_pred_expr("internal_append", out_id, 2, [a, b]),
 	// Cons a and b, result is in l
-	cons: (out_id: IdentifierDsAst, a: FlexExpression, b: FlexExpression) => make_pred_expr("cons", out_id, 2, [a, b]),
-	empty: (l: IdentifierDsAst) => make_pred_expr("empty", l, 0, []),
+	cons: (
+		out_id: IdentifierDsAst,
+		a: FlexExpression,
+		b: FlexExpression,
+	) => make_pred_expr("cons", out_id, 2, [a, b]),
+	empty: (l: IdentifierDsAst) =>
+		make_pred_expr("empty", l, 0, []),
 
-	rest2: (out_id: FlexExpression, l: FlexExpression) => make_pred_expr("rest", out_id, 0, [l]),
-	first2: (out_id: FlexExpression, l: FlexExpression) => make_pred_expr("first", out_id, 0, [l]),
-	append2: (out_id: FlexExpression, a: FlexExpression, b: FlexExpression) => make_pred_expr("internal_append", out_id, 2, [a, b]),
-	cons2: (out_id: FlexExpression, a: FlexExpression, b: FlexExpression) => make_pred_expr("cons", out_id, 0, [a, b]),
-}
-
-
-
+	rest2: (out_id: FlexExpression, l: FlexExpression) =>
+		make_pred_expr("rest", out_id, 0, [l]),
+	first2: (out_id: FlexExpression, l: FlexExpression) =>
+		make_pred_expr("first", out_id, 0, [l]),
+	append2: (
+		out_id: FlexExpression,
+		a: FlexExpression,
+		b: FlexExpression,
+	) => make_pred_expr("internal_append", out_id, 2, [a, b]),
+	cons2: (
+		out_id: FlexExpression,
+		a: FlexExpression,
+		b: FlexExpression,
+	) => make_pred_expr("cons", out_id, 0, [a, b]),
+};
 
 export const make_dictionary_ast = (
 	obj: IdentifierDsAst,
@@ -256,10 +300,7 @@ export const make_dictionary_ast = (
 ): Expression => {
 	// convert into a bunch of set_key_of predicate calls
 	const predTerms = entries.flatMap(
-		([
-			[key, keyTerms],
-			[value, valTerms],
-		]): TermDsAst[] => {
+		([[key, keyTerms], [value, valTerms]]): TermDsAst[] => {
 			return [
 				...keyTerms,
 				...valTerms,
@@ -297,23 +338,33 @@ export function unify_term(
 					: unify(l, r);
 }
 
-function scoreRecursion(
-	t: TermDsAst
-): number {
+function scoreRecursion(t: TermDsAst): number {
 	if (t.type === "predicate_call") {
-		return builtinsByRecursiveness?.[t.source.value as Builtin] ?? 0;
+		return (
+			builtinsByRecursiveness?.[
+				t.source.value as Builtin
+			] ?? 0
+		);
 	} else if (t.type === "conjunction") {
-		return t.terms.reduce((acc, term) => acc + scoreRecursion(term), 0);
+		return t.terms.reduce(
+			(acc, term) => acc + scoreRecursion(term),
+			0,
+		);
 	} else if (t.type === "disjunction") {
-		const dv = t.terms.reduce((acc, term) => acc + scoreRecursion(term), 0) / t.terms.length;
-		if (Number.isNaN(dv)) { return 0; }
+		const dv =
+			t.terms.reduce(
+				(acc, term) => acc + scoreRecursion(term),
+				0,
+			) / t.terms.length;
+		if (Number.isNaN(dv)) {
+			return 0;
+		}
 		return dv;
 	} else if (t.type === "fresh") {
 		return scoreRecursion(t.body);
 	} else if (t.type === "with") {
 		return scoreRecursion(t.body);
-	}
-	else {
+	} else {
 		return 0;
 	}
 }
@@ -366,18 +417,23 @@ export const operate = (
 	value: IdentifierDsAst,
 ): PredicateCallDsAst => {
 	const opToPredicateName: Record<string, Builtin> = {
-		'+': 'add',
-		'-': 'subtract',
-		'*': 'multiply',
-		'/': 'divide',
-		'%': 'modulo',
+		"+": "add",
+		"-": "subtract",
+		"*": "multiply",
+		"/": "divide",
+		"%": "modulo",
 	};
 	const predName = opToPredicateName?.[operator];
 	if (!predName) {
-		throw new Error(`Operator ${operator} is not supported`);
+		throw new Error(
+			`Operator ${operator} is not supported`,
+		);
 	}
-	return make_predicate(make_identifier(predName), [left, right, value]);
-
+	return make_predicate(make_identifier(predName), [
+		left,
+		right,
+		value,
+	]);
 };
 
 export const unary_operate = (
@@ -386,13 +442,18 @@ export const unary_operate = (
 	value: IdentifierDsAst,
 ): PredicateCallDsAst => {
 	const opToPredicateName: Record<string, Builtin> = {
-		'-': 'negate',
-		'file': 'internal_file',
-		'import': 'internal_import',
+		"-": "negate",
+		file: "internal_file",
+		import: "internal_import",
 	};
 	const predName = opToPredicateName?.[operator];
 	if (!predName) {
-		throw new Error(`Operator ${operator} is not supported`);
+		throw new Error(
+			`Operator ${operator} is not supported`,
+		);
 	}
-	return make_predicate(make_identifier(predName), [operand, value]);
+	return make_predicate(make_identifier(predName), [
+		operand,
+		value,
+	]);
 };

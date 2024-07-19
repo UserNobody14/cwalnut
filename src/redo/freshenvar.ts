@@ -5,9 +5,17 @@ import type {
 	IdentifierDsAst,
 	TermDsAst,
 } from "src/types/DesugaredAst";
-import { ConjunctionGeneric, ExpressionGeneric, IdentifierGeneric, TermGeneric } from "src/types/DsAstTyped";
+import type {
+	ConjunctionGeneric,
+	ExpressionGeneric,
+	IdentifierGeneric,
+	TermGeneric,
+} from "src/types/AstGeneric";
 import { make } from "src/utils/make_better_typed";
-import { pprintGeneric, pprintTermT } from "./pprintgeneric";
+import {
+	pprintGeneric,
+	pprintTermT,
+} from "src/pprint/pprintgeneric";
 
 export function renameVar(
 	inputName: string,
@@ -88,11 +96,10 @@ function renameQuick(
 	}
 }
 
-
 function renameVarGeneric<T>(
 	inputName: string,
 	outputName: string,
-	term: TermGeneric<T>
+	term: TermGeneric<T>,
 ): TermGeneric<T> {
 	switch (term.type) {
 		case "conjunction":
@@ -147,9 +154,19 @@ function renameVarGeneric<T>(
 		case "predicate_definition":
 			return {
 				type: "predicate_definition",
-				name: renameIdGeneric(inputName, outputName, term.name),
-				args: term.args.map((a) => renameIdGeneric(inputName, outputName, a)),
-				body: renameVarGeneric(inputName, outputName, term.body) as ConjunctionGeneric<T>
+				name: renameIdGeneric(
+					inputName,
+					outputName,
+					term.name,
+				),
+				args: term.args.map((a) =>
+					renameIdGeneric(inputName, outputName, a),
+				),
+				body: renameVarGeneric(
+					inputName,
+					outputName,
+					term.body,
+				) as ConjunctionGeneric<T>,
 			};
 	}
 }
@@ -180,55 +197,77 @@ function renameIdGeneric<T>(
 	expr: IdentifierGeneric<T>,
 ): IdentifierGeneric<T> {
 	return {
-				type: "identifier",
-				value:
-					expr.value === inputName
-						? outputName
-						: expr.value,
-				info: expr.info,
-			};
+		type: "identifier",
+		value:
+			expr.value === inputName ? outputName : expr.value,
+		info: expr.info,
+	};
 }
 
 export function renameVarBatch<T>(
-	inputToOutputNameMap1: Map<string, string> | Record<string, string> | Array<[string, string]>,
-	term: TermGeneric<T>
+	inputToOutputNameMap1:
+		| Map<string, string>
+		| Record<string, string>
+		| Array<[string, string]>,
+	term: TermGeneric<T>,
 ): TermGeneric<T> {
-	const inputToOutputNameMap = inputToOutputNameMap1 instanceof Map ? inputToOutputNameMap1 : 
-	Array.isArray(inputToOutputNameMap1) ? new Map([...inputToOutputNameMap1]) : 
-	new Map(Object.entries(inputToOutputNameMap1));
-	const oo = Array.from(inputToOutputNameMap.entries()).reduce((acc, [inputName, outputName]) => {
-		return acc.map((t) => renameVarGeneric(inputName, outputName, t));
-	}, [term]);
+	const inputToOutputNameMap =
+		inputToOutputNameMap1 instanceof Map
+			? inputToOutputNameMap1
+			: Array.isArray(inputToOutputNameMap1)
+				? new Map([...inputToOutputNameMap1])
+				: new Map(Object.entries(inputToOutputNameMap1));
+	const oo = Array.from(
+		inputToOutputNameMap.entries(),
+	).reduce(
+		(acc, [inputName, outputName]) => {
+			return acc.map((t) =>
+				renameVarGeneric(inputName, outputName, t),
+			);
+		},
+		[term],
+	);
 	return oo[0];
 }
 
 export function renameVarBatch2<T>(
-	inputToOutputNameMap1: Map<string, string> | Record<string, string> | Array<[string, string]>,
-	term: TermGeneric<T>
+	inputToOutputNameMap1:
+		| Map<string, string>
+		| Record<string, string>
+		| Array<[string, string]>,
+	term: TermGeneric<T>,
 ): TermGeneric<T>[] {
-	const inputToOutputNameMap = inputToOutputNameMap1 instanceof Map ? inputToOutputNameMap1 : 
-	Array.isArray(inputToOutputNameMap1) ? new Map([...inputToOutputNameMap1]) : 
-	new Map(Object.entries(inputToOutputNameMap1));
-	const outval = mapVarsGeneric<T, T>(
-		[term],
-		(v) => {
-			return make.identifier(v.info, inputToOutputNameMap.get(v.value) ?? v.value);
-		}
-	);
+	const inputToOutputNameMap =
+		inputToOutputNameMap1 instanceof Map
+			? inputToOutputNameMap1
+			: Array.isArray(inputToOutputNameMap1)
+				? new Map([...inputToOutputNameMap1])
+				: new Map(Object.entries(inputToOutputNameMap1));
+	const outval = mapVarsGeneric<T, T>([term], (v) => {
+		return make.identifier(
+			v.info,
+			inputToOutputNameMap.get(v.value) ?? v.value,
+		);
+	});
 	// Verify
-	const ver = mapVarsGeneric<T, T>(
-		outval,
-		(v) => {
-			if (inputToOutputNameMap.has(v.value)) {
-				throw new Error(`renameVarBatch2: ${v.value} not renamed`);
-			} else {
-				return v;
-			}
+	const ver = mapVarsGeneric<T, T>(outval, (v) => {
+		if (inputToOutputNameMap.has(v.value)) {
+			throw new Error(
+				`renameVarBatch2: ${v.value} not renamed`,
+			);
+		} else {
+			return v;
 		}
-	);
+	});
 	if (ver) {
-		console.log("InputToOutputNameMap", inputToOutputNameMap);
-		console.log("renameVarBatch2: ver", pprintGeneric(ver, (ctx, meta) => ""));
+		// console.log(
+		// 	"InputToOutputNameMap",
+		// 	inputToOutputNameMap,
+		// );
+		// console.log(
+		// 	"renameVarBatch2: ver",
+		// 	pprintGeneric(ver, (ctx, meta) => ""),
+		// );
 	} else {
 		throw new Error("renameVarBatch2: ver failed");
 	}

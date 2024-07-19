@@ -28,7 +28,7 @@ import {
 	to_slice,
 	unary_operate,
 } from "src/utils/make_desugared_ast";
-import { pprintDsAst } from "./pprintast";
+import { pprintDsAst } from "../pprint/pprintast";
 import { warnHolder, debugHolder } from "src/warnHolder";
 
 const parser = new Parser();
@@ -103,7 +103,10 @@ export function toAst1(
 			);
 		case "unification": {
 			const [a1, a1terms, frCounter2] =
-				expressionToAstFRESH(node.childForFieldName("lhs"), frCounter);
+				expressionToAstFRESH(
+					node.childForFieldName("lhs"),
+					frCounter,
+				);
 			const [b1, b1terms, frCounter5] =
 				expressionOrPredicateDefinitionToAst(
 					// node.children[2],
@@ -435,7 +438,9 @@ function expressionToAstFRESH(
 		case "identifier":
 			return [make_identifier(node.text), [], frCounter];
 		case "destructuring_expression":
-			console.debug(`Destructuring expression: ${node.text}`);
+			console.debug(
+				`Destructuring expression: ${node.text}`,
+			);
 			return expressionToAstFRESH(
 				node.children[0],
 				frCounter,
@@ -850,7 +855,7 @@ export function codeToAst(
 	debugHolder("PARSE", tree.rootNode.toString());
 	const astn = toAst(tree.rootNode);
 	if (pprint) {
-		console.log("ASTN", pprintDsAst(astn));
+		// console.log("ASTN", pprintDsAst(astn));
 	}
 	// debugHolder("Linearized--------------------------");
 	// debugHolder(pprintDsAst(linearize(astn)));

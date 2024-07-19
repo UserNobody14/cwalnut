@@ -106,7 +106,10 @@ const config: Config = {
    */
   moduleNameMapper: {
     "src/(.*)": "<rootDir>/src/$1",
-    "src/setup/(.*)": "<rootDir>/src/setup/$1",
+    "src/mode/(.*)": "<rootDir>/src/mode/$1",
+    "src/interpret/(.*)": "<rootDir>/src/interpret/$1",
+    "src/redo/(.*)": "<rootDir>/src/redo/$1",
+    "src/type-unification/(.*)": "<rootDir>/src/type-unification/$1",
     "src/logic/(.*)": "<rootDir>/src/logic/$1",
     "src/models/(.*)": "<rootDir>/src/models/$1",
     "config/(.*)": "<rootDir>/config/$1",

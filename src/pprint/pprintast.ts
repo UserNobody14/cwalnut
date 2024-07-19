@@ -10,7 +10,9 @@ export function pprintDsAst(
 	notypes: "withtype" | "without_type" = "without_type",
 ): string {
 	if (Array.isArray(ast)) {
-		return ast.map((a) => pprintDsAst(a, notypes)).join("\n");
+		return ast
+			.map((a) => pprintDsAst(a, notypes))
+			.join("\n");
 	}
 	switch (ast.type) {
 		case "conjunction":
@@ -59,7 +61,7 @@ function pprintExprAst(
 			if (withtype === "withtype") {
 				return `${ast.value}: UNUSED`;
 			}
-				return ast.value;
+			return ast.value;
 		case "literal":
 			return JSON.stringify(ast.value);
 	}

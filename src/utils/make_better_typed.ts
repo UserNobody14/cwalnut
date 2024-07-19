@@ -9,8 +9,15 @@ import type {
 	PredicateDefinitionGeneric,
 	TermGeneric,
 	WithGeneric,
-} from "src/types/DsAstTyped";
-import type { ComplexType, ConstraintType, SimpleType, Type, TypeVariable, UnionType } from "src/types/EzType";
+} from "src/types/AstGeneric";
+import type {
+	ComplexType,
+	ConstraintType,
+	SimpleType,
+	Type,
+	TypeVariable,
+	UnionType,
+} from "src/types/EzType";
 
 const conjunction_dat = <T>(
 	terms: TermGeneric<T>[],
@@ -77,53 +84,47 @@ const literal_dat = (
 
 // Types
 
-const simple_type_dat = (
-    name: string
-): SimpleType => ({
-    type: "simple",
-    name,
+const simple_type_dat = (name: string): SimpleType => ({
+	type: "simple",
+	name,
 });
 
 const complex_type_dat = (
-    name: string,
-    fresh: TypeVariable[],
-    args: Type[]
+	name: string,
+	fresh: TypeVariable[],
+	args: Type[],
 ): ComplexType => ({
-    type: "complex",
-    name,
-    fresh,
-    generics: args
+	type: "complex",
+	name,
+	fresh,
+	generics: args,
 });
 
-const type_variable_dat = (
-    name: string
-): TypeVariable => ({
-    type: "variable",
-    name
+const type_variable_dat = (name: string): TypeVariable => ({
+	type: "variable",
+	name,
 });
 
-const union_type_dat = (
-    ...types: Type[]
-): UnionType => ({
-    type: "union",
-    types
+const union_type_dat = (...types: Type[]): UnionType => ({
+	type: "union",
+	types,
 });
 
 const constraint_type_dat = (
-    constrain: (s: UnionType) => boolean
+	constrain: (s: UnionType) => boolean,
 ): ConstraintType => ({
-    type: "constraint",
-    constrain
+	type: "constraint",
+	constrain,
 });
 
 const predicate_type_dat = (
-    fresh: string[],
-    ...args: Type[]
+	fresh: string[],
+	...args: Type[]
 ): ComplexType => ({
-    type: "complex",
-    name: "predicate",
-    fresh: fresh.map(type_variable_dat),
-    generics: args
+	type: "complex",
+	name: "predicate",
+	fresh: fresh.map(type_variable_dat),
+	generics: args,
 });
 
 function flattenConjunctions<T>(
@@ -146,9 +147,7 @@ function flattenDisjunctions<T>(
 	);
 }
 
-function flattenUnions(
-	types: Type[],
-): Type[] {
+function flattenUnions(types: Type[]): Type[] {
 	return types.flatMap((type) =>
 		type.type === "union"
 			? flattenUnions(type.types)
@@ -156,9 +155,7 @@ function flattenUnions(
 	);
 }
 
-function union1(
-	...types: Type[]
-): UnionType {
+function union1(...types: Type[]): UnionType {
 	return union_type_dat(...flattenUnions(types));
 }
 
@@ -174,15 +171,30 @@ export function disjunction1<T>(
 	return make.disjunction(flattenDisjunctions(terms));
 }
 
+export function fresh1<T>(
+	newVars: IdentifierGeneric<T>[],
+	...terms: TermGeneric<T>[]
+): FreshGeneric<T> {
+	return fresh_dat(
+		newVars,
+		conjunction1(...terms),
+	);
+}
+
 // Use Proxy to generate identifiers super easily
 
-export const ezlvar: Record<string, <T>(t: T) => IdentifierGeneric<T>> = new Proxy(
+export const ezlvar: Record<
+	string,
+	<T>(t: T) => IdentifierGeneric<T>
+> = new Proxy(
 	{},
 	{
-		get: (_, prop) => <T>(t: T) => identifier_dat(t, prop.toString()),
+		get:
+			(_, prop) =>
+			<T>(t: T) =>
+				identifier_dat(t, prop.toString()),
 	},
 );
-
 
 export const make = {
 	conjunction: conjunction_dat,
@@ -194,16 +206,17 @@ export const make = {
 	identifier: identifier_dat,
 	lvar: ezlvar,
 	literal: literal_dat,
-    // Types
-    simple_type: simple_type_dat,
-    complex_type: complex_type_dat,
-    predicate_type: predicate_type_dat,
-    type_variable: type_variable_dat,
-    union_type: union_type_dat,
-    constraint_type: constraint_type_dat,
+	// Types
+	simple_type: simple_type_dat,
+	complex_type: complex_type_dat,
+	predicate_type: predicate_type_dat,
+	type_variable: type_variable_dat,
+	union_type: union_type_dat,
+	constraint_type: constraint_type_dat,
 
 	// conjunction1,
 	conjunction1,
 	disjunction1,
 	union1,
+	fresh1
 };

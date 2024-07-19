@@ -3,6 +3,7 @@
  * One for the source and one for the target.
  */
 
+import { Set as ImmSet } from "immutable";
 import {
 	ConjunctionDsAst,
 	type TermDsAst,
@@ -18,9 +19,12 @@ import {
 	unify,
 	unify_term,
 } from "src/utils/make_desugared_ast";
-import { builtinList } from "src/utils/builtinList";
-import { to_unify } from "src/utils/to_conjunction";
+import {
+	type Builtin,
+	builtinList,
+} from "src/utils/builtinList";
 import { debugHolder } from "src/warnHolder";
+import { intoVarsUnshadowed } from "src/lens/into-vars";
 
 type FreeVarsData = {
 	vars: Set<string>;
@@ -162,18 +166,28 @@ function linearizeVars(
 			];
 		}
 		case "predicate_definition": {
-            const [linearizedDef, newFreeVars7] = linearizeVars(
-                term.body,
-                freeVars1,
-            );
-            const predDef: PredicateDefinitionDsAst = {
-                type: "predicate_definition",
-                name: term.name,
-                args: term.args,
-                body: make_conjunction(...linearizedDef),
-            }
-			return [[predDef], { ...newFreeVars7,
-                varCounter: new Map([...newFreeVars7.varCounter.entries(), [term.name.value, 1]]) }];
+			// First, find any recursive calls within the definition
+			const callsToThisPred = [...intoVarsUnshadowed(term.body.terms, ImmSet(builtinList))]
+			const [linearizedDef, newFreeVars7] = linearizeVars(
+				term.body,
+				freeVars1,
+			);
+			const predDef: PredicateDefinitionDsAst = {
+				type: "predicate_definition",
+				name: term.name,
+				args: term.args,
+				body: make_conjunction(...linearizedDef),
+			};
+			return [
+				[predDef],
+				{
+					...newFreeVars7,
+					varCounter: new Map([
+						...newFreeVars7.varCounter.entries(),
+						[term.name.value, 1],
+					]),
+				},
+			];
 		}
 	}
 }
@@ -199,7 +213,7 @@ function linearizeQuick(
 ): [IdentifierDsAst, TermDsAst[], FreeVarsData] {
 	// First check if the variable is in newNames
 	const newName = variableContext.newNames.get(expr.value);
-	if (builtinList.includes(expr.value as any)) {
+	if (builtinList.includes(expr.value as Builtin)) {
 		return [expr, [], { ...variableContext }];
 	}
 	if (!newName) {

@@ -18,8 +18,10 @@
      "*": [
        "*",
        "src/*",
-       "src/setup/*",
-       "src/logic/*",
+       "src/type-unification/*",
+       "src/mode/*",
+       "src/interpret/*",
+       "src/redo/*",
        "src/models/*",
        "config/*"
      ]

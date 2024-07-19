@@ -5,15 +5,12 @@
 import { Set as ImmSet } from "immutable";
 import type { TermDsAst } from "src/types/DesugaredAst";
 import {
-    conjunction1,
+	conjunction1,
 	disjunction1,
 	make_conjunction,
 	make_identifier,
 } from "src/utils/make_desugared_ast";
-import {
-	Builtin,
-	builtinList
-} from "src/utils/builtinList";
+import { builtinList } from "src/utils/builtinList";
 // find out the *greatest* common term for the variables
 interface ResponseItem {
 	// All variables used in a term or set of terms
@@ -26,7 +23,7 @@ interface ResponseItem {
 	//Note: commonvars + nestedvars = allVarsUsed
 }
 
-function findCommonClosureVars(
+export function findCommonClosureVars(
 	terms: TermDsAst[],
 ): ResponseItem {
 	let allVarsUsed = ImmSet<string>();
@@ -182,20 +179,20 @@ function freshenTermVars(
 						: [disjunction1(...terms2)],
 				];
 			}
-				// Make a new "fresh" term, with the minusBuiltins as the new vars
-				const newVars = Array.from(minusBuiltins).map((v) =>
-					make_identifier(v),
-				);
-				// TODO: same treatment for body?
-				const newTerm = {
-					type: "fresh" as const,
-					newVars,
-					body:
-						term.type === "conjunction"
-							? conjunction1(...terms2)
-							: make_conjunction(disjunction1(...terms2)),
-				};
-				return [Array.from(minusBuiltins), [newTerm]];
+			// Make a new "fresh" term, with the minusBuiltins as the new vars
+			const newVars = Array.from(minusBuiltins).map((v) =>
+				make_identifier(v),
+			);
+			// TODO: same treatment for body?
+			const newTerm = {
+				type: "fresh" as const,
+				newVars,
+				body:
+					term.type === "conjunction"
+						? conjunction1(...terms2)
+						: make_conjunction(disjunction1(...terms2)),
+			};
+			return [Array.from(minusBuiltins), [newTerm]];
 		}
 		case "fresh": {
 			const nff = freshenTermVars(
@@ -230,15 +227,15 @@ function freshenTermVars(
 			if (minusBuiltins2.size === 0) {
 				return [[], [term]];
 			}
-				const newVars = Array.from(minusBuiltins2).map(
-					(v) => make_identifier(v),
-				);
-				const newTerm = {
-					type: "fresh" as const,
-					newVars,
-					body: conjunction1(term),
-				};
-				return [Array.from(minusBuiltins2), [newTerm]];
+			const newVars = Array.from(minusBuiltins2).map((v) =>
+				make_identifier(v),
+			);
+			const newTerm = {
+				type: "fresh" as const,
+				newVars,
+				body: conjunction1(term),
+			};
+			return [Array.from(minusBuiltins2), [newTerm]];
 		}
 		case "predicate_definition": {
 			const fn = term;
@@ -269,6 +266,6 @@ export function freshenTerms(
 		const tt = freshenTermVars(conjunction1(...terms), bt);
 		return tt[1];
 	}
-		const tt = freshenTermVars(disjunction1(...terms), bt);
-		return tt[1];
+	const tt = freshenTermVars(disjunction1(...terms), bt);
+	return tt[1];
 }
