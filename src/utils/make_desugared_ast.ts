@@ -3,16 +3,16 @@
 //     is_complex_type = (t: TypeValue): t is ComplexType => t.type === 'complex';
 
 import type {
-	ConjunctionDsAst,
-	DisjunctionDsAst,
-	ExpressionDsAst,
-	FreshDsAst,
-	IdentifierDsAst,
-	LiteralDsAst,
-	PredicateCallDsAst,
-	PredicateDefinitionDsAst,
-	TermDsAst,
-} from "src/types/DesugaredAst";
+	ConjunctionGeneric,
+	DisjunctionGeneric,
+	ExpressionGeneric,
+	FreshGeneric,
+	IdentifierGeneric,
+	LiteralGeneric,
+	PredicateCallGeneric,
+	PredicateDefinitionGeneric,
+	TermGeneric,
+} from "src/types/AstGeneric";
 import {
 	builtinList,
 	type Builtin,
@@ -20,14 +20,14 @@ import {
 } from "./builtinList";
 
 export type FullExpression = [
-	ExpressionDsAst,
-	TermDsAst[],
+	ExpressionGeneric<undefined>,
+	TermGeneric<undefined>[],
 	number,
 ];
 export type Expression =
-	| [ExpressionDsAst, TermDsAst[]]
+	| [ExpressionGeneric<undefined>, TermGeneric<undefined>[]]
 	| FullExpression;
-export type FlexExpression = ExpressionDsAst | Expression;
+export type FlexExpression = ExpressionGeneric<undefined> | Expression;
 
 export const deflex = (
 	expr: FlexExpression,
@@ -59,15 +59,15 @@ export const counterFn = <A, B>(
 };
 
 export const make_conjunction = (
-	...children: TermDsAst[]
-): ConjunctionDsAst => ({
+	...children: TermGeneric<undefined>[]
+): ConjunctionGeneric<undefined> => ({
 	type: "conjunction",
 	terms: children,
 });
 
 export const make_disjunction = (
-	...children: TermDsAst[]
-): DisjunctionDsAst => ({
+	...children: TermGeneric<undefined>[]
+): DisjunctionGeneric<undefined> => ({
 	type: "disjunction",
 	terms: children,
 });
@@ -98,18 +98,18 @@ export const make_unification = (
 };
 
 export const make_predicate = (
-	source: IdentifierDsAst,
-	args: ExpressionDsAst[],
-): PredicateCallDsAst => ({
+	source: IdentifierGeneric<undefined>,
+	args: ExpressionGeneric<undefined>[],
+): PredicateCallGeneric<undefined> => ({
 	type: "predicate_call",
 	source,
 	args,
 });
 
 export const make_fresh = (
-	newVars: IdentifierDsAst[],
-	body: ConjunctionDsAst,
-): FreshDsAst => ({
+	newVars: IdentifierGeneric<undefined>[],
+	body: ConjunctionGeneric<undefined>,
+): FreshGeneric<undefined> => ({
 	type: "fresh",
 	newVars,
 	body,
@@ -117,14 +117,15 @@ export const make_fresh = (
 
 export const make_identifier = (
 	name: string,
-): IdentifierDsAst => ({
+): IdentifierGeneric<undefined> => ({
 	type: "identifier",
 	value: name,
+	info: undefined,
 });
 
 // Use Proxy to generate identifiers super easily
 
-export const ezlvar: Record<string, IdentifierDsAst> =
+export const ezlvar: Record<string, IdentifierGeneric<undefined>> =
 	new Proxy(
 		{},
 		{
@@ -158,13 +159,13 @@ export const [
 	mk_string_to_list,
 ] = builtinList.map(make_identifier).map(
 	(id) =>
-		(...args: ExpressionDsAst[]) =>
+		(...args: ExpressionGeneric<undefined>[]) =>
 			make_predicate(id, args),
 );
 
 export const make_literal_ast = (
 	value: string | number,
-): LiteralDsAst =>
+): LiteralGeneric =>
 	typeof value === "string"
 		? {
 				type: "literal",
@@ -183,7 +184,7 @@ export const make_literal_ast = (
 			};
 
 export const make_list_ast = (
-	obj: IdentifierDsAst,
+	obj: IdentifierGeneric<undefined>,
 	elements1: FlexExpression[],
 ): Expression => {
 	const elements = elements1.map(deflex);
@@ -256,26 +257,26 @@ export const make_pred_expr = (
 
 export const ezmake = {
 	// The rest of (l) is out_id, the remainder of the list
-	rest: (out_id: IdentifierDsAst, l: Expression) =>
+	rest: (out_id: IdentifierGeneric<undefined>, l: Expression) =>
 		make_pred_expr("rest", out_id, 0, [l]),
-	restRev: (out_id: IdentifierDsAst, l: Expression) =>
+	restRev: (out_id: IdentifierGeneric<undefined>, l: Expression) =>
 		make_pred_expr("rest", out_id, 1, [l]),
 	// The first of (l) is out_id
-	first: (out_id: IdentifierDsAst, l: Expression) =>
+	first: (out_id: IdentifierGeneric<undefined>, l: Expression) =>
 		make_pred_expr("first", out_id, 0, [l]),
 	// Append a and b, result is in l
 	append: (
-		out_id: IdentifierDsAst,
+		out_id: IdentifierGeneric<undefined>,
 		a: FlexExpression,
 		b: FlexExpression,
 	) => make_pred_expr("internal_append", out_id, 2, [a, b]),
 	// Cons a and b, result is in l
 	cons: (
-		out_id: IdentifierDsAst,
+		out_id: IdentifierGeneric<undefined>,
 		a: FlexExpression,
 		b: FlexExpression,
 	) => make_pred_expr("cons", out_id, 2, [a, b]),
-	empty: (l: IdentifierDsAst) =>
+	empty: (l: IdentifierGeneric<undefined>) =>
 		make_pred_expr("empty", l, 0, []),
 
 	rest2: (out_id: FlexExpression, l: FlexExpression) =>
@@ -295,12 +296,12 @@ export const ezmake = {
 };
 
 export const make_dictionary_ast = (
-	obj: IdentifierDsAst,
+	obj: IdentifierGeneric<undefined>,
 	entries: [Expression, Expression][],
 ): Expression => {
 	// convert into a bunch of set_key_of predicate calls
 	const predTerms = entries.flatMap(
-		([[key, keyTerms], [value, valTerms]]): TermDsAst[] => {
+		([[key, keyTerms], [value, valTerms]]): TermGeneric<undefined>[] => {
 			return [
 				...keyTerms,
 				...valTerms,
@@ -312,10 +313,10 @@ export const make_dictionary_ast = (
 };
 
 export const make_predicate_fn = (
-	name: IdentifierDsAst,
-	args: IdentifierDsAst[],
-	children: ConjunctionDsAst,
-): PredicateDefinitionDsAst => ({
+	name: IdentifierGeneric<undefined>,
+	args: IdentifierGeneric<undefined>[],
+	children: ConjunctionGeneric<undefined>,
+): PredicateDefinitionGeneric<undefined> => ({
 	type: "predicate_definition",
 	name,
 	args,
@@ -324,9 +325,9 @@ export const make_predicate_fn = (
 
 export function unify_term(
 	kind: "=" | "!=" | "<<" | ">>" | "==",
-	l: ExpressionDsAst,
-	r: ExpressionDsAst,
-): TermDsAst {
+	l: ExpressionGeneric<undefined>,
+	r: ExpressionGeneric<undefined>,
+): TermGeneric<undefined> {
 	return kind === "!="
 		? unify_not_equal(l, r)
 		: kind === "=="
@@ -338,7 +339,7 @@ export function unify_term(
 					: unify(l, r);
 }
 
-function scoreRecursion(t: TermDsAst): number {
+function scoreRecursion(t: TermGeneric<undefined>): number {
 	if (t.type === "predicate_call") {
 		return (
 			builtinsByRecursiveness?.[
@@ -370,8 +371,8 @@ function scoreRecursion(t: TermDsAst): number {
 }
 
 function flattenConjunctions(
-	terms: TermDsAst[],
-): TermDsAst[] {
+	terms: TermGeneric<undefined>[],
+): TermGeneric<undefined>[] {
 	return terms.flatMap((term) =>
 		term.type === "conjunction"
 			? flattenConjunctions(term.terms)
@@ -380,8 +381,8 @@ function flattenConjunctions(
 }
 
 function flattenDisjunctions(
-	terms: TermDsAst[],
-): TermDsAst[] {
+	terms: TermGeneric<undefined>[],
+): TermGeneric<undefined>[] {
 	return terms.flatMap((term) =>
 		term.type === "disjunction"
 			? flattenDisjunctions(term.terms)
@@ -390,8 +391,8 @@ function flattenDisjunctions(
 }
 
 export function conjunction1(
-	...terms: TermDsAst[]
-): ConjunctionDsAst {
+	...terms: TermGeneric<undefined>[]
+): ConjunctionGeneric<undefined> {
 	return make_conjunction(...flattenConjunctions(terms));
 	// if (terms.length === 1 && terms[0].type === 'conjunction') {
 	// } else {
@@ -400,8 +401,8 @@ export function conjunction1(
 }
 
 export function disjunction1(
-	...terms: TermDsAst[]
-): DisjunctionDsAst {
+	...terms: TermGeneric<undefined>[]
+): DisjunctionGeneric<undefined> {
 	return make_disjunction(...flattenDisjunctions(terms));
 	// if (terms.length === 1 && terms[0].type === 'disjunction') {
 	//     return terms[0];
@@ -412,10 +413,10 @@ export function disjunction1(
 
 export const operate = (
 	operator: string,
-	left: ExpressionDsAst,
-	right: ExpressionDsAst,
-	value: IdentifierDsAst,
-): PredicateCallDsAst => {
+	left: ExpressionGeneric<undefined>,
+	right: ExpressionGeneric<undefined>,
+	value: IdentifierGeneric<undefined>,
+): PredicateCallGeneric<undefined> => {
 	const opToPredicateName: Record<string, Builtin> = {
 		"+": "add",
 		"-": "subtract",
@@ -438,9 +439,9 @@ export const operate = (
 
 export const unary_operate = (
 	operator: string,
-	operand: ExpressionDsAst,
-	value: IdentifierDsAst,
-): PredicateCallDsAst => {
+	operand: ExpressionGeneric<undefined>,
+	value: IdentifierGeneric<undefined>,
+): PredicateCallGeneric<undefined> => {
 	const opToPredicateName: Record<string, Builtin> = {
 		"-": "negate",
 		file: "internal_file",

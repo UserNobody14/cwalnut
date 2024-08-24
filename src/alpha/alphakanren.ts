@@ -117,10 +117,6 @@ function showScope(phi: Scope): Name[] {
 	return loop(levelToName.size);
 }
 
-//   function emptyScope(phi: Scope): boolean {
-//     return phi.levelToName.size === 0;
-//   }
-
 function extScp(phi: Scope, n: Name): Scope {
 	const l = phi.nameToLevel.size;
 	const newScope = initScope();
@@ -495,10 +491,6 @@ function unif(
 	if (emptyScope(phi1)) {
 		// First-order case
 		if (t1 === t2) return [sigma, chi, xs];
-		if (isLVar(t1))
-			return [extSubst(sigma, t1, t2), chi, [t1, ...xs]];
-		if (isLVar(t2))
-			return [extSubst(sigma, t2, t1), chi, [t2, ...xs]];
 		if (Array.isArray(t1) && Array.isArray(t2)) {
 			const result = unif(
 				phi1,
@@ -569,6 +561,10 @@ function unif(
 				xs,
 			);
 		}
+		if (isLVar(t1))
+			return [extSubst(sigma, t1, t2), chi, [t1, ...xs]];
+		if (isLVar(t2))
+			return [extSubst(sigma, t2, t1), chi, [t2, ...xs]];
 		//   console.log("FallbackQ1111!", t1, t2);
 		return false;
 	}

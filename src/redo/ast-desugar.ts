@@ -4,12 +4,12 @@ import Parser from "tree-sitter";
 import { Pattern } from "ts-pattern";
 import CrystalWalnut from "tree-sitter-crystal-walnut";
 import type {
-	TermDsAst,
-	ExpressionDsAst,
-	IdentifierDsAst,
-	PredicateDefinitionDsAst,
-	LiteralDsAst,
-} from "src/types/DesugaredAst";
+	TermGeneric,
+	ExpressionGeneric,
+	IdentifierGeneric,
+	PredicateDefinitionGeneric,
+	LiteralGeneric,
+} from "src/types/AstGeneric";
 import {
 	conjunction1,
 	disjunction1,
@@ -34,7 +34,7 @@ import { warnHolder, debugHolder } from "src/warnHolder";
 const parser = new Parser();
 parser.setLanguage(CrystalWalnut);
 
-type Expression = [ExpressionDsAst, TermDsAst[]];
+type Expression = [ExpressionGeneric<undefined>, TermGeneric<undefined>[]];
 
 // const inputKind = node.children[1].text as '=' | '!=' | '<<' | '>>' | '==';
 const eqnqeq = Pattern.union("=", "!=", "==");
@@ -46,7 +46,7 @@ const out_or_inout = Pattern.union("out", "inout");
 
 export function toAst(
 	node: Parser.SyntaxNode,
-): TermDsAst[] {
+): TermGeneric<undefined>[] {
 	return toAst1(node, 0)[0];
 }
 
@@ -69,7 +69,7 @@ export function toAst(
 export function toAst1(
 	node: Parser.SyntaxNode,
 	frCounter: number,
-): [TermDsAst[], number] {
+): [TermGeneric<undefined>[], number] {
 	if (filterEmptyCompoundLogic(node) === false) {
 		// throw new Error('Empty compound logic');
 		warnHolder(
@@ -164,7 +164,7 @@ export function toAst1(
 			const arglist = argActual.children.slice(1, -1);
 			const [allArgs, frCounter2] = arglist
 				.filter((nnc) => nnc.grammarType !== ",")
-				.reduce<[[ExpressionDsAst, TermDsAst[]][], number]>(
+				.reduce<[[ExpressionGeneric<undefined>, TermGeneric<undefined>[]][], number]>(
 					(acc, nc) => {
 						const [arg, argTerms, frPlus] =
 							expressionToAstFRESH(nc, acc[1]);
@@ -231,7 +231,7 @@ export function toAst1(
 			);
 			const block = node.children[node.children.length - 1];
 			const [blockTerms, fr2] = block.children.reduce<
-				[TermDsAst[], number]
+				[TermGeneric<undefined>[], number]
 			>(
 				(acc, nc) => {
 					const [newTerms, newFr] = toAst1(nc, acc[1]);
@@ -275,8 +275,8 @@ export function toAst1(
 }
 
 function isSameIdentifier(
-	a: ExpressionDsAst,
-	b: ExpressionDsAst | PredicateDefinitionDsAst,
+	a: ExpressionGeneric<undefined>,
+	b: ExpressionGeneric<undefined> | PredicateDefinitionGeneric<undefined>,
 ) {
 	if (b.type === "predicate_definition") {
 		return false;
@@ -318,7 +318,7 @@ function buildCompoundLogic(
 	node: Parser.SyntaxNode,
 	variety: "conjunction" | "disjunction",
 	frCounter: number,
-): [TermDsAst[], number] {
+): [TermGeneric<undefined>[], number] {
 	if (node.children.length === 0) {
 		throw new Error("Empty compound logic");
 	}
@@ -329,7 +329,7 @@ function buildCompoundLogic(
 	const [terms, fr4] = node.children
 		.slice(1)
 		.filter(filterEmptyCompoundLogic)
-		.reduce<[TermDsAst[], number]>(
+		.reduce<[TermGeneric<undefined>[], number]>(
 			([acc, frNew], nc) => {
 				const [currAst, fr2] = toAst1(nc, frNew);
 				return [
@@ -347,18 +347,18 @@ function buildCompoundLogic(
 
 // biome-ignore lint/style/noVar: Need this rq
 var freshCounter = 0;
-function freshLvar(): IdentifierDsAst {
+function freshLvar(): IdentifierGeneric<undefined> {
 	return make_identifier(`__fresh_${freshCounter++}`);
 }
 
-function freshLvar2(frCounter: number): IdentifierDsAst {
+function freshLvar2(frCounter: number): IdentifierGeneric<undefined> {
 	return make_identifier(`__fresh_${frCounter}`);
 }
 
 const toExprIdent = (
-	i: IdentifierDsAst | undefined,
+	i: IdentifierGeneric<undefined> | undefined,
 	n: number,
-): [IdentifierDsAst, number] => {
+): [IdentifierGeneric<undefined>, number] => {
 	if (i === undefined) {
 		return [freshLvar2(n), n + 1];
 	} else {
@@ -369,10 +369,10 @@ const toExprIdent = (
 function expressionOrPredicateDefinitionToAst(
 	node: Parser.SyntaxNode | null,
 	frCounter: number,
-	unifyVar?: IdentifierDsAst,
+	unifyVar?: IdentifierGeneric<undefined>,
 ): [
-	ExpressionDsAst | PredicateDefinitionDsAst,
-	TermDsAst[],
+	ExpressionGeneric<undefined> | PredicateDefinitionGeneric<undefined>,
+	TermGeneric<undefined>[],
 	number,
 ] {
 	if (node === null) {
@@ -427,8 +427,8 @@ function expressionOrPredicateDefinitionToAst(
 function expressionToAstFRESH(
 	node1: Parser.SyntaxNode | null | undefined,
 	frCounter: number,
-	unifyVar?: IdentifierDsAst,
-): [ExpressionDsAst, TermDsAst[], number] {
+	unifyVar?: IdentifierGeneric<undefined>,
+): [ExpressionGeneric<undefined>, TermGeneric<undefined>[], number] {
 	if (node1 === undefined || node1 === null) {
 		throw new Error("Node is undefined");
 	}
@@ -529,8 +529,8 @@ function expressionToAstFRESH(
 				.filter((nnc) => nnc.grammarType !== ",");
 			const [objv, fr3] = toExprIdent(unifyVar, frCounter);
 			type ReductionType = [
-				[ExpressionDsAst, ExpressionDsAst][],
-				TermDsAst[],
+				[ExpressionGeneric<undefined>, ExpressionGeneric<undefined>][],
+				TermGeneric<undefined>[],
 				number,
 			];
 			const [lvd, lvdterms, fr4] =
@@ -548,8 +548,8 @@ function expressionToAstFRESH(
 						];
 					},
 					[
-						[] as [ExpressionDsAst, ExpressionDsAst][],
-						[] as TermDsAst[],
+						[] as [ExpressionGeneric<undefined>, ExpressionGeneric<undefined>][],
+						[] as TermGeneric<undefined>[],
 						fr3,
 					] as const,
 				);
@@ -681,13 +681,13 @@ const commonFold = (
 	ls: Parser.SyntaxNode[],
 	fn: (
 		a: Parser.SyntaxNode,
-		b: [ExpressionDsAst, number],
+		b: [ExpressionGeneric<undefined>, number],
 	) => FullExpression,
 	ez: FullExpression,
 ): FullExpression => {
 	return foldF4<
 		Parser.SyntaxNode,
-		[ExpressionDsAst, number],
+		[ExpressionGeneric<undefined>, number],
 		FlexExpression,
 		FullExpression
 	>(
@@ -717,7 +717,7 @@ const isT1Main = <A>() => isT1<A, number>(numSelector<A>);
 function listValsToList(
 	listVals: Parser.SyntaxNode[],
 	frCounter1: number,
-	unifyVar?: IdentifierDsAst,
+	unifyVar?: IdentifierGeneric<undefined>,
 ): FullExpression {
 	const containsSplats = listVals.some(
 		(nnc) => nnc.grammarType === "splat",
@@ -850,7 +850,7 @@ function handleEmptyCompoundLogic(
 export function codeToAst(
 	code: string,
 	pprint = false,
-): TermDsAst[] {
+): TermGeneric<undefined>[] {
 	const tree = parser.parse(code);
 	debugHolder("PARSE", tree.rootNode.toString());
 	const astn = toAst(tree.rootNode);

@@ -1,15 +1,19 @@
 import { pprintDsAst } from "src/pprint/pprintast";
 import { describe, test, expect } from "@jest/globals";
-import type { TermDsAst, ExpressionDsAst, PredicateCallDsAst, PredicateDefinitionDsAst } from "src/types/DesugaredAst";
-import { conjunction1 } from "src/utils/make_desugared_ast";
+import type { TermGeneric,
+    ExpressionGeneric,
+     PredicateCallGeneric,
+     PredicateDefinitionGeneric,
+    } from "src/types/AstGeneric";
+import { conjunction1, ezlvar } from "src/utils/make_better_typed";
 
 describe("pprintDsAst", () => {
     test("formats conjunction AST correctly", () => {
-        const ast: TermDsAst = {
+        const ast: TermGeneric<undefined> = {
             type: "conjunction",
             terms: [
-                { type: "predicate_call", source: { type: "identifier", value: "pred1" }, args: [] },
-                { type: "predicate_call", source: { type: "identifier", value: "pred2" }, args: [] }
+                { type: "predicate_call", source: ezlvar.pred1(), args: [] },
+                { type: "predicate_call", source: ezlvar.pred2(), args: [] }
             ]
         };
     const expected = `conj:
@@ -19,11 +23,11 @@ describe("pprintDsAst", () => {
     });
 
     test("formats disjunction AST correctly", () => {
-        const ast: TermDsAst = {
+        const ast: TermGeneric<undefined> = {
             type: "disjunction",
             terms: [
-                { type: "predicate_call", source: { type: "identifier", value: "predA" }, args: [] },
-                { type: "predicate_call", source: { type: "identifier", value: "predB" }, args: [] }
+                { type: "predicate_call", source: ezlvar.predA(), args: [] },
+                { type: "predicate_call", source: ezlvar.predB(), args: [] }
             ]
         };
         const expected = `disj:
@@ -33,9 +37,9 @@ describe("pprintDsAst", () => {
     });
 
     test("formats predicate call AST correctly", () => {
-        const ast: TermDsAst = {
+        const ast: TermGeneric<undefined> = {
             type: "predicate_call",
-            source: { type: "identifier", value: "myFunc" },
+            source: ezlvar.myFunc(),
             args: [{ type: "literal", value: "arg1", kind: "string" }]
         };
         const expected = `myFunc("arg1")`;
@@ -43,12 +47,12 @@ describe("pprintDsAst", () => {
     });
 
     test("formats predicate definition AST correctly", () => {
-        const ast: TermDsAst = {
+        const ast: TermGeneric<undefined> = {
             type: "predicate_definition",
-            name: { type: "identifier", value: "definePred" },
+            name: ezlvar.definePred(),
             args: [],
             body: conjunction1(
-                { type: "predicate_call", source: { type: "identifier", value: "innerPred" }, args: [] } as PredicateCallDsAst
+                { type: "predicate_call", source: ezlvar.innerPred(), args: [] } as PredicateCallGeneric<undefined>
             )
         };
         const expected = `DEFINE definePred as () => 
@@ -57,12 +61,12 @@ describe("pprintDsAst", () => {
     });
 
     test("formats fresh AST correctly", () => {
-        const ast: TermDsAst = {
+        const ast: TermGeneric<undefined> = {
             type: "fresh",
-            newVars: [{ type: "identifier", value: "var1" }],
+            newVars: [ezlvar.var1()],
             body: {
                 type: "conjunction",
-                terms: [{ type: "predicate_call", source: { type: "identifier", value: "somePred" }, args: [] }]
+                terms: [{ type: "predicate_call", source: ezlvar.somePred(), args: [] }]
             }
         };
         const expected = `fresh var1:
@@ -72,13 +76,13 @@ describe("pprintDsAst", () => {
     });
 
     test("formats with AST correctly", () => {
-        const ast: TermDsAst = {
+        const ast: TermGeneric<undefined> = {
             type: "with",
-            name: { type: "identifier", value: "withName" },
+            name: ezlvar.withName(),
             body: {
                 type: "conjunction",
                 terms: [
-                    { type: "predicate_call", source: { type: "identifier", value: "bodyPred" }, args: [] }
+                    { type: "predicate_call", source: ezlvar.bodyPred(), args: [] }
                 ]
             }
         };

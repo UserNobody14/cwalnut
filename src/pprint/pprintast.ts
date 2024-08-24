@@ -1,12 +1,12 @@
 import type {
-	TermDsAst,
-	ExpressionDsAst,
-} from "src/types/DesugaredAst";
+	TermGeneric,
+	ExpressionGeneric,
+} from "src/types/AstGeneric";
 import type { Type } from "src/types/Types";
 import { indentStr } from "./indentStr";
 
 export function pprintDsAst(
-	ast: TermDsAst | TermDsAst[],
+	ast: TermGeneric<undefined> | TermGeneric<undefined>[],
 	notypes: "withtype" | "without_type" = "without_type",
 ): string {
 	if (Array.isArray(ast)) {
@@ -43,7 +43,7 @@ ${indentStr(1, pprintDsAst(ast.body, notypes))}`;
 	}
 }
 function pprintExprListAst(
-	ast: ExpressionDsAst[],
+	ast: ExpressionGeneric<undefined>[],
 	withtype: "withtype" | "without_type" = "without_type",
 	withio: "withio" | "without_io" = "without_io",
 ): string {
@@ -52,7 +52,7 @@ function pprintExprListAst(
 		.join(", ");
 }
 function pprintExprAst(
-	ast: ExpressionDsAst,
+	ast: ExpressionGeneric<undefined>,
 	withtype: "withtype" | "without_type" = "without_type",
 	withio: "withio" | "without_io" = "without_io",
 ): string {

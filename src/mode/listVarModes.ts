@@ -1,4 +1,4 @@
-import type { IdentifierGeneric } from "src/types/AstGeneric";
+import type { ExpressionGeneric, IdentifierGeneric } from "src/types/AstGeneric";
 import { type Mode, commonModes } from "./ModeDetType";
 import { modeTypeToString } from "./modeTypeToString";
 import type { Map as ImmMap } from "immutable";
@@ -43,10 +43,24 @@ export const listVarModes = <T>(
 ): Mode[] => {
 	return varNames.map((v) => getVarMode(varModes, v));
 };
+
+export const listVarModesE = <T>(
+	varModes: VarModeMap,
+	varNames: (ExpressionGeneric<T> | string)[]
+): Mode[] => {
+	return varNames.filter((t): t is (IdentifierGeneric<T> | string) => typeof t === 'string' || t.type === 'identifier').map((v) => getVarMode(varModes, v));
+};
 export const varModesToKey = <T>(
 	varModes: VarModeMap,
 	varNames: (IdentifierGeneric<T> | string)[]
 ): string => {
 	return modeTypeToString(listVarModes(varModes, varNames));
 };export type VarModeMap = ImmMap<string, Mode>;
+
+export const expressionToKey = <T>(
+	varModes: VarModeMap,
+	varNames: (ExpressionGeneric<T> | string)[]
+): string => {
+	return modeTypeToString(listVarModesE(varModes, varNames));
+};
 

@@ -3,7 +3,7 @@
  */
 
 import { Set as ImmSet } from "immutable";
-import type { TermDsAst } from "src/types/DesugaredAst";
+import type { TermGeneric } from "src/types/AstGeneric";
 import {
 	conjunction1,
 	disjunction1,
@@ -11,6 +11,7 @@ import {
 	make_identifier,
 } from "src/utils/make_desugared_ast";
 import { builtinList } from "src/utils/builtinList";
+import { make } from "src/utils/make_better_typed";
 // find out the *greatest* common term for the variables
 interface ResponseItem {
 	// All variables used in a term or set of terms
@@ -23,8 +24,8 @@ interface ResponseItem {
 	//Note: commonvars + nestedvars = allVarsUsed
 }
 
-export function findCommonClosureVars(
-	terms: TermDsAst[],
+export function findCommonClosureVars<T>(
+	terms: TermGeneric<T>[],
 ): ResponseItem {
 	let allVarsUsed = ImmSet<string>();
 
@@ -151,9 +152,9 @@ function ensureLengthsMatch(ccc: ResponseItem) {
 }
 
 function freshenTermVars(
-	term: TermDsAst,
+	term: TermGeneric<undefined>,
 	varsToExclude: string[],
-): [string[], TermDsAst[]] {
+): [string[], TermGeneric<undefined>[]] {
 	switch (term.type) {
 		case "conjunction":
 		case "disjunction": {
@@ -161,54 +162,55 @@ function freshenTermVars(
 			// const cv = ezcom(terms);
 			const cv = findCommonClosureVars(terms);
 			const common = cv.commonVars;
-			const minusBuiltins = common.subtract(
+			const minusBuiltins = common.merge(
+				ImmSet(cv.nestedVars)
+			).subtract(
 				ImmSet(varsToExclude),
 			);
-			const terms2 = terms.flatMap(
-				(t) =>
-					freshenTermVars(
+			const [allUnshadowed, terms2] = terms.reduce(
+				(acc, t): [string[], TermGeneric<undefined>[][]] => {
+					const [acc1, acc2] = acc;
+					const [newVars, newTerm] = freshenTermVars(
 						t,
-						varsToExclude.concat(minusBuiltins.toArray()),
-					)[1],
+						minusBuiltins.toArray().concat(varsToExclude),
+					);
+					return [acc1.concat(newVars), [...acc2, newTerm]];
+				},
+				[[], []] as [string[], TermGeneric<undefined>[][]],
 			);
+			const transformedTerms = term.type === "conjunction"
+			? [conjunction1(...(terms2.flat(1) ?? []))]
+			: [disjunction1(...terms2.map((t) => conjunction1(...t)))];
 			if (minusBuiltins.size === 0) {
 				return [
+					// minusBuiltins.toArray(),
 					[],
-					term.type === "conjunction"
-						? [conjunction1(...terms2)]
-						: [disjunction1(...terms2)],
+					transformedTerms,
 				];
 			}
 			// Make a new "fresh" term, with the minusBuiltins as the new vars
-			const newVars = Array.from(minusBuiltins).map((v) =>
+			const newVars = minusBuiltins.toArray().map((v) =>
 				make_identifier(v),
 			);
 			// TODO: same treatment for body?
 			const newTerm = {
 				type: "fresh" as const,
 				newVars,
-				body:
-					term.type === "conjunction"
-						? conjunction1(...terms2)
-						: make_conjunction(disjunction1(...terms2)),
+				body: conjunction1(...transformedTerms),
 			};
-			return [Array.from(minusBuiltins), [newTerm]];
+			return [minusBuiltins.toArray(), [newTerm]];
 		}
 		case "fresh": {
-			const nff = freshenTermVars(
+			const [varsToExcludeFurther, bodyTerms] = freshenTermVars(
 				term.body,
 				varsToExclude.concat(
 					term.newVars.map((v) => v.value),
 				),
 			);
 			return [
-				nff[0],
+				varsToExcludeFurther,
 				[
-					{
-						type: "fresh" as const,
-						newVars: term.newVars,
-						body: conjunction1(...nff[1]),
-					},
+					make.fresh1(term.newVars, conjunction1(...bodyTerms)),
 				],
 			];
 		}
@@ -258,10 +260,10 @@ function freshenTermVars(
 }
 
 export function freshenTerms(
-	terms: TermDsAst[],
+	terms: TermGeneric<undefined>[],
 	logicType: "conjunction" | "disjunction" = "conjunction",
 	bt = builtinList as unknown as string[],
-): TermDsAst[] {
+): TermGeneric<undefined>[] {
 	if (logicType === "conjunction") {
 		const tt = freshenTermVars(conjunction1(...terms), bt);
 		return tt[1];

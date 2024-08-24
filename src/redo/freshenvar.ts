@@ -1,17 +1,11 @@
 import { mapVarsGeneric } from "src/lens/into-vars";
 import type {
-	ConjunctionDsAst,
-	ExpressionDsAst,
-	IdentifierDsAst,
-	TermDsAst,
-} from "src/types/DesugaredAst";
-import type {
 	ConjunctionGeneric,
 	ExpressionGeneric,
 	IdentifierGeneric,
 	TermGeneric,
 } from "src/types/AstGeneric";
-import { make } from "src/utils/make_better_typed";
+import { make, unify } from "src/utils/make_better_typed";
 import {
 	pprintGeneric,
 	pprintTermT,
@@ -20,8 +14,8 @@ import {
 export function renameVar(
 	inputName: string,
 	outputName: string,
-	term: TermDsAst,
-): TermDsAst {
+	term: TermGeneric<undefined>,
+): TermGeneric<undefined> {
 	switch (term.type) {
 		case "conjunction":
 			return {
@@ -48,7 +42,7 @@ export function renameVar(
 					inputName,
 					outputName,
 					term.body,
-				) as ConjunctionDsAst,
+				) as ConjunctionGeneric<undefined>,
 			};
 		case "with":
 			return {
@@ -58,7 +52,7 @@ export function renameVar(
 					inputName,
 					outputName,
 					term.body,
-				) as ConjunctionDsAst,
+				) as ConjunctionGeneric<undefined>,
 			};
 		case "predicate_call":
 			return {
@@ -67,7 +61,7 @@ export function renameVar(
 					inputName,
 					outputName,
 					term.source,
-				) as IdentifierDsAst,
+				) as IdentifierGeneric<undefined>,
 				args: term.args.map((a) =>
 					renameQuick(inputName, outputName, a),
 				),
@@ -80,8 +74,8 @@ export function renameVar(
 function renameQuick(
 	inputName: string,
 	outputName: string,
-	expr: ExpressionDsAst,
-): ExpressionDsAst {
+	expr: ExpressionGeneric<undefined>,
+): ExpressionGeneric<undefined> {
 	switch (expr.type) {
 		case "identifier":
 			return {
@@ -90,6 +84,7 @@ function renameQuick(
 					expr.value === inputName
 						? outputName
 						: expr.value,
+				info: expr.info,
 			};
 		case "literal":
 			return expr;
@@ -272,4 +267,29 @@ export function renameVarBatch2<T>(
 		throw new Error("renameVarBatch2: ver failed");
 	}
 	return outval;
+}
+
+
+export function freshenForDef<T>(
+	vars: IdentifierGeneric<T>[],
+	cnj: ConjunctionGeneric<T>,
+	fn: (s: string, n: number) => string,
+): ConjunctionGeneric<T> {
+	const vars2 = vars.map((v, i) =>
+		make.identifier(v.info, fn(v.value, i)),
+	);
+	const newUnifications = vars.map((v, i) =>
+		unify(v.info, v, vars2[i]),
+	);
+	const termsRenamed = renameVarBatch2(
+		new Map(vars.map((v, i) => [v.value, fn(v.value, i)])),
+		cnj
+	);
+	return make.conjunction1(
+		make.fresh1(
+			vars2,
+			...newUnifications,
+			...termsRenamed,
+		)
+	)
 }

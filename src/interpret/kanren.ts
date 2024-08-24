@@ -908,10 +908,11 @@ export function apply_pred(
 ): Goal {
 	return (sc) => {
 		const lpp = sc.subst.find(lp);
-		if (!(lpp instanceof LPredicate))
-			throw new Error(
-				`Not a predicate: < ${lp.toString()} >`,
-			);
+		// if (!(lpp instanceof LPredicate))
+		// 	throw new Error(
+		// 		`Not a predicate: < ${lp.toString()} >`,
+		// 	);
+		if (!(lpp instanceof LPredicate)) return [sc.set('fail', true)];
 		const arggs = lpp.fn(
 			...args.map((arg) => sc.subst.find(arg)),
 		);

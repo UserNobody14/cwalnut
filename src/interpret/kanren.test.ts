@@ -426,4 +426,91 @@ either:
 			},
 		]);
 	});
+
+
+
+
+
+
+
+
+
+
+	test("Kn Save and Call Pred 2", () => {
+		// Make an append predicate, then unify it as a predicate with lvar wq
+		// Then in a goal, retrieve wq and call it with some arguments
+		const appendo = (
+			l: kn.LTerm,
+			s: kn.LTerm,
+			o: kn.LTerm,
+		): kn.Goal => {
+			return (scc: kn.State): Iterable<kn.State> => {
+				return kn.either(
+					kn.all(kn.eq(l, kn.makeEmpty()), kn.eq(s, o)),
+					kn.fresh3((a, d, res) =>
+						kn.all(
+							kn.eq(kn.makePair(a, d), l),
+							kn.eq(kn.makePair(a, res), o),
+							// appendo(d, s, res)
+							kn.apply_pred(kn.makelvar("wq_recur"), d, s, res),
+						),
+					),
+				)(scc);
+			};
+		};
+
+		const outv = kn.run(
+			null,
+			kn.all(
+				kn.eq(
+					kn.makelvar("wq_recur"),
+					kn.makeLvar("wq2"),
+				),
+				kn.eq(
+					kn.makelvar("wq"),
+					kn.makeLvar("wq2"),
+				),
+				kn.eq(
+					kn.makelvar("wq"),
+					new kn.LPredicate("appendo", appendo),
+				),
+				kn.fresh4((a, b) => {
+					return kn.all(
+						kn.eq(
+							kn.makeList([
+								kn.makeLiteral("a"),
+								kn.makeLiteral("b"),
+							]),
+							a,
+						),
+						kn.eq(
+							kn.makeList([
+								kn.makeLiteral("c"),
+								kn.makeLiteral("d"),
+							]),
+							b,
+						),
+						kn.apply_pred(
+							kn.makelvar("wq"),
+							a,
+							b,
+							kn.makelvar("c"),
+						),
+					);
+				}),
+			),
+		);
+
+		// console.log(
+		// 	"SCM",
+		// 	outv.map((ooo) => ooo.toString()),
+		// );
+
+		expect(outv.map((kkn) => kkn.toMap(false, ["wq", "c"]))).toEqual([
+			{
+				wq: "Predicate(appendo)",
+				c: "[a, [b, [c, [d, []]]]]",
+			},
+		]);
+	});
 });

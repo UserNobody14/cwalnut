@@ -3,28 +3,26 @@
  * One for the source and one for the target.
  */
 
-import { Set as ImmSet } from "immutable";
-import {
-	ConjunctionDsAst,
-	type TermDsAst,
-	PredicateCallDsAst,
-	type PredicateDefinitionDsAst,
-	type IdentifierDsAst,
-	type ExpressionDsAst,
-} from "src/types/DesugaredAst";
-import {
-	make_conjunction,
-	make_identifier,
-	make_unification,
-	unify,
-	unify_term,
-} from "src/utils/make_desugared_ast";
+import { Set as ImmSet, Map as ImmMap } from "immutable";
+import type {
+	TermGeneric,
+	PredicateDefinitionGeneric,
+	IdentifierGeneric,
+	ExpressionGeneric,
+	DisjunctionGeneric,
+	PredicateCallGeneric,
+} from "src/types/AstGeneric";
 import {
 	type Builtin,
 	builtinList,
 } from "src/utils/builtinList";
 import { debugHolder } from "src/warnHolder";
-import { intoVarsUnshadowed } from "src/lens/into-vars";
+import { countVarsInCalls, intoVarsUnshadowed, intoVarsUnshadowedG, mapPredCallsRemovable, mapVarsWithState } from "src/lens/into-vars";
+import { conjunction1, disjunction1, make, unify } from "src/utils/make_better_typed";
+import { freshenForDef } from "./freshenvar";
+import { cleanupExcessUnifies, refactorTermsToMergeUnifies } from "./cleanupExcessUnifies";
+import { cleanupLinearUnifies } from "./cleanupLinearUnifies";
+import {findCommonClosureVars} from './extractclosure';
 
 type FreeVarsData = {
 	vars: Set<string>;
@@ -33,10 +31,6 @@ type FreeVarsData = {
 	newNames: Map<string, string[]>;
 	counter: number;
 };
-
-function monadic<T, U>(f: (x: T) => [U, T], x: T): U {
-	return f(x)[0];
-}
 
 function monadicFold<T, U>(
 	f: (x: T, y: U) => [T[], U],
@@ -52,100 +46,66 @@ function monadicFold<T, U>(
 	);
 }
 
-function monadicFoldGeneral<T, U, V>(
-	f: (x: T, y: U) => [V, U],
-	x: V,
-	y: U,
-	merge: (a: V, b: V) => V,
-	emptyV: V,
-	fold: (
-		vss: V,
-		z: (ww: [V, U], s: T) => [V, U],
-		y: [V, U],
-	) => [V, U],
-): [V, U] {
-	return fold(
-		x,
-		([x1, y1], a) => {
-			const [ox, oy] = f(a, y1);
-			return [merge(x1, ox), oy];
-		},
-		[emptyV, y],
-	);
+function foldVarsF<T>(
+	[terms, freeVars1]: [TermGeneric<T>[], FreeVarsData],
+	tfn: (tt: TermGeneric<T>[]) => TermGeneric<T>[]
+): [TermGeneric<T>[], FreeVarsData] {
+	return [tfn(terms), freeVars1];
 }
 
-function linearizeVars(
-	term: TermDsAst | TermDsAst[],
+
+function linearizeVars<T>(
+	term: TermGeneric<T> | TermGeneric<T>[],
 	freeVars1: FreeVarsData,
-): [TermDsAst[], FreeVarsData] {
+): [TermGeneric<T>[], FreeVarsData] {
 	if (Array.isArray(term)) {
 		return monadicFold(linearizeVars, term, freeVars1);
 	}
 	switch (term.type) {
 		case "conjunction": {
-			const [terms, newFreeVars] = monadicFold(
+			return foldVarsF(monadicFold(
 				linearizeVars,
 				term.terms,
 				freeVars1,
+			),
+				(terms) => [conjunction1(...terms)]
 			);
-			return [
-				[
-					{
-						type: "conjunction",
-						terms,
-					},
-				],
-				newFreeVars,
-			];
 		}
 		case "disjunction": {
-			// should be more of a reduction?
-			const [terms2, newFreeVars2] = monadicFold(
-				linearizeVars,
-				term.terms,
-				freeVars1,
-			);
-			return [
-				[
-					{
-						type: "disjunction",
-						terms: terms2,
-					},
-				],
-				newFreeVars2,
-			];
+			// return foldVarsF(monadicFold(
+			// 	linearizeVars,
+			// 	term.terms,
+			// 	freeVars1,
+			// ),
+			// 	(terms) => [disjunction1(...terms)]
+			// );
+			return linearizeDisjunction(term, freeVars1);
 		}
 		case "fresh": {
-			const [bodyR, newFreeVars3] = linearizeVars(
-				term.body,
-				freeVars1,
-			);
-			return [
-				[
-					{
-						type: "fresh",
-						newVars: term.newVars,
-						body: make_conjunction(...bodyR),
-					},
-				],
-				newFreeVars3,
-			];
+			return foldVarsF(
+				linearizeVars(
+					term.body,
+					freeVars1,
+				),
+				(terms) => [{
+					type: "fresh",
+					newVars: term.newVars,
+					body: conjunction1(...terms),
+				}]
+			)
 		}
 		case "with": {
-			const [bodyW, newFreeVars4] = linearizeVars(
-				term.body,
-				freeVars1,
-			);
-			return [
-				[
-					{
-						type: "with",
-						name: term.name,
-						body: make_conjunction(...bodyW),
-					},
-				],
-				newFreeVars4,
-			];
+			return foldVarsF(
+				linearizeVars(
+					term.body,
+					freeVars1,
+				),
+				(terms) => [{
+					type: "with",
+					name: term.name,
+					body: conjunction1(...terms),
+				}]
+			)
 		}
 		case "predicate_call": {
 			const [listArgsNew, newTerms, newFreeVars5] =
@@ -158,7 +118,7 @@ function linearizeVars(
 					...newTerms,
 					{
 						type: "predicate_call",
-						source: newSource as IdentifierDsAst,
+						source: newSource,
 						args: listArgsNew,
 					},
 				],
@@ -166,30 +126,143 @@ function linearizeVars(
 			];
 		}
 		case "predicate_definition": {
+			// Freshen the arguments
+			const npr = freshenForDef(term.args, term.body, (xan, xbn) => {
+				return `${xan}_${xbn + freeVars1.counter}`;
+			})
 			// First, find any recursive calls within the definition
-			const callsToThisPred = [...intoVarsUnshadowed(term.body.terms, ImmSet(builtinList))]
-			const [linearizedDef, newFreeVars7] = linearizeVars(
-				term.body,
-				freeVars1,
-			);
-			const predDef: PredicateDefinitionDsAst = {
-				type: "predicate_definition",
-				name: term.name,
-				args: term.args,
-				body: make_conjunction(...linearizedDef),
-			};
-			return [
-				[predDef],
-				{
-					...newFreeVars7,
-					varCounter: new Map([
-						...newFreeVars7.varCounter.entries(),
-						[term.name.value, 1],
-					]),
-				},
-			];
+			return linearizePredicateDefinition<T>({
+				...term,
+				body: npr
+			}, {
+				...freeVars1,
+				counter: freeVars1.counter + term.args.length,
+			});
 		}
 	}
+}
+
+function linearizeDisjunction<T>(
+	term: DisjunctionGeneric<T>,
+	freeVars1: FreeVarsData
+): [TermGeneric<T>[], FreeVarsData] {
+	// const [terms, newFreeVars] = monadicFold(
+	// 	linearizeVars,
+	// 	term.terms,
+	// 	freeVars1
+	// );
+	const { allVarsUsed, commonVars, nestedVars } = findCommonClosureVars(term.terms);
+	if (commonVars.size === 0) {
+			return foldVarsF(monadicFold(
+				linearizeVars,
+				term.terms,
+				freeVars1,
+			),
+				(terms) => [disjunction1(...terms)]
+			);
+	} else {
+		const countedCommon = countVarsInCalls(term.terms);
+		const numOccurences = ImmMap(commonVars.toArray().map(
+			(x) => [x, countedCommon.get(x) ?? 0]
+		));
+		// Replace the disjunct calls with the new name <var_name>_disj_<counter>
+		const [bodyWithReplacedCalls2, [str, vmap]] = mapVarsWithState(term.terms,
+			(xx, [ss, vmap2]) => {
+				if (ss.has(xx.value)) {
+					const newName = `${xx.value}_disj_${ss.get(xx.value)}`;
+					const newCounter = ss.update(xx.value, (x = 0) => x + 1);
+					return [make.identifier(xx.info, newName), [newCounter, vmap2.set(xx.value, xx)]];
+				} else {
+					return [xx, [ss, vmap2]];
+				}
+			},
+			[numOccurences.map(() => 0), ImmMap<string, IdentifierGeneric<T>>()]
+		);
+		const newUnifications = [...str.entries()].map(([k, v]) => {
+			const outUnifies: PredicateCallGeneric<T>[] = [];
+			const keyv = vmap.get(k);
+			if (!keyv) throw `Key ${k} not found in vmap`;
+			for (let i = 0; i < v; i++) {
+				outUnifies.push(unify(
+					keyv.info,
+					make.identifier(keyv.info, k),
+					make.identifier(keyv.info, `${k}_disj_${i}`),
+				));
+			}
+			return outUnifies;
+		});
+		const nres: TermGeneric<T>[] = [
+			...newUnifications.flat(),
+			disjunction1(...bodyWithReplacedCalls2)
+		]
+		return monadicFold(
+			linearizeVars,
+			nres,
+			freeVars1,
+		);
+	}
+}
+
+function linearizePredicateDefinition<T>(term: PredicateDefinitionGeneric<T>, freeVars1: FreeVarsData): [TermGeneric<T>[], FreeVarsData] {
+	const callsToThisPred = [...intoVarsUnshadowedG(term.body.terms, ImmSet(builtinList))].filter(
+		(x) => x.value === term.name.value
+	);
+	let extraRecursiveUnifyTerms: TermGeneric<T>[] = [];
+	let bodyWithReplacedCalls = term.body;
+	let extraFreeVars: FreeVarsData = freeVars1;
+	if (callsToThisPred.length > 0) {
+		const [newSource1, newTerms21, newFreeVars61] = linearizeQuick(term.name, extraFreeVars);
+		extraFreeVars = newFreeVars61;
+		const [newSource, newTerms, newFreeVars6] = linearizeQuick(term.name, extraFreeVars);
+		extraFreeVars = newFreeVars6;
+		// If there are recursive calls, we need to add a unify term to each of the recursive calls before the definition
+		const newRecurs = callsToThisPred.map((x, i) => {
+			return make.identifier(x.info, `${term.name.value}_recur_${i}`);
+		});
+		extraRecursiveUnifyTerms = [
+			unify(
+				term.name.info,
+				newSource,
+				...newRecurs
+			),
+			...newTerms21,
+			...newTerms
+		];
+		// Replace the recursive calls with the new name <pred_name>_recur_<counter>
+		const [bodyWithReplacedCalls2] = mapVarsWithState(term.body.terms,
+			(xx, ss) => {
+				if (xx.value === term.name.value) {
+					const newName = `${term.name.value}_recur_${ss}`;
+					const newCounter = ss + 1;
+					return [make.identifier(xx.info, newName), newCounter];
+				} else {
+					return [xx, ss];
+				}
+			},
+			0
+		);
+		bodyWithReplacedCalls = conjunction1(...bodyWithReplacedCalls2);
+	}
+
+	const [linearizedDef, newFreeVars7] = linearizeVars(
+		bodyWithReplacedCalls,
+		extraFreeVars
+	);
+	const predDef: PredicateDefinitionGeneric<T> = {
+		type: "predicate_definition",
+		name: term.name,
+		args: term.args,
+		body: conjunction1(...linearizedDef),
+	};
+	return [
+		[
+			...extraRecursiveUnifyTerms,
+			predDef
+		],
+		{
+			...newFreeVars7,
+		},
+	];
 }
 
 function walkNewName(
@@ -207,10 +280,10 @@ function walkNewName(
 	return walkNewName(latestName, variableContext);
 }
 
-function linearizeQuick(
-	expr: IdentifierDsAst,
+function linearizeQuick<T>(
+	expr: IdentifierGeneric<T>,
 	variableContext: FreeVarsData,
-): [IdentifierDsAst, TermDsAst[], FreeVarsData] {
+): [IdentifierGeneric<T>, TermGeneric<T>[], FreeVarsData] {
 	// First check if the variable is in newNames
 	const newName = variableContext.newNames.get(expr.value);
 	if (builtinList.includes(expr.value as Builtin)) {
@@ -251,22 +324,14 @@ function linearizeQuick(
 			variableContext.originalVarCounter.get(expr.value) ??
 			0;
 		return [
-			{ type: "identifier", value: newName3 },
+			{ type: "identifier", value: newName3, info: expr.info },
 			[
 				unify(
-					make_identifier(newName2),
-					// { type: 'identifier', value: latestName },
-					make_identifier(newName3),
-					make_identifier(latestName),
+					expr.info,
+					make.identifier(expr.info, newName2),
+					make.identifier(expr.info, newName3),
+					make.identifier(expr.info, latestName),
 				),
-				// unify_term('=',{
-				//     type: 'identifier',
-				//     value: newName3
-				// }, { type: 'identifier', value: newName2 })
-				// unify_term('=',{
-				//     type: 'identifier',
-				//     value: newName3
-				// }, { type: 'identifier', value: expr.value })
 			],
 			updateFreeVarsData(
 				variableContext,
@@ -285,29 +350,23 @@ function updateFreeVarsData(
 	newName2: string,
 	actualName: string,
 ): FreeVarsData {
-	// debugHolder(
-	// 	"latestName",
-	// 	latestName,
-	// 	"newName2",
-	// 	newName2,
-	// );
 	const newEntryVals: [string, number][] =
 		latestName === newName2
 			? [
-					[
-						latestName,
-						(variableContextC.varCounter.get(latestName) ??
-							0) + 1,
-					],
-				]
+				[
+					latestName,
+					(variableContextC.varCounter.get(latestName) ??
+						0) + 1,
+				],
+			]
 			: [
-					[newName2, 1],
-					[
-						latestName,
-						(variableContextC.varCounter.get(latestName) ??
-							0) + 1,
-					],
-				];
+				[newName2, 1],
+				[
+					latestName,
+					(variableContextC.varCounter.get(latestName) ??
+						0) + 1,
+				],
+			];
 	const varCounter = new Map([
 		...variableContextC.varCounter.entries(),
 		...newEntryVals,
@@ -335,19 +394,18 @@ function updateFreeVarsData(
 	};
 }
 
-function processArgs(
-	args: ExpressionDsAst[],
+function processArgs<T>(
+	args: ExpressionGeneric<T>[],
 	freeVars: FreeVarsData,
-): [ExpressionDsAst[], TermDsAst[], FreeVarsData] {
-	const args2: ExpressionDsAst[] = [];
-	const newTerms2: TermDsAst[] = [];
+): [ExpressionGeneric<T>[], TermGeneric<T>[], FreeVarsData] {
+	const args2: ExpressionGeneric<T>[] = [];
+	const newTerms2: TermGeneric<T>[] = [];
 	let newFreeVars2 = freeVars;
 	for (const arg of args) {
 		if (arg.type === "literal") {
 			args2.push(arg);
 		} else {
-			const [newArg, newTerms, newFreeVars] =
-				linearizeQuick(arg, newFreeVars2);
+			const [newArg, newTerms, newFreeVars] = linearizeQuick(arg, newFreeVars2);
 			newTerms2.push(...newTerms);
 			args2.push(newArg);
 			newFreeVars2 = newFreeVars;
@@ -367,76 +425,11 @@ export function printFreeVars(
     counter: ${freeVars.counter}`;
 }
 
-/**
- * Lin
- */
-
-function countVarUsage(
-	term: TermDsAst | TermDsAst[],
-	variableContext: FreeVarsData,
-): FreeVarsData {
-	if (Array.isArray(term)) {
-		return term.reduce(
-			(acc, t) => countVarUsage(t, acc),
-			variableContext,
-		);
-	}
-	switch (term.type) {
-		case "conjunction":
-		case "disjunction":
-			return term.terms.reduce(
-				(acc, t) => countVarUsage(t, acc),
-				variableContext,
-			);
-		case "fresh":
-			return countVarUsage(term.body, variableContext);
-		case "with":
-			return countVarUsage(term.body, variableContext);
-		case "predicate_call": {
-			const sourceCount =
-				variableContext.varCounter.get(term.source.value) ??
-				0;
-			const newVarCounter = new Map(
-				variableContext.varCounter,
-			);
-			newVarCounter.set(term.source.value, sourceCount + 1);
-			return term.args.reduce(
-				(acc, a) => {
-					if (a.type === "identifier") {
-						const count = acc.varCounter.get(a.value) ?? 0;
-						const newVarCounter2 = new Map(acc.varCounter);
-						newVarCounter2.set(a.value, count + 1);
-						return {
-							// biome-ignore lint/performance/noAccumulatingSpread: <explanation>
-							...acc,
-							varCounter: newVarCounter2,
-						};
-					}
-					return acc;
-				},
-				{
-					...variableContext,
-					varCounter: newVarCounter,
-				},
-			);
-		}
-		case "predicate_definition":
-			return variableContext;
-	}
-}
 
 export function linearize(
-	term: TermDsAst | TermDsAst[],
-): TermDsAst[] {
-	// const oldVf = printFreeVars(
-	// 	countVarUsage(term, {
-	// 		vars: new Set(),
-	// 		varCounter: new Map(),
-	// 		originalVarCounter: new Map(),
-	// 		newNames: new Map(),
-	// 		counter: 0,
-	// 	}),
-	// );
+	term: TermGeneric<undefined> | TermGeneric<undefined>[],
+	ignore: ImmSet<string> = ImmSet(builtinList),
+): TermGeneric<undefined>[] {
 	const [newTerm, frVars] = linearizeVars(term, {
 		vars: new Set(),
 		varCounter: new Map(),
@@ -444,18 +437,86 @@ export function linearize(
 		newNames: new Map(),
 		counter: 0,
 	});
-	// debugHolder(
-	// 	"frVars---------------------------",
-	// 	printFreeVars(
-	// 		countVarUsage(newTerm, {
-	// 			vars: new Set(),
-	// 			varCounter: new Map(),
-	// 			originalVarCounter: new Map(),
-	// 			newNames: new Map(),
-	// 			counter: 0,
-	// 		}),
-	// 	),
-	// );
-	// debugHolder("oldVf---------------------------", oldVf);
+	const clearpass = false;
+	// const lin1 = cleanupLinearUnifies(newTerm, ignore, true);
+	// const lin2 = replaceUnusedPreds(lin1, clearpass);
+	// const lin3 = cleanupExcessUnifies(conjunction1(...lin2), clearpass);
+	// const lin4 = cleanupLinearUnifies([lin3], ignore, false);
+	// const [lin4, _] = refactorTermsToMergeUnifies(conjunction1(...newTerm));
+	// const lin5 = cleanupLinearUnifies(lin4, ignore, false);
+	// return replaceUnusedPreds(lin5, clearpass);
+	return cleanupCircus(newTerm, 3, ignore);
+	// return replaceUnusedPreds([
+	// 	cleanupExcessUnifies(conjunction1(...cleanupLinearUnifies(newTerm, ignore, false)), false)
+	// ], false);
+}
+/**
+ * 
+    conj:
+        unify(appendo, appendo_recur_0, appendoY_91)
+        unify(einput, einputY_85)
+        unify(input2, input2Y_87)
+        DEFINE [appendo] as (a, b, ab) => 
+            fresh a_0, b_1, ab_2:
+                conj:
+                    unify(b, b_1_disj_0, b_1_disj_1)
+                    unify(ab, ab_2_disj_0, ab_2_disj_1, ab_2_disj_2)
+                    unify(a, a_0_disj_0, a_0_disj_1, a_0_disj_2)
+                    disj:
+                        conj:
+                            unify(ab_2_disj_0, b_1_disj_0)
+                            unify(a_0_disj_0, a_0_disj_0Y_51)
+                            empty(a_0_disj_0Y_51)
+                        conj:
+                            unify(ab_2_disj_1, ab_2_disj_1Y_59)
+                            unify(ab_2_disj_2, ab_2_disj_2Y_63)
+                            unify(q, qY_65)
+                            unify(a_0_disj_1, a_0_disj_1Y_67)
+                            unify(a_0_disj_2, a_0_disj_2Y_71)
+                            unify(d, dY_73)
+                            unify(b_1_disj_1, b_1_disj_1Y_75)
+                            unify(r, rY_77)
+                            rest(r, ab_2_disj_1Y_59)
+                            first(q, ab_2_disj_2Y_63)
+                            first(qY_65, a_0_disj_1Y_67)
+                            rest(d, a_0_disj_2Y_71)
+                            appendo_recur_0(dY_73, b_1_disj_1Y_75, rY_77)
+        list(einput, "1", "2", "3")
+        list(input2, "4", "5", "6")
+        appendoY_91(einputY_85, input2Y_87, qq)
+ */
+function cleanupCircus<T>(
+	term: TermGeneric<T>[],
+	repeats = 1,
+	ignore: ImmSet<string> = ImmSet(builtinList),
+): TermGeneric<T>[] {
+	// Repeatedly run refactor, then cleanup, then replaceUnusedPreds for repeat times
+	let newTerm = term;
+	// for (let i = 0; i < repeats; i++) {
+		const [newTerm1, _] = refactorTermsToMergeUnifies(conjunction1(...newTerm));
+		// const newTerm1 = cleanupExcessUnifies(conjunction1(...newTerm), false);
+		const newTerm2 = cleanupLinearUnifies(newTerm1, ignore, false);
+		newTerm = replaceUnusedPreds(newTerm2, false);
+	// }
 	return newTerm;
+}
+
+
+function replaceUnusedPreds<T>(
+	terms: TermGeneric<T>[],
+	pass = false
+): TermGeneric<T>[] {
+	if (pass) {
+		return terms
+	}
+	return mapPredCallsRemovable(
+		terms,
+		(pc) => {
+			if (pc.source.value === "unify" && pc.args.length < 2) {
+				return undefined;
+			}
+			return pc;
+		},
+		(ct, zz) => zz
+	)
 }

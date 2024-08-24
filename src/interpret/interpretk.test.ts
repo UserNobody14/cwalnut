@@ -7,36 +7,61 @@ import { interpretPlus, runFor } from "src/interpret/interpretk";
 import { freshenTerms } from "src/redo/extractclosure";
 import { builtinList } from "src/utils/builtinList";
 import { modeExec } from "src/mode/modeconvert";
+import { linearize } from "src/redo/linearize";
+import { Set as ImmSet } from "immutable";
+import { pprintGeneric, pprintQuick } from "src/pprint/pprintgeneric";
+import type { TermGeneric } from "src/types/AstGeneric";
+
+const toFrsh = (varsToSelect: string[]) => (coder: TermGeneric<undefined>[]) => {
+	return freshenTerms(
+
+		coder,
+
+		"conjunction", [
+		...builtinList,
+		...varsToSelect,
+	]);
+}
 
 const prcs = (
 	srcc: string,
 	varsToSelect = ["qq", "aaa", "bbb"],
-) =>
-	toDummyTypes(
-		freshenTerms(codeToAst(srcc), "conjunction", [
-			...builtinList,
-			...varsToSelect,
-		]),
+) => {
+	return toDummyTypes(
+		toFrsh(varsToSelect)(
+			linearize(
+				codeToAst(srcc),
+				ImmSet([...builtinList, ...varsToSelect])
+			)
+		),
 	);
+	// return toDummyTypes(
+	// 	// codeToAst(srcc)
+	// 	linearize(
+	// 		toFrsh(varsToSelect)(codeToAst(srcc)),
+	// 		ImmSet([...builtinList, ...varsToSelect])
+	// 	)
+	// );
+}
 
 describe("Interpret simple cwal programs", () => {
-        // test("Simple father program", () => {
-        // 	const sourceCode = `
-        //     val.father = (aaa, bbb) =>
-        //         either:
-        //             all:
-        //                 aaa = "mcbob"
-        //                 bbb = "bob"
-        //             all:
-        //                 bbb = "bill"
-        //                 aaa = "bob"
-        //     val.father("bob", qq)
-        //     `;
-        // 	const res = interpretPlus(prcs(sourceCode));
-        // 	// runFor(interpretPlus(prcs(sourceCode)), ['qq'])
-        // 	const resrun = runFor(res, false, ["qq"]);
-        // 	expect(resrun).toEqual([{ qq: "bill" }]);
-        // });
+	// test("Simple father program", () => {
+	// 	const sourceCode = `
+	//     val.father = (aaa, bbb) =>
+	//         either:
+	//             all:
+	//                 aaa = "mcbob"
+	//                 bbb = "bob"
+	//             all:
+	//                 bbb = "bill"
+	//                 aaa = "bob"
+	//     val.father("bob", qq)
+	//     `;
+	// 	const res = interpretPlus(prcs(sourceCode));
+	// 	// runFor(interpretPlus(prcs(sourceCode)), ['qq'])
+	// 	const resrun = runFor(res, false, ["qq"]);
+	// 	expect(resrun).toEqual([{ qq: "bill" }]);
+	// });
 
 	test("Simple father program2", () => {
 		const sourceCode = `
@@ -139,7 +164,9 @@ einput = [1, 2, 3, 4, 5]
 
 membero(qq, einput)
 `;
-		const res = interpretPlus(prcs(sourceCode));
+		const processedCode = prcs(sourceCode);
+		console.log(pprintQuick(processedCode));
+		const res = interpretPlus(processedCode);
 		// runFor(interpretPlus(prcs(sourceCode)), ['qq'])
 		const resrun = runFor(res, false, ["qq"]);
 		expect(resrun).toEqual([
@@ -216,12 +243,14 @@ either:
     qq = [45]
 `;
 		const codev = codeToAst(sourceCode, true);
-		const res = interpretPlus(
-			modeExec(prcs(sourceCode, ["qq", "mid"])),
+    	const parsedCode = prcs(sourceCode, ["qq", "mid"]);
+		console.log(pprintQuick(parsedCode));
+    	const res = interpretPlus(
+			modeExec(parsedCode)
 		);
 		// runFor(interpretPlus(prcs(sourceCode)), ['qq'])
 		// const resrun = runFor(res, false, ['qq']);
-		const resrun = runFor(res, false, ["qq", "mid"], null);
+		const resrun = runFor(res, false, ["qq", "mid"], 10);
 		expect(resrun).toEqual([
 			{
 				qq: ["1", "2", "3", "4", "5", "6"],
@@ -294,6 +323,9 @@ appendo(einput, input2, qq)
 		// appendo(einput, input2, qq)`);
 		const ppr = prcs(sourceCode);
 		// console.log(pprintTermTFlex(ppr, 'withouttype'));
+		console.log(pprintQuick(
+			prcs(sourceCode)
+		));
 		const res = interpretPlus(prcs(sourceCode));
 		const resrun = runFor(res, false, ["qq"], null);
 		expect(resrun).toEqual([

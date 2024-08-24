@@ -1,7 +1,7 @@
 import { test, describe, expect } from "@jest/globals";
 
 import { codeToAst } from "src/redo/ast-desugar";
-import { ExpressionDsAst } from "src/types/DesugaredAst";
+import { ExpressionGeneric } from "src/types/AstGeneric";
 import {
 	conjunction1,
 	disjunction1,

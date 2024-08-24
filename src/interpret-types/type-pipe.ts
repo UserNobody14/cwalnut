@@ -14,10 +14,6 @@ import {
 	mapVarsWithState,
 } from "src/lens/into-vars";
 import type {
-	IdentifierDsAst,
-	TermDsAst,
-} from "src/types/DesugaredAst";
-import type {
 	ExpressionGeneric,
 	IdentifierGeneric,
 	TermGeneric,
@@ -36,18 +32,18 @@ import { builtinTypes } from "./builtinTypes";
 import { warnHolder } from "src/warnHolder";
 
 function toEarlyMeta(
-	tt: TermDsAst[],
+	tt: TermGeneric<undefined>[],
 ): TermGeneric<"unknown">[] {
 	return mapToGeneric(tt, (tk) =>
 		make.identifier("unknown", tk.value),
 	);
 }
 
-export function toBasicTypes(tsss: TermDsAst[]): TermT[] {
+export function toBasicTypes(tsss: TermGeneric<undefined>[]): TermT[] {
 	const tt = toEarlyMeta(tsss);
 	return toBasicTypesG(tt);
 }
-export function toDummyTypes(tsss: TermDsAst[]): TermT[] {
+export function toDummyTypes(tsss: TermGeneric<undefined>[]): TermT[] {
 	return mapToGeneric(tsss, (tk) =>
 		make.identifier(make.simple_type("unknown"), tk.value),
 	);

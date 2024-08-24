@@ -18,6 +18,7 @@ import type {
 	TypeVariable,
 	UnionType,
 } from "src/types/EzType";
+import {builtinList} from './builtinList';
 
 const conjunction_dat = <T>(
 	terms: TermGeneric<T>[],
@@ -127,7 +128,7 @@ const predicate_type_dat = (
 	generics: args,
 });
 
-function flattenConjunctions<T>(
+export function flattenConjunctions<T>(
 	terms: TermGeneric<T>[],
 ): TermGeneric<T>[] {
 	return terms.flatMap((term) =>
@@ -137,7 +138,7 @@ function flattenConjunctions<T>(
 	);
 }
 
-function flattenDisjunctions<T>(
+export function flattenDisjunctions<T>(
 	terms: TermGeneric<T>[],
 ): TermGeneric<T>[] {
 	return terms.flatMap((term) =>
@@ -181,20 +182,86 @@ export function fresh1<T>(
 	);
 }
 
+
+export const [
+	set_key_of,
+	unify,
+	unify_left,
+	unify_right,
+	unify_equal,
+	unify_not_equal,
+	to_slice,
+	to_length,
+	list,
+	to_first,
+	to_rest,
+	to_empty,
+	mk_add,
+	mk_subtract,
+	mk_multiply,
+	mk_divide,
+	mk_modulo,
+	mk_negate,
+	mk_internal_file,
+	mk_internal_import,
+	mk_cons,
+	mk_internal_append,
+	mk_string_to_list,
+] = builtinList.map(
+	(id) =>
+		<T>(srcInfo: T,...args: ExpressionGeneric<T>[]) =>
+			predicate_call_dat(identifier_dat(
+				srcInfo, id
+			), args),
+);
+
+
 // Use Proxy to generate identifiers super easily
 
 export const ezlvar: Record<
 	string,
-	<T>(t: T) => IdentifierGeneric<T>
+	((<T = undefined>(t?: T) => IdentifierGeneric<T>)| (() => IdentifierGeneric<undefined>))
 > = new Proxy(
 	{},
 	{
 		get:
 			(_, prop) =>
-			<T>(t: T) =>
-				identifier_dat(t, prop.toString()),
+			<T = undefined>(t?: T) => {
+				identifier_dat(t, prop.toString());
+			},
 	},
 );
+
+export function toLvar2<T = undefined>(t?: T) {
+	const ezlvar2: Record<
+	string,
+	IdentifierGeneric<T>
+> = new Proxy(
+	{},
+	{
+		get:
+			(_, prop) => identifier_dat(t, prop.toString()),
+	},
+	);
+	return ezlvar2;
+}
+type PredicateCallType<T> = (...args: ExpressionGeneric<T>[]) => PredicateCallGeneric<T>;
+export function toPred2_<T>(t: T) {
+
+	const ezlvar2: Record<
+	string,
+	(...args: ExpressionGeneric<T>[]) => PredicateCallGeneric<T>
+> = new Proxy(
+	{},
+	{
+		get: (_, prop): PredicateCallType<T> => (...args) => predicate_call_dat(
+			identifier_dat(t, prop.toString()),
+			args
+		),
+	},
+	);
+	return ezlvar2;
+}
 
 export const make = {
 	conjunction: conjunction_dat,
@@ -205,6 +272,8 @@ export const make = {
 	predicate_definition: predicate_definition_dat,
 	identifier: identifier_dat,
 	lvar: ezlvar,
+	lvar2: toLvar2,
+	pred2: toPred2_,
 	literal: literal_dat,
 	// Types
 	simple_type: simple_type_dat,

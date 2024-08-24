@@ -131,3 +131,9 @@ export function pprintTermTFlex(
 		displayTypes === "withtype" ? pprintTypeMeta : () => "",
 	);
 }
+
+export function pprintQuick<T>(
+	ast: TermGeneric<T> | TermGeneric<T>[],
+): string {
+	return pprintGeneric(ast, () => "");
+}

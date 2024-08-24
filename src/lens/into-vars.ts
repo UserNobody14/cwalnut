@@ -1,18 +1,19 @@
-import type {
-	IdentifierDsAst,
-	TermDsAst,
-} from "src/types/DesugaredAst";
+
 import { Map as ImmMap, Set as ImmSet } from "immutable";
+import { pprintGeneric } from "src/pprint/pprintgeneric";
 import type {
+	ConjunctionGeneric,
+	DisjunctionGeneric,
 	ExpressionGeneric,
 	IdentifierGeneric,
 	PredicateCallGeneric,
 	PredicateDefinitionGeneric,
 	TermGeneric,
 } from "src/types/AstGeneric";
+import { conjunction1, make } from "src/utils/make_better_typed";
 
 export function* intoVars(
-	tt: TermDsAst[],
+	tt: TermGeneric<undefined>[],
 ): Generator<string> {
 	for (const t of tt) {
 		switch (t.type) {
@@ -49,7 +50,7 @@ export function* intoVars(
 }
 
 export function* intoVarsUnshadowed(
-	tt: TermDsAst[],
+	tt: TermGeneric<undefined>[],
 	ignore: ImmSet<string> = ImmSet(),
 ): Generator<string> {
 	for (const t of tt) {
@@ -87,8 +88,48 @@ export function* intoVarsUnshadowed(
 		}
 	}
 }
+
+export function* intoVarsUnshadowedG<T>(
+	tt: TermGeneric<T>[],
+	ignore: ImmSet<string> = ImmSet(),
+): Generator<IdentifierGeneric<T>> {
+	for (const t of tt) {
+		switch (t.type) {
+			case "conjunction":
+			case "disjunction":
+				yield* intoVarsUnshadowedG(t.terms, ignore);
+				break;
+			case "fresh":
+				yield* intoVarsUnshadowedG(t.body.terms, ignore.merge(
+					t.newVars.map((v) => v.value),
+				));
+				break;
+			case "with":
+				yield* intoVarsUnshadowedG(t.body.terms, ignore.add(t.name.value));
+				break;
+			case "predicate_definition":
+				yield* intoVarsUnshadowedG(t.body.terms, ignore.add(t.name.value).merge(
+					t.args.map((a) => a.value)
+				));
+				break;
+			case "predicate_call":
+				if (!ignore.has(t.source.value)) {
+					yield t.source;
+				}
+				for (const a of t.args) {
+					if (
+						a.type === "identifier" &&
+						!ignore.has(a.value)
+					) {
+						yield a;
+					}
+				}
+				break;
+		}
+	}
+}
 export function* intoUniqueVars(
-	tt: TermDsAst[],
+	tt: TermGeneric<undefined>[],
 	ignore: Set<string>,
 ): Generator<string> {
 	for (const t of tt) {
@@ -227,9 +268,9 @@ export function* intoUniqueVarsGeneric<T>(
 }
 
 export function mapVars(
-	tt: TermDsAst[],
+	tt: TermGeneric<undefined>[],
 	fn: (v: string) => string,
-): TermDsAst[] {
+): TermGeneric<undefined>[] {
 	return tt.map((t) => {
 		switch (t.type) {
 			case "conjunction":
@@ -397,6 +438,58 @@ export function mapPredCalls<T, Z>(
 				return fn(t);
 		}
 	});
+}
+
+export function mapPredCallsRemovable<T, Z>(
+	tt: TermGeneric<T>[],
+	fn: (
+		z: PredicateCallGeneric<T>,
+	) => PredicateCallGeneric<Z> | undefined,
+	freshen: (
+		src: CtxTypes,
+		zz: IdentifierGeneric<T>[],
+	) => IdentifierGeneric<Z>[],
+): TermGeneric<Z>[] {
+	return tt.map((t: TermGeneric<T>): TermGeneric<Z> | undefined => {
+		switch (t.type) {
+			case "conjunction":
+			case "disjunction":
+				return {
+					...t,
+					terms: mapPredCallsRemovable(t.terms, fn, freshen),
+				};
+			case "fresh":
+				return {
+					...t,
+					newVars: freshen("fresh-args", t.newVars),
+					body: {
+						...t.body,
+						terms: mapPredCallsRemovable(t.body.terms, fn, freshen),
+					},
+				};
+			case "with":
+				return {
+					...t,
+					name: freshen("name", [t.name])[0],
+					body: {
+						...t.body,
+						terms: mapPredCallsRemovable(t.body.terms, fn, freshen),
+					},
+				};
+			case "predicate_definition":
+				return {
+					...t,
+					name: freshen("name", [t.name])[0],
+					args: freshen("definition-args", t.args),
+					body: {
+						...t.body,
+						terms: mapPredCallsRemovable(t.body.terms, fn, freshen),
+					},
+				};
+			case "predicate_call":
+				return fn(t);
+		}
+	}).filter((x): x is TermGeneric<Z> => x !== undefined);
 }
 
 export function mapPredDefinitionsGeneric<T, Z>(
@@ -801,18 +894,352 @@ export function mapPredCallsToState<T, S>(
 	return s;
 }
 
+export function mapConjunctions<T, S>(
+	tt: TermGeneric<T>[],
+	fn: (z: ConjunctionGeneric<T>, s: S) => [ConjunctionGeneric<T>, S],
+	s1: S,
+): [TermGeneric<T>[], S]{
+    let s = s1;
+	const result: TermGeneric<T>[] = [];
+	for (const t of tt) {
+		switch (t.type) {
+			case "conjunction": {
+				const [tPlus, stPlus] = mapConjunctions(t.terms, fn, s);
+				const [newTerms, newState] = fn(conjunction1(...tPlus), stPlus);
+				// const [newTerms, newState] = fn(t, s);
+				result.push( newTerms );
+				s = newState;
+				break;
+			}
+			case "disjunction": {
+				const [newTerms, newState] = mapConjunctions(t.terms, fn, s);
+				result.push({ ...t, terms: newTerms });
+				s = newState;
+				break;
+			}
+			case "fresh": {
+				const [tPlus, stPlus] = mapConjunctions(t.body.terms, fn, s);
+				const [newBody, newState] = fn(conjunction1(...tPlus), stPlus);
+				result.push({
+					...t,
+					body: newBody
+				});
+				s = newState;
+				break;
+			}
+			case "with": {
+				const [tPlus, stPlus] = mapConjunctions(t.body.terms, fn, s);
+				const [newBody, newState] = fn(conjunction1(...tPlus), stPlus);
+				result.push({
+					...t,
+					body: newBody
+				});
+				s = newState;
+				break;
+			}
+			case "predicate_definition": {
+				const [tPlus, stPlus] = mapConjunctions(t.body.terms, fn, s);
+				const [newBody, newState] = fn(conjunction1(...tPlus), stPlus);
+				result.push({
+					...t,
+					body: newBody
+				});
+				s = newState;
+				break;
+			}
+			case "predicate_call": {
+				const [newBody, newState] = fn(conjunction1(t), s);
+				result.push(newBody);
+				s = newState;
+				break;
+			}
+		}
+	}
+	return [result, s];
+}
+
+type MapConj3<T, S> = (
+	tt: ConjunctionGeneric<T>,
+	s1: S,
+	// fn: (z: ConjunctionGeneric<T>, s: S, recur: MapConj2<T, S>) => [ConjunctionGeneric<T>, S],
+	disj: (z: DisjunctionGeneric<T>, s: S, recur: MapConj3<T, S>) => [DisjunctionGeneric<T>, S],
+	fn: MapConj3<T, S>,
+) => [ConjunctionGeneric<T>, S];
+
+// type MapConj2<T, S> = (
+// 	tt: TermGeneric<T>[],
+// 	s1: S,
+// 	fn: (z: ConjunctionGeneric<T>, s: S, recur: MapConj2<T, S>) => [ConjunctionGeneric<T>, S],
+// ) => [TermGeneric<T>[], S];
+
+export const mapConjunctions2 = <T, S>(
+	tt: ConjunctionGeneric<T>,
+	s1: S,
+	// fn: (z: ConjunctionGeneric<T>, s: S, recur: MapConj3<T, S>) => [ConjunctionGeneric<T>, S],
+	disj: (z: DisjunctionGeneric<T>, s: S, recur: MapConj3<T, S>) => [DisjunctionGeneric<T>, S],
+	fn: MapConj3<T, S>,
+): [ConjunctionGeneric<T>, S] => {
+    let s = s1;
+	const result: TermGeneric<T>[] = [];
+	for (const t of tt.terms) {
+		switch (t.type) {
+			case "conjunction": {
+				const [newBody, newState] = fn(t, s, disj, mapConjunctions2);
+				result.push( newBody );
+				s = newState;
+				break;
+			}
+			case "disjunction": {
+				const [newTerms, newState] = disj(t, s, fn);
+				result.push(newTerms);
+				s = newState;
+				break;
+			}
+			case "fresh": {
+				const [newBody, newState] = fn(t.body, s, disj, mapConjunctions2);
+				result.push({
+					...t,
+					body: newBody
+				});
+				s = newState;
+				break;
+			}
+			case "with": {
+				const [newBody, newState] = fn(t.body, s, disj, mapConjunctions2);
+				result.push({
+					...t,
+					body: newBody
+				});
+				s = newState;
+				break;
+			}
+			case "predicate_definition": {
+				const [newBody, newState] = fn(t.body, s, disj, mapConjunctions2);
+				result.push({
+					...t,
+					body: newBody
+				});
+				s = newState;
+				break;
+			}
+			case "predicate_call": {
+				const [newBody, newState] = fn(conjunction1(t), s, disj, mapConjunctions2);
+				result.push(newBody);
+				s = newState;
+				break;
+			}
+		}
+	}
+	return [conjunction1(...result), s];
+}
+
+// function wrapTermTransform<T, S>(
+// 	t: TermGeneric<T>,
+// 	fn: (z: TermGeneric<T>[], s: S) => [TermGeneric<T>[], S],
+// ): (s: S) => [TermGeneric<T>[], S] {
+// 	switch (t.type) {
+// 		case "conjunction": 
+// 		case "disjunction": {
+// 			return (s: S) => fn(t.terms, s);
+// 		}
+// 		case "fresh": {
+// 			const (s: S) => [newBody, newState] = fn(t.body.terms, s);
+// 			return [{ ...t, body: { ...t.body, terms: newBody } }, newState];
+// 		}
+// 		case "with": {
+// 			const (s: S) => [newBody, newState] = fn(t.body.terms, s);
+// 			return [{ ...t, body: { ...t.body, terms: newBody } }, newState];
+// 		}
+// 		case "predicate_definition": {
+// 			const (s: S) => [newBody, newState] = fn(t.body.terms, s);
+// 			return [{ ...t, body: { ...t.body, terms: newBody } }, newState];
+// 		}
+// 		case "predicate_call": {
+// 			return (s: S) => fn([t], s);
+// 		}
+// 	}
+// }
+
+// export function mpredPossibilities<T, S, EMPTYS = null>(
+// 	tt: TermGeneric<T>[],
+// 	pred: (z: PredicateDefinitionGeneric<T>, s: S) => Iterable<[PredicateCallGeneric<T>, S | EMPTYS]>,
+// 	mplus: EMPTYS,
+// ): TermGeneric<T>[] {
+// 	const result: TermGeneric<T>[] = [];
+// 	for (const t of tt) {
+// 		switch (t.type) {
+// 			case "conjunction":
+// 			case "disjunction":
+// 				result.push({
+// 					...t,
+// 					terms: mpredPossibilities(t.terms, pred, mplus),
+// 				});
+// 				break;
+// 			case "fresh":
+// 				result.push({
+// 					...t,
+// 					body: {
+// 						...t.body,
+// 						terms: mpredPossibilities(t.body.terms, pred, mplus),
+// 					},
+// 				});
+// 				break;
+// 			case "with":
+// 				result.push({
+// 					...t,
+// 					body: {
+// 						...t.body,
+// 						terms: mpredPossibilities(t.body.terms, pred, mplus),
+// 					},
+// 				});
+// 				break;
+// 			case "predicate_definition": {
+// 				const poss = pred(t, mplus);
+// 				for (const [p, s] of poss) {
+// 					result.push(p);
+// 				}
+// 				break;
+// 			}
+// 			case "predicate_call":
+// 				result.push(t);
+// 				break;
+// 		}
+// 	}
+// 	return result;
+
+// }
+ 
+// type MonadHelp<S, MULTIS = S[], EMPTYS = null> = {
+// 	lift: (s2s: (s: S) => S | EMPTYS | MULTIS) => (sm: MULTIS) => MULTIS | EMPTYS,
+// 	joinin: (s2s: (s: S) => S | MULTIS) => (sm: MULTIS) => MULTIS,
+// 	mp: (s: S, se: S | EMPTYS) => S,
+// 	rd: (s: S | EMPTYS, m: MULTIS) => MULTIS | EMPTYS,
+// 	merge: (s: S | EMPTYS, m: MULTIS) => S | EMPTYS,
+// 	is_empty: (m: MULTIS | EMPTYS) => m is EMPTYS,
+// };
+
+// type AstBreakdown<INITIAL, FIRSTMAP, OUTPUT, STATE, FIRSTMAPMULTI, OUTPUTMULTI, EMPTY> = {
+// 	mplus: EMPTY,
+// 	// mh1: MonadHelp<[TermGeneric<INITIAL>[], STATE], INITIALMULTI>,
+// 	mh2: MonadHelp<[TermGeneric<FIRSTMAP>[], STATE], FIRSTMAPMULTI, EMPTY>,
+// 	mh3: MonadHelp<[TermGeneric<OUTPUT>[], STATE], OUTPUTMULTI, EMPTY>,
+// 	// firstmap: {
+// 		// pred: (z: PredicateCallGeneric<INITIAL>) => PredicateCallGeneric<FIRSTMAP>,
+// 	// }
+// 	// disj: 
+// 	// disj: (z: DisjunctionGeneric<T>, s: S) => MULTIS,
+// 	// conj: (z: ConjunctionGeneric<T>, s: S) => S | EMPTYS,
+// 	// pred: (z: PredicateCallGeneric<T>, s: S) => S | EMPTYS,
+// 	// frsh: (z: FreshGeneric<T>[], s: S) => S | EMPTYS,
+// };
+
+// export const mapConjunctions3 = <T, S, MULTIS = S[], EMPTYS = null>(
+// 	tt: TermGeneric<T>[],
+// 	s1: S | EMPTYS,
+// 	mplus: EMPTYS,
+// 	mh: MonadHelp<S, MULTIS, EMPTYS>,
+// 	disj: (z: DisjunctionGeneric<T>, s: S) => MULTIS,
+// 	conj: (z: ConjunctionGeneric<T>, s: S) => S | EMPTYS,
+// 	pred: (z: PredicateCallGeneric<T>, s: S) => S,
+// ): S | EMPTYS => {
+// 	function recur(t2: TermGeneric<T>[], s3: MULTIS): MULTIS | EMPTYS {
+// 		let s0: MULTIS | EMPTYS = mplus;
+// 		let s: MULTIS = s3;
+// 		const result: TermGeneric<T>[] = [];
+// 		for (const t of t2) {
+// 			switch (t.type) {
+// 				case "conjunction": {
+// 					s0 = mh.lift((ss) => conj(t, ss))(s);
+// 					break;
+// 				}
+// 				case "disjunction": {
+// 					s0 = mh.joinin((ss) => disj(t, ss))(s);
+// 					break;
+// 				}
+// 				case "fresh": {
+// 					s0 = mh.lift((ss) => conj(t.body, ss))(s);
+// 					break;
+// 				}
+// 				case "with": {
+// 					s0 = mh.lift((ss) => conj(t.body, ss))(s);
+// 					break;
+// 				}
+// 				case "predicate_definition": {
+// 					s0 = mh.lift((ss) => conj(t.body, ss))(s);
+// 					break;
+// 				}
+// 				case "predicate_call": {
+// 					s0 = mh.lift((ss) => pred(t, ss))(s);
+// 					break;
+// 				}
+// 			}
+// 			if (mh.is_empty(s0)) return mplus;
+// 			s = mh.rd(s0, s);
+// 			// s = mh.rd(s0, s);
+// 		}
+// 		return conj(newBody, newState);
+// 	}
+// }
+
+
+
+export function mapPredCallsToStateWithDefs<T, S>(
+	tt: TermGeneric<T>[],
+	fn: (z: PredicateCallGeneric<T>, s: S) => S,
+	s1: S,
+): S {
+	// console.log(pprintGeneric(tt, (ctx, xx) => ""));
+	let s = s1;
+	for (const t of [...tt]) {
+		switch (t.type) {
+			case "conjunction":
+			case "disjunction":
+				s = mapPredCallsToStateWithDefs(t.terms, fn, s);
+				break;
+			case "fresh":
+				s = mapPredCallsToStateWithDefs(t.body.terms, fn, s);
+				break;
+			case "with":
+				s = mapPredCallsToStateWithDefs(t.body.terms, fn, s);
+				break;
+			case "predicate_definition":
+				s = fn(make.predicate_call(
+					make.identifier(t.name.info, 'define'),
+					[
+						t.name,
+						...t.args
+					]
+				), s);
+				s = mapPredCallsToStateWithDefs(t.body.terms, fn, s);
+				break;
+			case "predicate_call":
+				s = fn(t, s);
+				break;
+		}
+	}
+	return s;
+}
+
 export function countVarsInCalls<T>(
 	tt: TermGeneric<T>[],
 ): ImmMap<string, number> {
-	return mapPredCallsToState(
+	return mapPredCallsToStateWithDefs(
 		tt,
 		(t, s) => {
 			let result = s;
 			for (const a of t.args) {
 				if (a.type === "identifier") {
-					result = result.update(a.value, (x = 0) => x + 1);
+					if (result.has(a.value)) {
+						result = result.set(
+							a.value,
+							result.get(a.value, 0) + 1,
+						);
+					} else {
+						result = result.set(a.value, 1);
+					}
 				}
 			}
+			result = result.update(t.source.value, (x = 0) => x + 1);
 			return result;
 		},
 		ImmMap<string, number>(),
@@ -833,8 +1260,8 @@ export function gatherVarInstanceInfo<T>(
 }
 
 export function mapToGeneric<T>(
-	ts: TermDsAst[],
-	fn: (v: IdentifierDsAst) => IdentifierGeneric<T>,
+	ts: TermGeneric<undefined>[],
+	fn: (v: IdentifierGeneric<undefined>) => IdentifierGeneric<T>,
 ): TermGeneric<T>[] {
 	return ts.map((t) => {
 		switch (t.type) {
@@ -882,4 +1309,402 @@ export function mapToGeneric<T>(
 				};
 		}
 	});
+}
+
+export function mapReducePredCalls<T, Z, S>(
+	tt: TermGeneric<T>[],
+	mapFn: (
+		z: PredicateCallGeneric<T>,
+	) => PredicateCallGeneric<Z>,
+	reduceFn: (
+		acc: S,
+		p: PredicateCallGeneric<Z>
+	) => [PredicateCallGeneric<Z>, S],
+	freshen: (
+		src: CtxTypes,
+		zz: IdentifierGeneric<T>[],
+	) => IdentifierGeneric<Z>[],
+	s: S,
+): [TermGeneric<Z>[], S] {
+	let acc = s;
+	const result: TermGeneric<Z>[] = [];
+	for (const t of tt) {
+		switch (t.type) {
+			case "conjunction":
+			case "disjunction": {
+				const [newTerms, newState] = mapReducePredCalls(
+					t.terms,
+					mapFn,
+					reduceFn,
+					freshen,
+					acc,
+				);
+				result.push({ ...t, terms: newTerms });
+				acc = newState;
+				break;
+			}
+			case "fresh": {
+				const [newVars, newState] = mapReducePredCalls(
+					t.body.terms,
+					mapFn,
+					reduceFn,
+					freshen,
+					acc,
+				);
+				result.push({
+					...t,
+					newVars: freshen('fresh-args', t.newVars),
+					body: { ...t.body, terms: newVars },
+				});
+				acc = newState;
+				break;
+			}
+			case "with": {
+				const [newBody, newState] = mapReducePredCalls(
+					t.body.terms,
+					mapFn,
+					reduceFn,
+					freshen,
+					acc,
+				);
+				result.push({
+					...t,
+					name: freshen('name', [t.name])[0],
+					body: { ...t.body, terms: newBody },
+				});
+				acc = newState;
+				break;
+			}
+			case "predicate_definition": {
+				const [newBody, newState] = mapReducePredCalls(
+					t.body.terms,
+					mapFn,
+					reduceFn,
+					freshen,
+					acc,
+				);
+				result.push({
+					...t,
+					name: freshen('name', [t.name])[0],
+					args: freshen('definition-args', t.args),
+					body: { ...t.body, terms: newBody },
+				});
+				acc = newState;
+				break;
+			}
+			case "predicate_call": {
+				const [newCall, newState] = reduceFn(acc, mapFn(t));
+				result.push(newCall);
+				acc = newState;
+				break;
+			}
+		}
+	}
+	return [result, acc];
+}
+
+export function mapReducePredCalls2<T, Z, S>(
+	tt: TermGeneric<T>[],
+	mapFn: (
+		z: PredicateCallGeneric<T>,
+	) => PredicateCallGeneric<Z>,
+	reduceFn: (
+		acc: S[],
+		p: PredicateCallGeneric<Z>
+	) => [PredicateCallGeneric<Z>, S[]],
+	freshen: (
+		src: CtxTypes,
+		zz: IdentifierGeneric<T>[],
+	) => IdentifierGeneric<Z>[],
+	s: S[],
+): [TermGeneric<Z>[], S[]] {
+	let acc = s;
+	const result: TermGeneric<Z>[] = [];
+	for (const t of tt) {
+		switch (t.type) {
+			case "conjunction": {
+				const [newTerms, newState] = mapReducePredCalls2(
+					t.terms,
+					mapFn,
+					reduceFn,
+					freshen,
+					acc,
+				);
+				result.push({ ...t, terms: newTerms });
+				acc = newState;
+				break;
+			}
+			case "disjunction": {
+				let newTerms: TermGeneric<Z>[] = [];
+				let newStates: S[] = [];
+				for (const disjt of t.terms) {
+					const [newTerms1, newState1] = mapReducePredCalls2(
+						[disjt],
+						mapFn,
+						reduceFn,
+						freshen,
+						acc,
+					);
+					newTerms = newTerms.concat(newTerms1);
+					newStates = newStates.concat(newState1);
+				}
+				result.push({ ...t, terms: newTerms });
+				acc = newStates;
+				break;
+			}
+			case "fresh": {
+				const [newVars, newState] = mapReducePredCalls2(
+					t.body.terms,
+					mapFn,
+					reduceFn,
+					freshen,
+					acc,
+				);
+				result.push({
+					...t,
+					newVars: freshen('fresh-args', t.newVars),
+					body: { ...t.body, terms: newVars },
+				});
+				acc = newState;
+				break;
+			}
+			case "with": {
+				const [newBody, newState] = mapReducePredCalls2(
+					t.body.terms,
+					mapFn,
+					reduceFn,
+					freshen,
+					acc,
+				);
+				result.push({
+					...t,
+					name: freshen('name', [t.name])[0],
+					body: { ...t.body, terms: newBody },
+				});
+				acc = newState;
+				break;
+			}
+			case "predicate_definition": {
+				const [newBody, newState] = mapReducePredCalls2(
+					t.body.terms,
+					mapFn,
+					reduceFn,
+					freshen,
+					acc,
+				);
+				result.push({
+					...t,
+					name: freshen('name', [t.name])[0],
+					args: freshen('definition-args', t.args),
+					body: { ...t.body, terms: newBody },
+				});
+				acc = newState;
+				break;
+			}
+			case "predicate_call": {
+				const [newCall, newState] = reduceFn(acc, mapFn(t));
+				result.push(newCall);
+				acc = newState;
+				break;
+			}
+		}
+	}
+	return [result, acc];
+}
+
+export function formScopes<T>(
+	t: TermGeneric<T>,
+): PredicateCallGeneric<T>[][] {
+	const result: PredicateCallGeneric<T>[][] = [];
+	switch (t.type) {
+		case "conjunction": {
+			for (const term of t.terms) {
+				const ncc: PredicateCallGeneric<T>[][] = [];
+				const newCalls = formScopes(term);
+				for (let i = 0; i < newCalls.length; i++) {
+					for (let j = 0; j < result.length; j++) {
+						ncc.push([...result[j], ...newCalls[i]]);
+					}
+					if (result.length === 0) {
+						ncc.push(newCalls[i]);
+					}
+				}
+				result.push(...ncc);
+			}
+			return result;
+		}
+		case "disjunction": {
+			return t.terms.flatMap((term): PredicateCallGeneric<T>[][] => formScopes(term));
+		}
+		case "fresh":
+		case "with":
+			return formScopes(t.body);
+		case "predicate_definition":
+			return [];
+		case "predicate_call":
+			return [[t]];
+	}
+}
+
+function combineLists<T>(
+	a: T[][],
+	b: T[][],
+): T[][] {
+	if (a.length === 0) {
+		return b;
+	}
+	const result: T[][] = [];
+	for (const aa of a) {
+		for (const bb of b) {
+			result.push([...aa, ...bb]);
+		}
+	}
+	return result;
+}
+
+export function b4AndAfter<T>(
+	t: TermGeneric<T>[],
+	idx: number,
+	prevB4: PredicateCallGeneric<T>[][] = [],
+	prevAfter: PredicateCallGeneric<T>[][] = [],
+): [PredicateCallGeneric<T>[][], PredicateCallGeneric<T>[][]] {
+	let before: PredicateCallGeneric<T>[][] = [...prevB4];
+	let after: PredicateCallGeneric<T>[][] = [...prevAfter];
+	for (let i = 0; i < t.length; i++) {
+		if (i < idx) {
+			// before.push(...formScopes(t[i]));
+			before = combineLists(before, formScopes(t[i]));		
+		} else if (i > idx) {
+			after = combineLists(after, formScopes(t[i]));
+		}
+	}
+	return [before, after];
+}
+
+export function splitAlongScopeStateless<T>(
+	t: TermGeneric<T>,
+	scopeFn: (
+		b4: PredicateCallGeneric<T>[][],
+		after: PredicateCallGeneric<T>[][],
+		call: PredicateCallGeneric<T>
+	) => PredicateCallGeneric<T>,
+	prevB4: PredicateCallGeneric<T>[][] = [],
+	prevAfter: PredicateCallGeneric<T>[][] = [],
+): TermGeneric<T> {
+	// Build up the before and after arrays for each scope
+	const before: PredicateCallGeneric<T>[][] = [...prevB4];
+	const after: PredicateCallGeneric<T>[][] = [...prevAfter];
+	switch (t.type) {
+		case "conjunction": {
+			const newTerms: TermGeneric<T>[] = [];
+			for (let i = 0; i < t.terms.length; i++) {
+				const [b4_, after_] = b4AndAfter(t.terms, i, before, after);
+				const nc = splitAlongScopeStateless(t.terms[i], scopeFn, b4_, after_);
+				newTerms.push(nc);
+			}
+			return { ...t, terms: newTerms };
+		}
+		case "disjunction": {
+			const newTerms: TermGeneric<T>[] = [];
+			for (const term of t.terms) {
+				const nt= splitAlongScopeStateless(term, scopeFn, before, after);
+				newTerms.push(nt);
+			}
+			return { ...t, terms: newTerms };
+		}
+		case "fresh": 
+		case "with": {
+			const b2 = splitAlongScopeStateless(t.body, scopeFn, before, after);
+			return {
+				...t,
+				body: b2 as ConjunctionGeneric<T>,
+			};
+		}
+		case "predicate_definition":{
+			const newBody = splitAlongScopeStateless(t.body, scopeFn, before, after);
+			if (newBody.type === "conjunction") {
+				return {
+					...t,
+					body: newBody,
+				};
+			} else {
+				throw new Error("Expected conjunction");
+			}
+		}
+		case "predicate_call": {
+			const newCall = scopeFn(before, after, t);
+			return newCall;
+		}
+	}
+}
+
+export function splitAlongScope<T, S>(
+	t: TermGeneric<T>,
+	scopeFn: (
+		b4: PredicateCallGeneric<T>[][],
+		after: PredicateCallGeneric<T>[][],
+		call: PredicateCallGeneric<T>,
+		state: S
+	) => [PredicateCallGeneric<T>, S],
+	state1: S,
+	prevB4: PredicateCallGeneric<T>[][] = [],
+	prevAfter: PredicateCallGeneric<T>[][] = [],
+): [TermGeneric<T>, S] {
+	// Build up the before and after arrays for each scope
+	const before: PredicateCallGeneric<T>[][] = [...prevB4];
+	const after: PredicateCallGeneric<T>[][] = [...prevAfter];
+	switch (t.type) {
+		case "conjunction": {
+			const newTerms: TermGeneric<T>[] = [];
+			let state = state1;
+			for (let i = 0; i < t.terms.length; i++) {
+				const [b4_, after_] = b4AndAfter(t.terms, i, before, after);
+				const [nc, s2] = splitAlongScope(t.terms[i], scopeFn, state, b4_, after_);
+				state = s2;
+				newTerms.push(nc);
+			}
+			return [{ ...t, terms: newTerms }, state];
+		}
+		case "disjunction": {
+			const newTerms: TermGeneric<T>[] = [];
+			let state = state1;
+			for (const term of t.terms) {
+				const [nt, s2] = splitAlongScope(term, scopeFn, state, before, after);
+				state = s2;
+				newTerms.push(nt);
+			}
+			return [{ ...t, terms: newTerms }, state];
+		}
+		case "fresh": 
+		case "with": {
+			const [b2, s2] = splitAlongScope(t.body, scopeFn, state1, before, after);
+			return [{
+				...t,
+				body: conjunction1(b2),
+			}, s2];
+		}
+		case "predicate_definition":{
+			const includeDefinitions = make.predicate_call(
+				make.identifier(
+					t.name.info,
+					"define_args"
+				),
+				[
+					...t.args
+				]
+			);
+			const before2 = [...before].map(
+				(x) => [includeDefinitions, ...x],
+			)
+			const [newBody, st2] = splitAlongScope(t.body, scopeFn, state1, before2, after);
+			return [{
+					...t,
+					body: conjunction1(newBody),
+				}, st2];
+		}
+		case "predicate_call": {
+			const newCall = scopeFn(before, after, t, state1);
+			return newCall;
+		}
+	}
 }
