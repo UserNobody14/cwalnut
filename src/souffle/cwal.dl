@@ -1,0 +1,166 @@
+
+// INPUT TYPES
+.type uservar <: symbol
+.type indicator <: symbol
+.type param_call_id <: symbol
+.type literal_string <: symbol
+.type literal_number <: number
+.type location_id = uservar | indicator
+.type literalexpr = uservar | indicator
+
+// INPUTS:
+// Idea: remove disjunction & conj tables and make pred def connect directly to each pred_call statement?
+.decl pred_def(id: indicator, name: uservar, param_id: indicator, statement_id: indicator)
+.input pred_def
+
+.decl code_location(id: indicator, line_min: number, col_min: number, line_max: number, col_max: number)
+.input code_location
+
+.decl parameter_declaration(param_id: indicator, idx: number, prm: uservar)
+.input parameter_declaration
+
+.decl disjunction_statement(id: indicator, idx: number, further_st: indicator)
+.input disjunction_statement
+
+.decl conjunction_statement(id: indicator, idx: number, further_st: indicator)
+.input conjunction_statement
+
+.decl predicate_call_statement(stid: indicator, name: uservar, idx: number, params: param_call_id)
+.input predicate_call_statement
+
+.decl predicate_call_parameter(param_id: param_call_id, idx: number, prm: literalexpr, isliteral: number)
+.input predicate_call_parameter
+
+.decl literal_strings(literal_id: indicator, str: literal_string)
+.input literal_strings
+
+.decl literal_numbers(literal_id: indicator, num: literal_number)
+.input literal_numbers
+
+//.decl head(param_id: indicator, prm: literalexpr)
+//.decl tail(param_id: indicator, prm: literalexpr)
+
+
+
+
+
+
+// Basic passthrough relations
+.decl pred_param(pred_def_id: indicator, param_id: indicator, idx: number, prm: uservar)
+pred_param(id, param_id, idx, prm) :- pred_def(id, _, param_id, _), parameter_declaration(param_id, idx, prm).
+
+.decl varname_paramid(pred_def_id: indicator, param_called_id: param_call_id, prm: literalexpr)
+varname_paramid(id, param_called_id, prm) :- pred_def(id, _, _, _), predicate_call_parameter(param_called_id, _, prm, _).
+
+.decl param_call_idx(stid: indicator, idx: number, param_id: param_call_id, prm: literalexpr)
+param_call_idx(stid, idx, param_id, prm) :- predicate_call_statement(stid, _, idx, param_id), predicate_call_parameter(param_id, idx, prm, _).
+
+
+
+
+
+
+
+
+
+// INTERMEDIATE TYPES
+.type typeval <: symbol
+
+.decl statement_parent(p: location_id, c: indicator)
+statement_parent(p, c) :- predicate_call_statement(c, _, _, _), conjunction_statement(p, _, c).
+statement_parent(p, c) :- predicate_call_statement(c, _, _, _), disjunction_statement(p, _, c).
+statement_parent(p, c) :- predicate_call_statement(c, _, _, _), pred_def(p, _, _, c).
+statement_parent(p, c) :- statement_parent(c1, c), conjunction_statement(p, _, c1).
+statement_parent(p, c) :- statement_parent(c1, c), disjunction_statement(p, _, c1).
+statement_parent(p, c) :- statement_parent(c1, c), pred_def(p, _, _, c1).
+
+.decl all_predicate_calls_in(p: location_id, c: indicator)
+all_predicate_calls_in(p, c) :- statement_parent(p, c), predicate_call_statement(c, _, _, _).
+
+.decl variable_called_in(v: uservar, i: location_id)
+variable_called_in(v, i) :- all_predicate_calls_in(i, z), predicate_call_statement(z, v, _, _).
+
+
+.decl is_recursive(v: uservar, i: indicator)
+is_recursive(v, i) :- statement_parent(pr, i), pred_def(pr, v, _, _), variable_called_in(v, pr).
+
+.decl unification(id: indicator, a: literalexpr, b: literalexpr)
+unification(c, a, b) :- predicate_call_statement(c, "unify", _, prmid), param_to_list2(prmid, a, b).
+
+.decl setkeyof(id: indicator, a:literalexpr, f:literalexpr, b:literalexpr)
+setkeyof(i, a, b, c) :- predicate_call_statement(i, "set_key_of", _, prmid), param_to_list3(prmid, a, b, c).
+
+
+// .decl alias(id: indicator, a: uservar, b:uservar )
+// alias(X,X) :- unification(X,_).
+// alias(X,X) :- unification(_,X).
+// alias(X,Y) :- unification(X,Y).
+// alias(X,Y) :- setkeyof(A,F,X), alias(A,B), setkeyof(B,F,Y).
+
+.decl unified(zone: location_id, a: literalexpr, b:literalexpr )
+unified(zone, X,Y) :- all_predicate_calls_in(zone, id), unification(id, X,Y).
+unified(zone, X,Y) :- all_predicate_calls_in(zone, id), unification(id, Y,X).
+unified(zone, X,Y) :- unified(zone, X, A), unified(zone, A,Y).
+
+.decl typecheck_literal(u: literalexpr, t: typeval)
+typecheck_literal(prm, "string") :- predicate_call_parameter(_, _, prm, literalv), literalv = 1, literal_strings(prm, _).
+typecheck_literal(prm, "number") :- predicate_call_parameter(_, _, prm, literalv), literalv = 1, literal_numbers(prm, _).
+
+.decl predicate_def_parent(p: location_id, c: indicator)
+predicate_def_parent(p, c) :- pred_def(p, _, _, _), statement_parent(p, c).
+
+// .decl typecheck_variable(u: param_call_id, t: typeval)
+// typecheck_variable(u, lt) :- predicate_call_parameter(u, _, prm, literalv), 
+// literalv = 0, 
+// typecheck_literal(q, lt), 
+// predicate_call_statement(sta, _, _, u),
+// predicate_call_parameter(q, _, qq, _), 
+// unified(pred_parent, qq, prm),
+// predicate_def_parent(pred_parent, sta).
+// .output typecheck_variable
+
+.decl typecheck_variable(ze: literalexpr, t: typeval)
+typecheck_variable(ze, lt) :- predicate_call_parameter(u, _, ze, literalv), 
+literalv = 0, 
+typecheck_literal(qq, lt), 
+// predicate_call_statement(sta, _, _, u),
+param_call_idx(sta, _, u, ze),
+// predicate_call_parameter(q, _, qq, _), 
+unified(pred_parent, qq, ze),
+predicate_def_parent(pred_parent, sta).
+typecheck_variable(ze, lt) :- predicate_call_parameter(_, idx, ze, 0),
+typecheck_parameter(ze, lt, ze, idx).
+.output typecheck_variable
+
+
+.decl typecheck_parameter(u: uservar, t: typeval, ze: literalexpr, param_idx: number)
+typecheck_parameter(u, lt, ze, param_idx) :- pred_param(pred_parent, _, param_idx, u), 
+varname_paramid(pred_parent, _, u),
+typecheck_variable(ze, lt).
+.output typecheck_parameter
+
+
+.decl param_to_list2(id: param_call_id, a: literalexpr, b: literalexpr)
+param_to_list2(id, a, b) :- predicate_call_parameter(id, 0, a, _), predicate_call_parameter(id, 1, b, _).
+
+.decl param_to_list3(id: param_call_id, a: literalexpr, b: literalexpr, c: literalexpr)
+param_to_list3(id, a, b, c) :- predicate_call_parameter(id, 0, a, _), predicate_call_parameter(id, 1, b, _), predicate_call_parameter(id, 2, c, _).
+
+.decl get_location(id: indicator, line_min: number, col_min: number, line_max: number, col_max: number)
+get_location(id, line_min, col_min, line_max, col_max) :- code_location(id, line_min, col_min, line_max, col_max).
+
+// OUTPUT TYPES
+.type warning_message <: symbol
+.type warning_level <: number
+.type clean_locale = [x1: number, y1: number, x2: number, y2: number]
+
+
+// OUTPUT!
+// Get the mode of a var before and after a given statement
+//.decl mode()
+
+// Get the warnings
+// .decl warnings(msg: warning_message, line_min: number, col_min: number, line_max: number, col_max: number, level: warning_level)
+//warnings("type_conflict",x1,y1,x2,y2,1) :- type_conflicts([x1,y1,x2,y2], v).
+
+

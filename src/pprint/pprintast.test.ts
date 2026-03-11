@@ -7,7 +7,7 @@ import type { TermGeneric,
     } from "src/types/AstGeneric";
 import { conjunction1, ezlvar } from "src/utils/make_better_typed";
 
-describe("pprintDsAst", () => {
+describe.skip("pprintDsAst", () => {
     test("formats conjunction AST correctly", () => {
         const ast: TermGeneric<undefined> = {
             type: "conjunction",

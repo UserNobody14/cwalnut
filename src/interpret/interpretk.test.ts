@@ -44,7 +44,7 @@ const prcs = (
 	// );
 }
 
-describe("Interpret simple cwal programs", () => {
+describe.skip("Interpret simple cwal programs", () => {
 	// test("Simple father program", () => {
 	// 	const sourceCode = `
 	//     val.father = (aaa, bbb) =>

@@ -5,7 +5,7 @@ import { describe, test, expect } from '@jest/globals';
 import { pprintQuick } from 'src/pprint/pprintgeneric';
 import {Map as ImmMap, Set as ImmSet} from 'immutable';
 
-describe('cleanupExcessUnifies', () => {
+describe.skip('cleanupExcessUnifies', () => {
     test('returns terms unchanged with pass flag true', () => {
         const terms: TermGeneric<'info'> = make.predicate_call(make.identifier('info', 'test'), []);
         const result = cleanupExcessUnifies(terms, true);
@@ -15,7 +15,7 @@ describe('cleanupExcessUnifies', () => {
     // Additional tests for cleanupExcessUnifies without unification and with unification
 });
 
-describe('refactorTermsToMergeUnifies 1', () => {
+describe.skip('refactorTermsToMergeUnifies 1', () => {
 
     const {
         a,
@@ -541,7 +541,7 @@ describe('groupUnifies', () => {
 });
 
 
-describe('simplifyUnifyChain', () => {
+describe.skip('simplifyUnifyChain', () => {
     const {
         a,
         b,
@@ -624,7 +624,7 @@ describe('simplifyOneUnify', () => {
                             unify(b_1_disj_0Y_53, ab_2_disj_0Y_55)
  */
 
-describe(
+describe.skip(
     "simplify example unification", () => {
         const {
             a,

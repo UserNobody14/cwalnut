@@ -1,0 +1,25 @@
+// INPUT (TYPED LAMBDA CALCULUS)
+.type uservar <: symbol
+.type indicator <: symbol
+.type param_call_id <: symbol
+.type literal_string <: symbol
+.type literal_number <: number
+.type location_id = uservar | indicator
+.type literalexpr = uservar | indicator
+
+// LITERAL INPUTS (includes builtin functions(?))
+.decl literals(id: indicator, lit: literalexpr)
+.input literals
+
+// invar: the value/variable that the function is being applied to
+// fn: the function being applied
+
+// INPUTS (TYPED LAMBDA CALCULUS)
+.decl fn_application(id: indicator, invar: indicator, fn: indicator)
+.input fn_application
+
+// var: the id of the variable this function uses (this variable is in-scope within app_or_def)
+// app_or_def: either another fn definition, a literal, or an application
+// INPUTS (FN DEFINITIONS)
+.decl fn_definitions(id: indicator, var: indicator, app_or_def: indicator)
+.input fn_definitions

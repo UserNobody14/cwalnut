@@ -69,7 +69,10 @@ type_disjunction = (disj_terms, type_map) =>
             type_ast(dterm, type_map)
             type_disjunction(remaining_dterms, type_map)
 
-
+meintype = (tester) =>
+    either:
+        tester = "v"
+        tester = "11a"
 
 type_map_for_file = (filestring, tmap) =>
     INTERNAL_parse_cwal(filestring, ast)

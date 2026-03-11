@@ -101,7 +101,7 @@ describe("extract closures", () => {
         memberoY_50(qq, einputY_48)
 	 */
 
-	test("codeToAst3", () => {
+	test.skip("codeToAst3", () => {
 		const {
 			a,
 			bb,

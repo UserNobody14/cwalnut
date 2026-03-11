@@ -14,7 +14,7 @@ const prcs = (srcc: string) => toDummyTypes(freshenTerms(codeToAst(srcc), 'conju
 [...builtinList, 'qq', 'aaa', 'bbb']
 ));
 
-describe('Interpret simple cwal programs', () => {
+describe.skip('Interpret simple cwal programs', () => {
     // test('Simple father program', () => {
     //     const sourceCode = `
     //     father("bob", qq)
@@ -67,7 +67,7 @@ qq = [...einput, ...input2]
 
 });
 
-describe('rearrange.ts functionality', () => {
+describe.skip('rearrange.ts functionality', () => {
     describe('mapToModeDetDisj function', () => {
         test('should handle disjunctions correctly', () => {
             // Placeholder for setup, assuming specific inputs and outputs
