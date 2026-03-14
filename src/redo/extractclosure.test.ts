@@ -3,8 +3,8 @@ import { test, describe, expect } from "@jest/globals";
 import { codeToAst } from "src/redo/ast-desugar";
 import type {
 	ExpressionGeneric,
-	 PredicateDefinitionGeneric,
-	 TermGeneric,
+	PredicateDefinitionGeneric,
+	TermGeneric,
 } from "src/types/AstGeneric";
 import {
 	conjunction1,
@@ -122,12 +122,8 @@ describe("extract closures", () => {
 			a_0_disj_1Y_38,
 			bbrest,
 			bbrestY_40,
-			
 		} = ezlvar;
-		const {
-			rest,
-			first
-		} = make.pred2(undefined);
+		const { rest, first } = make.pred2(undefined);
 		const expectation1: TermGeneric<undefined>[] = [
 			unify(membero, membero_recur_0, memberoY_50),
 			unify(einput, einputY_48),
@@ -152,18 +148,25 @@ describe("extract closures", () => {
 									unify(a_0_disj_1, a_0_disj_1Y_38),
 									unify(bbrest, bbrestY_40),
 									rest(bbrest, bb_1_disj_1Y_36),
-									make_predicate(membero_recur_0, [a_0_disj_1Y_38, bbrestY_40]),
+									make_predicate(membero_recur_0, [
+										a_0_disj_1Y_38,
+										bbrestY_40,
+									]),
 								),
 							),
-						)
-					)
+						),
+					),
 				),
-			}
+			},
 		];
 		const { allVarsUsed, commonVars, nestedVars } =
 			findCommonClosureVars(expectation1);
-		expect(allVarsUsed.toList().toJS()).toContain("membero");
-		expect(nestedVars.toList().toJS()).toContain("membero_recur_0");
+		expect(allVarsUsed.toList().toJS()).toContain(
+			"membero",
+		);
+		expect(nestedVars.toList().toJS()).toContain(
+			"membero_recur_0",
+		);
 		// expect(commonVars.toList().toJS()).toContain("membero_recur_0");
 
 		expect(nestedVars.toList().toJS()).toContain("a_0");

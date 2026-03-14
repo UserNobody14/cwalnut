@@ -27,7 +27,9 @@ export type FullExpression = [
 export type Expression =
 	| [ExpressionGeneric<undefined>, TermGeneric<undefined>[]]
 	| FullExpression;
-export type FlexExpression = ExpressionGeneric<undefined> | Expression;
+export type FlexExpression =
+	| ExpressionGeneric<undefined>
+	| Expression;
 
 export const deflex = (
 	expr: FlexExpression,
@@ -125,13 +127,15 @@ export const make_identifier = (
 
 // Use Proxy to generate identifiers super easily
 
-export const ezlvar: Record<string, IdentifierGeneric<undefined>> =
-	new Proxy(
-		{},
-		{
-			get: (_, prop) => make_identifier(prop.toString()),
-		},
-	);
+export const ezlvar: Record<
+	string,
+	IdentifierGeneric<undefined>
+> = new Proxy(
+	{},
+	{
+		get: (_, prop) => make_identifier(prop.toString()),
+	},
+);
 
 export const [
 	set_key_of,
@@ -257,13 +261,19 @@ export const make_pred_expr = (
 
 export const ezmake = {
 	// The rest of (l) is out_id, the remainder of the list
-	rest: (out_id: IdentifierGeneric<undefined>, l: Expression) =>
-		make_pred_expr("rest", out_id, 0, [l]),
-	restRev: (out_id: IdentifierGeneric<undefined>, l: Expression) =>
-		make_pred_expr("rest", out_id, 1, [l]),
+	rest: (
+		out_id: IdentifierGeneric<undefined>,
+		l: Expression,
+	) => make_pred_expr("rest", out_id, 0, [l]),
+	restRev: (
+		out_id: IdentifierGeneric<undefined>,
+		l: Expression,
+	) => make_pred_expr("rest", out_id, 1, [l]),
 	// The first of (l) is out_id
-	first: (out_id: IdentifierGeneric<undefined>, l: Expression) =>
-		make_pred_expr("first", out_id, 0, [l]),
+	first: (
+		out_id: IdentifierGeneric<undefined>,
+		l: Expression,
+	) => make_pred_expr("first", out_id, 0, [l]),
 	// Append a and b, result is in l
 	append: (
 		out_id: IdentifierGeneric<undefined>,
@@ -301,7 +311,10 @@ export const make_dictionary_ast = (
 ): Expression => {
 	// convert into a bunch of set_key_of predicate calls
 	const predTerms = entries.flatMap(
-		([[key, keyTerms], [value, valTerms]]): TermGeneric<undefined>[] => {
+		([
+			[key, keyTerms],
+			[value, valTerms],
+		]): TermGeneric<undefined>[] => {
 			return [
 				...keyTerms,
 				...valTerms,

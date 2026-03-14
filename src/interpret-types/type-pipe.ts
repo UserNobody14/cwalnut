@@ -39,11 +39,15 @@ function toEarlyMeta(
 	);
 }
 
-export function toBasicTypes(tsss: TermGeneric<undefined>[]): TermT[] {
+export function toBasicTypes(
+	tsss: TermGeneric<undefined>[],
+): TermT[] {
 	const tt = toEarlyMeta(tsss);
 	return toBasicTypesG(tt);
 }
-export function toDummyTypes(tsss: TermGeneric<undefined>[]): TermT[] {
+export function toDummyTypes(
+	tsss: TermGeneric<undefined>[],
+): TermT[] {
 	return mapToGeneric(tsss, (tk) =>
 		make.identifier(make.simple_type("unknown"), tk.value),
 	);

@@ -4,7 +4,9 @@ import type { Mode, ModeDetType } from "./ModeDetType";
 export const modeToString = (mode: Mode): string => {
 	return `${mode.from} -> ${mode.to}`;
 };
-export const modeDetTypeToString = (mode: ModeDetType): string => {
+export const modeDetTypeToString = (
+	mode: ModeDetType,
+): string => {
 	const formattedModes = `[${mode.varModes.map(modeToString).join(", ")}]`;
 	return `${mode.det}${formattedModes}`;
 };

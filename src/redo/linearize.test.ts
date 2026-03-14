@@ -9,12 +9,21 @@ import {
 import { countVarsInCalls } from "../lens/into-vars";
 import { mapToTypedQuick } from "src/mode/modeconvert";
 import { toDummyTypes } from "src/interpret-types/type-pipe";
-import { pprintGeneric, pprintQuick } from "src/pprint/pprintgeneric";
+import {
+	pprintGeneric,
+	pprintQuick,
+} from "src/pprint/pprintgeneric";
 import { Map as ImmMap, Set as ImmSet } from "immutable";
 import type { TermGeneric } from "src/types/AstGeneric";
-import { type Builtin, builtinList } from "src/utils/builtinList";
+import {
+	type Builtin,
+	builtinList,
+} from "src/utils/builtinList";
 import { freshenTerms } from "./extractclosure";
-import {interpretPlus, runFor} from 'src/interpret/interpretk';
+import {
+	interpretPlus,
+	runFor,
+} from "src/interpret/interpretk";
 
 describe("Linearize", () => {
 	test("linearize doesnt destroy vals", () => {
@@ -49,7 +58,6 @@ val.father("bob", qq)
 		expect(numv).toEqual(ImmMap());
 	});
 
-
 	test("linearize ensures each var used at most once 2", () => {
 		const sourceCode = `
 appendo = (a, b, ab) =>
@@ -69,7 +77,7 @@ einput = [1, 2, 3]
 input2 = [4, 5, 6]
 appendo(einput, input2, qq)
 `;
-		const res = linearize((codeToAst(sourceCode)));
+		const res = linearize(codeToAst(sourceCode));
 		console.log(pprintQuick(res));
 		const numv = getFilteredVarInstanceInfo(res);
 		expect(numv).toEqual(ImmMap());
@@ -85,15 +93,14 @@ either:
     qq = [1, ...mid, 6]
     qq = [45]
 `;
-		const res = linearize(codeToAst(sourceCode), ImmSet(
-			["qq", "mid"]
-		));
+		const res = linearize(
+			codeToAst(sourceCode),
+			ImmSet(["qq", "mid"]),
+		);
 		console.log(pprintQuick(res));
 		const numv = getFilteredVarInstanceInfo(res);
 		expect(numv).toEqual(ImmMap());
 	});
-
-
 
 	test("Simple membero program 2", () => {
 		const sourceCode = `
@@ -108,21 +115,19 @@ einput = [1, 2, 3, 4, 5]
 
 membero(qq, einput)
 `;
-	
-	const res = linearize(codeToAst(sourceCode));
-	console.log(pprintQuick(res));
-	const numv = getFilteredVarInstanceInfo(res);
-	expect(numv).toEqual(ImmMap());
-	});
 
+		const res = linearize(codeToAst(sourceCode));
+		console.log(pprintQuick(res));
+		const numv = getFilteredVarInstanceInfo(res);
+		expect(numv).toEqual(ImmMap());
+	});
 });
 
-
-
-
-function getFilteredVarInstanceInfo(res: TermGeneric<undefined>[]) {
+function getFilteredVarInstanceInfo(
+	res: TermGeneric<undefined>[],
+) {
 	return countVarsInCalls(toDummyTypes(res)).filter(
-		(v, k) => v > 2 && !builtinList.includes(k as Builtin)
+		(v, k) => v > 2 && !builtinList.includes(k as Builtin),
 	);
 }
 

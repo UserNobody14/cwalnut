@@ -7,13 +7,13 @@ import type {
 	TermGeneric,
 	ExpressionGeneric,
 	IdentifierGeneric,
-	PredicateDefinitionGeneric
+	PredicateDefinitionGeneric,
 } from "src/types/AstGeneric";
 import {
 	conjunction1,
 	disjunction1,
 	ezmakeMaker,
-    make,
+	make,
 	type FlexExpression,
 	type FullExpression,
 	operate,
@@ -22,13 +22,24 @@ import {
 	unary_operate,
 } from "src/utils/make_better_typed";
 import { warnHolder, debugHolder } from "src/warnHolder";
-import { type CodeLocation, defaultCodeLocation, tocloc, mergecloc, mergeClocs } from "./codeloc";
+import {
+	type CodeLocation,
+	defaultCodeLocation,
+	tocloc,
+	mergecloc,
+	mergeClocs,
+} from "./codeloc";
 
 const parser = new Parser();
 parser.setLanguage(CrystalWalnut);
 
-type Expression = [ExpressionGeneric<CodeLocation>, TermGeneric<CodeLocation>[]];
-const ezmake = ezmakeMaker<CodeLocation>(defaultCodeLocation);
+type Expression = [
+	ExpressionGeneric<CodeLocation>,
+	TermGeneric<CodeLocation>[],
+];
+const ezmake = ezmakeMaker<CodeLocation>(
+	defaultCodeLocation,
+);
 
 const make_fresh = make.fresh;
 const make_identifier = make.identifier;
@@ -37,7 +48,6 @@ const make_literal_ast = make.literal_ast;
 const make_predicate = make.predicate;
 const make_predicate_fn = make.predicate_fn;
 const make_unification = make.unification;
-
 
 export function toAst(
 	node: Parser.SyntaxNode,
@@ -143,7 +153,15 @@ export function toAst1(
 			const arglist = argActual.children.slice(1, -1);
 			const [allArgs, frCounter2] = arglist
 				.filter((nnc) => nnc.grammarType !== ",")
-				.reduce<[[ExpressionGeneric<CodeLocation>, TermGeneric<CodeLocation>[]][], number]>(
+				.reduce<
+					[
+						[
+							ExpressionGeneric<CodeLocation>,
+							TermGeneric<CodeLocation>[],
+						][],
+						number,
+					]
+				>(
 					(acc, nc) => {
 						const [arg, argTerms, frPlus] =
 							expressionToAstFRESH(nc, acc[1]);
@@ -255,7 +273,9 @@ export function toAst1(
 
 function isSameIdentifier(
 	a: ExpressionGeneric<CodeLocation>,
-	b: ExpressionGeneric<CodeLocation> | PredicateDefinitionGeneric<CodeLocation>,
+	b:
+		| ExpressionGeneric<CodeLocation>
+		| PredicateDefinitionGeneric<CodeLocation>,
 ) {
 	if (b.type === "predicate_definition") {
 		return false;
@@ -324,9 +344,13 @@ function buildCompoundLogic(
 	return [[disjunction1(...terms)], fr4];
 }
 
-
-function freshLvar2(frCounter: number): IdentifierGeneric<CodeLocation> {
-	return make_identifier(defaultCodeLocation, `__fresh_${frCounter}`);
+function freshLvar2(
+	frCounter: number,
+): IdentifierGeneric<CodeLocation> {
+	return make_identifier(
+		defaultCodeLocation,
+		`__fresh_${frCounter}`,
+	);
 }
 
 const toExprIdent = (
@@ -345,7 +369,10 @@ function expressionOrPredicateDefinitionToAst(
 	frCounter: number,
 	unifyVar?: IdentifierGeneric<CodeLocation>,
 ): [
-	ExpressionGeneric<CodeLocation> | PredicateDefinitionGeneric<CodeLocation>,
+	(
+		| ExpressionGeneric<CodeLocation>
+		| PredicateDefinitionGeneric<CodeLocation>
+	),
 	TermGeneric<CodeLocation>[],
 	number,
 ] {
@@ -374,7 +401,9 @@ function expressionOrPredicateDefinitionToAst(
 				frshName,
 				argsList
 					.filter((ddf) => ddf.grammarType !== ",")
-					.map((nnc) => make_identifier(tocloc(nnc), nnc.text)),
+					.map((nnc) =>
+						make_identifier(tocloc(nnc), nnc.text),
+					),
 				conjunction1(...freshTerm),
 			);
 			return [pt, [], n];
@@ -402,7 +431,11 @@ function expressionToAstFRESH(
 	node1: Parser.SyntaxNode | null | undefined,
 	frCounter: number,
 	unifyVar?: IdentifierGeneric<CodeLocation>,
-): [ExpressionGeneric<CodeLocation>, TermGeneric<CodeLocation>[], number] {
+): [
+	ExpressionGeneric<CodeLocation>,
+	TermGeneric<CodeLocation>[],
+	number,
+] {
 	if (node1 === undefined || node1 === null) {
 		throw new Error("Node is undefined");
 	}
@@ -410,7 +443,11 @@ function expressionToAstFRESH(
 	switch (node.type) {
 		case "keyword_identifier":
 		case "identifier":
-			return [make_identifier(tocloc(node), node.text), [], frCounter];
+			return [
+				make_identifier(tocloc(node), node.text),
+				[],
+				frCounter,
+			];
 		case "destructuring_expression":
 			console.debug(
 				`Destructuring expression: ${node.text}`,
@@ -434,8 +471,8 @@ function expressionToAstFRESH(
 			);
 			const attr = node.children[2].text;
 			const [val, fr0Plus] = toExprIdent(unifyVar, fr0);
-            // tocloc(node.children[2])
-            const attrAst = make_literal_ast('string', attr);
+			// tocloc(node.children[2])
+			const attrAst = make_literal_ast("string", attr);
 			return [
 				val,
 				[
@@ -478,7 +515,10 @@ function expressionToAstFRESH(
 			const [val, frC2Plus] = toExprIdent(unifyVar, frC2);
 			return [
 				val,
-				[...aaTerms, unary_operate(op, aaa, val, tocloc(node))],
+				[
+					...aaTerms,
+					unary_operate(op, aaa, val, tocloc(node)),
+				],
 				frC2Plus,
 			];
 		}
@@ -505,9 +545,13 @@ function expressionToAstFRESH(
 				.filter((nnc) => nnc.grammarType !== ",");
 			const [objv, fr3] = toExprIdent(unifyVar, frCounter);
 			type ReductionType = [
-				[ExpressionGeneric<CodeLocation>, ExpressionGeneric<CodeLocation>, CodeLocation][],
+				[
+					ExpressionGeneric<CodeLocation>,
+					ExpressionGeneric<CodeLocation>,
+					CodeLocation,
+				][],
 				TermGeneric<CodeLocation>[],
-				number
+				number,
 			];
 			const [lvd, lvdterms, fr4] =
 				listValsDict.reduce<ReductionType>(
@@ -518,13 +562,26 @@ function expressionToAstFRESH(
 						const [val, valTerms, afr3] =
 							expressionToAstFRESH(nc.children[2], afr2);
 						return [
-							accKeyvals.concat([[key, val, mergecloc(tocloc(nc.children[0]), tocloc(nc.children[2]))]]),
+							accKeyvals.concat([
+								[
+									key,
+									val,
+									mergecloc(
+										tocloc(nc.children[0]),
+										tocloc(nc.children[2]),
+									),
+								],
+							]),
 							[...accTerms, ...keyTerms, ...valTerms],
-							afr3
+							afr3,
 						];
 					},
 					[
-						[] as [ExpressionGeneric<CodeLocation>, ExpressionGeneric<CodeLocation>, CodeLocation][],
+						[] as [
+							ExpressionGeneric<CodeLocation>,
+							ExpressionGeneric<CodeLocation>,
+							CodeLocation,
+						][],
 						[] as TermGeneric<CodeLocation>[],
 						fr3,
 					] as const,
@@ -539,13 +596,16 @@ function expressionToAstFRESH(
 		}
 		case "string":
 			return [
-				make_literal_ast('string', node.text.slice(1, -1)),
+				make_literal_ast("string", node.text.slice(1, -1)),
 				[],
 				frCounter,
 			];
 		case "number":
 			return [
-				make_literal_ast('number', Number.parseInt(node.text, 10).toString()),
+				make_literal_ast(
+					"number",
+					Number.parseInt(node.text, 10).toString(),
+				),
 				[],
 				frCounter,
 			];
@@ -561,7 +621,12 @@ function expressionToAstFRESH(
 				val,
 				[
 					...objTerms,
-					to_slice(tocloc(node), obj1, make_literal_ast('string', attr), val),
+					to_slice(
+						tocloc(node),
+						obj1,
+						make_literal_ast("string", attr),
+						val,
+					),
 				],
 				frCounter2Plus,
 			];
@@ -794,7 +859,11 @@ function listValsToList(
 		frCounter,
 		isT1Main(),
 	);
-	const ml1 = make_list_ast(listI, expressions, mergeClocs(listVals.map((e) => tocloc(e))));
+	const ml1 = make_list_ast(
+		listI,
+		expressions,
+		mergeClocs(listVals.map((e) => tocloc(e))),
+	);
 	return [ml1[0], ml1[1], fx2];
 }
 

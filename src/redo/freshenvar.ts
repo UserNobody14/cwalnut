@@ -269,7 +269,6 @@ export function renameVarBatch2<T>(
 	return outval;
 }
 
-
 export function freshenForDef<T>(
 	vars: IdentifierGeneric<T>[],
 	cnj: ConjunctionGeneric<T>,
@@ -283,13 +282,9 @@ export function freshenForDef<T>(
 	);
 	const termsRenamed = renameVarBatch2(
 		new Map(vars.map((v, i) => [v.value, fn(v.value, i)])),
-		cnj
+		cnj,
 	);
 	return make.conjunction1(
-		make.fresh1(
-			vars2,
-			...newUnifications,
-			...termsRenamed,
-		)
-	)
+		make.fresh1(vars2, ...newUnifications, ...termsRenamed),
+	);
 }

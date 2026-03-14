@@ -1,14 +1,27 @@
 import { State } from "./State";
-import { type AnyGoal, type CombinedStateStreamType, type FlatStream, type Goal2, type ImmatureStream, type MatureStream, type SingletonGoal, type SingletonStream, StreamFailed } from "./types";
+import {
+	type AnyGoal,
+	type CombinedStateStreamType,
+	type FlatStream,
+	type Goal2,
+	type ImmatureStream,
+	type MatureStream,
+	type SingletonGoal,
+	type SingletonStream,
+	StreamFailed,
+} from "./types";
 // import {applyDeltaNablaRules} from './refine';
 
 export function failed(
-    a: CombinedStateStreamType | SingletonStream
+	a: CombinedStateStreamType | SingletonStream,
 ): a is StreamFailed.StreamOver {
-    if (typeof a === "string" && a !== StreamFailed.StreamOver) {
-        throw new Error(`Invalid StreamFailed value: ${a}`);
-    }
-    return a === StreamFailed.StreamOver;
+	if (
+		typeof a === "string" &&
+		a !== StreamFailed.StreamOver
+	) {
+		throw new Error(`Invalid StreamFailed value: ${a}`);
+	}
+	return a === StreamFailed.StreamOver;
 }
 
 // export function singleToCombined(
@@ -122,7 +135,7 @@ export function failed(
 //                     yield StreamFailed.StreamOver;
 //                 }
 //             }
-//         } 
+//         }
 //         if (activatedIterables.length > 0) {
 //             // Now we process the iterables still found in a1
 //             const next = activatedIterables.shift();
@@ -192,12 +205,12 @@ export function failed(
 //             } else if (isSubIterator(next.value)) {
 //                 // outIter = mergeStreams(outIter, mapStreams(goal, next.value));
 //                 yield mergeStreams(
-//                     mapStreams(goal, next.value), 
+//                     mapStreams(goal, next.value),
 //                     mapStreams(goal, streamIter)
 //                 );
 //             } else if (next.value instanceof State) {
 //                 const res = applyGoal(goal, next.value);
-//                 yield mergeStreams(res, 
+//                 yield mergeStreams(res,
 //                     mapStreams(goal, streamIter)
 //                 );
 //             } else {
@@ -220,12 +233,12 @@ export function failed(
 //             } else if (isSubIterator(next.value)) {
 //                 // outIter = mergeStreams(outIter, mapStreams(goal, next.value));
 //                 yield mergeStreams(
-//                     mapStreams(goal, next.value), 
+//                     mapStreams(goal, next.value),
 //                     mapStreams(goal, streamIter)
 //                 );
 //             } else if (next.value instanceof State) {
 //                 const res = applyGoal(goal, next.value);
-//                 yield mergeStreams(res, 
+//                 yield mergeStreams(res,
 //                     mapStreams(goal, streamIter)
 //                 );
 //             } else {
@@ -233,7 +246,6 @@ export function failed(
 //             }
 //         }
 // }
-
 
 // export function* mergeStreams(
 //     a1: ImmatureStream,
@@ -317,7 +329,6 @@ export function failed(
 //     }
 // }
 
-
 // export function* flattenStream(
 //     a1: ImmatureStream | Iterator<CombinedStateStreamType>,
 // ): FlatStream {
@@ -361,7 +372,6 @@ export function failed(
 //         }
 //     }
 // }
-
 
 // function* liftSingleton(
 //     a1: ImmatureStream,
@@ -417,7 +427,6 @@ export function failed(
 //         }
 //     }
 // }
-
 
 // function liftGoal(
 //     a: AnyGoal
@@ -601,7 +610,6 @@ export function failed(
 //     }
 // }
 
-
 // export function mergeGoalsList(
 //     ...a1: AnyGoal[]
 // ): AnyGoal {
@@ -619,8 +627,6 @@ export function failed(
 //         yield mergeAllIters(...queue);
 //     }
 // }
-
-
 
 // function mergeSingletonGoals(a: SingletonGoal[]): Goal2 {
 //     return function* (sc: State): ImmatureStream {
@@ -690,7 +696,6 @@ export function failed(
 //         yield* goal1;
 //     }
 // }
-
 
 // export function combineGoalsList(
 //     fgoal: AnyGoal,
@@ -833,17 +838,17 @@ export function failed(
 //     return liftMGoal(eitherM(b.map(toMGoal)));
 // }
 
-
 export type MDelay = () => MStream;
-export type MStream = [State, MDelay] | [MDelay] | [State] | [];
+export type MStream =
+	| [State, MDelay]
+	| [MDelay]
+	| [State]
+	| [];
 export type MGoal = (m: State) => MStream;
 
-function inc(
-    a: MStream    
-): MStream {
-    return [() => a];
+function inc(a: MStream): MStream {
+	return [() => a];
 }
-
 
 // function singletonToMGoal(
 //     a: SingletonGoal
@@ -885,7 +890,6 @@ function inc(
 //         yield* wrapMStream(a(sc));
 //     }
 // }
-
 
 // function* wrapMStream(
 //     a: MStream
@@ -929,7 +933,6 @@ function inc(
 //     }
 // }
 
-
 /**(define bind
   (lambda (a-inf g)
     (case-inf a-inf
@@ -940,28 +943,25 @@ function inc(
  */
 
 // Maps directly through
-export function bind(
-    cInf: MStream,
-    g: MGoal
-): MStream {
-    if (cInf.length === 0) {
-        return [];
-    } else if (cInf.length === 1) {
-        const [f] = cInf;
-        if (f instanceof State) {
-            // return [() => g1(f)];
-            return g(f);
-        }
-        // return [() => bind(f(), g1)];
-        return [() => bind(f(), g)];
-    } else if (cInf.length === 2) {
-        const [a, f] = cInf;
-        return mplus(g(a), () => bind(f(), g));
-        // return mplus([() => g1(c)], () => [() => bind(f(), g1)]);
-    } else {
-        // return g1(cInf[0]);
-        throw new Error("Unreachable");
-    }
+export function bind(cInf: MStream, g: MGoal): MStream {
+	if (cInf.length === 0) {
+		return [];
+	} else if (cInf.length === 1) {
+		const [f] = cInf;
+		if (f instanceof State) {
+			// return [() => g1(f)];
+			return g(f);
+		}
+		// return [() => bind(f(), g1)];
+		return [() => bind(f(), g)];
+	} else if (cInf.length === 2) {
+		const [a, f] = cInf;
+		return mplus(g(a), () => bind(f(), g));
+		// return mplus([() => g1(c)], () => [() => bind(f(), g1)]);
+	} else {
+		// return g1(cInf[0]);
+		throw new Error("Unreachable");
+	}
 }
 
 /**
@@ -974,42 +974,37 @@ export function bind(
       ((a f^) (choice a (lambdaf@ () (mplus (f) f^)))))))
  */
 // Merges bound streams
-export function mplus(
-    aInf: MStream,
-    f: MDelay
-): MStream {
-    if (aInf.length === 0) {
-        return f();
-    } else if (aInf.length === 1) {
-        const [a] = aInf;
-        if (a instanceof State) {
-            return [a, f];
-        }
-        const fHat = a;
-        return [() => mplus(f(), fHat)];
-    } else if (aInf.length === 2) {
-        const [a, fHat] = aInf;
-        // return [cInf[0], () => mplus(cInf[1], f)];
-        return [a, () => mplus(f(), fHat)];
-    } else {
-        // return [cInf[0], f];
-        throw new Error("Unreachable");
-    }
+export function mplus(aInf: MStream, f: MDelay): MStream {
+	if (aInf.length === 0) {
+		return f();
+	} else if (aInf.length === 1) {
+		const [a] = aInf;
+		if (a instanceof State) {
+			return [a, f];
+		}
+		const fHat = a;
+		return [() => mplus(f(), fHat)];
+	} else if (aInf.length === 2) {
+		const [a, fHat] = aInf;
+		// return [cInf[0], () => mplus(cInf[1], f)];
+		return [a, () => mplus(f(), fHat)];
+	} else {
+		// return [cInf[0], f];
+		throw new Error("Unreachable");
+	}
 }
 
-export function mplusStar(
-    g: MStream[],
-): MStream {
-    if (g.length === 0) {
-        return [];
-    }
-    if (g.length === 1) {
-        return g[0];
-    }
-    const [first, ...rest] = g;
-    // return rest.reduce<MStream>((acc, next) => mplus(acc, () => next), first);
-    return mplus(first, () => mplusStar(rest));
-    // return [() => mplus(first, () => mplusStar(rest))];
+export function mplusStar(g: MStream[]): MStream {
+	if (g.length === 0) {
+		return [];
+	}
+	if (g.length === 1) {
+		return g[0];
+	}
+	const [first, ...rest] = g;
+	// return rest.reduce<MStream>((acc, next) => mplus(acc, () => next), first);
+	return mplus(first, () => mplusStar(rest));
+	// return [() => mplus(first, () => mplusStar(rest))];
 }
 
 // export function mplusStar2(
@@ -1034,106 +1029,115 @@ export function mplusStar(
      (let ((a-inf e))
        (and a-inf (bind* (bind a-inf g0) g ...))))))
  */
-export function bindStar(
-    e: MStream,
-    g1: MGoal[]
-): MStream {
-    if (g1.length === 0) {
-        return e;
-    }
-    if (e.length === 0) {
-        return [];
-    }
-    if (g1.length === 1) {
-        // return g1[0];
-        return bind(e, g1[0]);
-        // return [() => bind(cInf, g1[0])];
-        // return [() => g1[0]]
-    }
-    const [first, ...rest] = g1;
-    // return [() => bindStar(
-    //     [() => bind(cInf, first)],
-    //     rest
-    // )];
-    return bindStar(
-        bind(e, first),
-        rest
-    );
+export function bindStar(e: MStream, g1: MGoal[]): MStream {
+	if (g1.length === 0) {
+		return e;
+	}
+	if (e.length === 0) {
+		return [];
+	}
+	if (g1.length === 1) {
+		// return g1[0];
+		return bind(e, g1[0]);
+		// return [() => bind(cInf, g1[0])];
+		// return [() => g1[0]]
+	}
+	const [first, ...rest] = g1;
+	// return [() => bindStar(
+	//     [() => bind(cInf, first)],
+	//     rest
+	// )];
+	return bindStar(bind(e, first), rest);
 }
 
 const emptyGoal: MGoal = (_m) => [];
 
-export function eitherM(
-    g1: MGoal[]
-): MGoal {
-    if (g1.length === 0) {
-        return (m) => [m];
-    }
-    if (g1.length === 1) {
-        // return mplus(cInf, () => g1[0](cInf[0]));
-        return (sc) => [() => g1[0](sc)];
-    }
-    // const [first, ...rest] = g1;
-    // return (m) => mplus(first(m), () => mconde(rest)(m));
-    // return (m) => mplusStar(g1.map((g) => bindStar([m], [g])));
-    return (m) => [() => mplusStar(g1.map((g) => bindStar(g(m), [])))];
-    // return mconde(
-    //     mplus(cInf, () => first(cInf[0])),
-    //     rest
-    // );
+export function eitherM(g1: MGoal[]): MGoal {
+	if (g1.length === 0) {
+		return (m) => [m];
+	}
+	if (g1.length === 1) {
+		// return mplus(cInf, () => g1[0](cInf[0]));
+		return (sc) => [() => g1[0](sc)];
+	}
+	// const [first, ...rest] = g1;
+	// return (m) => mplus(first(m), () => mconde(rest)(m));
+	// return (m) => mplusStar(g1.map((g) => bindStar([m], [g])));
+	return (m) => [
+		() => mplusStar(g1.map((g) => bindStar(g(m), []))),
+	];
+	// return mconde(
+	//     mplus(cInf, () => first(cInf[0])),
+	//     rest
+	// );
 }
 
-export function allM(
-    g1: MGoal[]
-): MGoal {
-    if (g1.length === 0) {
-        return (_m) => [];
-    }
-    if (g1.length === 1) {
-        return g1[0];
-    }
-    const [first, ...rest] = g1;
-    // return (m) => [() => bindStar([() => first(m)], rest)];
-    return (m) => bindStar(first(m), rest);
-    // return (m) => g1.reduce<MStream>((acc, next) => bindStar(acc, () => next(m)), []);
+export function allM(g1: MGoal[]): MGoal {
+	if (g1.length === 0) {
+		return (_m) => [];
+	}
+	if (g1.length === 1) {
+		return g1[0];
+	}
+	const [first, ...rest] = g1;
+	// return (m) => [() => bindStar([() => first(m)], rest)];
+	return (m) => bindStar(first(m), rest);
+	// return (m) => g1.reduce<MStream>((acc, next) => bindStar(acc, () => next(m)), []);
 }
 
-export function takeT(iterable1: MStream, length1: number, maxL = 1000): State[] {
-    const CONSTANT_MAX_LENGTH = maxL;
-    let maxLength = CONSTANT_MAX_LENGTH;
-    const out: State[] = [];
-    let iterable = iterable1;
-    // let length = length1;
-    while (out.length < length1) {
-        maxLength--;
-        if (maxLength === 0) {
-            throw new Error(`Max length reached: ${CONSTANT_MAX_LENGTH}, Searching for ${length1}, found ${out.length}`);
-        }
-        if (iterable.length === 0) {
-            // console.log("StreamOver");
-            return out;
-            // break;
-        } else if (iterable.length === 1) {
-            const [c] = iterable;
-            if (c instanceof State) {
-                out.push(c);
-                return out;
-            } else {
-                // console.log('ITERABLE F1', out.length);
-                iterable = c();
-            }
-        } else if (iterable.length === 2) {
-            const [c, f] = iterable;
-            out.push(c);
-            // console.log('ITERABLE F2', out.length);
-            if (out.length === length1) {
-                return out;
-            }
-            iterable = f();
-        } else {
-            throw new Error("Unreachable");
-            // break;
-        }
-    }
-    return out;
+export function takeT(
+	iterable1: MStream,
+	length1: number,
+	maxL = 1000,
+): State[] {
+	const CONSTANT_MAX_LENGTH = maxL;
+	let maxLength = CONSTANT_MAX_LENGTH;
+	const out: State[] = [];
+	let iterable = iterable1;
+	// let length = length1;
+	while (out.length < length1) {
+		maxLength--;
+		if (maxLength === 0) {
+			throw new Error(
+				`Max length reached: ${CONSTANT_MAX_LENGTH}, Searching for ${length1}, found ${out.length}`,
+			);
+		}
+		if (iterable.length === 0) {
+			// console.log("StreamOver");
+			return out;
+			// break;
+		} else if (iterable.length === 1) {
+			const [c] = iterable;
+			if (c instanceof State) {
+				out.push(c);
+				return out;
+			} else {
+				// console.log('ITERABLE F1', out.length);
+				iterable = c();
+			}
+		} else if (iterable.length === 2) {
+			const [c, f] = iterable;
+			out.push(c);
+			// console.log('ITERABLE F2', out.length);
+			if (out.length === length1) {
+				return out;
+			}
+			iterable = f();
+		} else {
+			throw new Error("Unreachable");
+			// break;
+		}
+	}
+	return out;
+}
+
+export function fromIterable(
+	iterable: Iterable<[State]>,
+): MStream {
+	const next = iterable[Symbol.iterator]().next();
+	if (next.done) {
+		return [];
+	} else {
+		return [next.value[0], () => fromIterable(iterable)];
+	}
 }

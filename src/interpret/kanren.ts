@@ -912,7 +912,8 @@ export function apply_pred(
 		// 	throw new Error(
 		// 		`Not a predicate: < ${lp.toString()} >`,
 		// 	);
-		if (!(lpp instanceof LPredicate)) return [sc.set('fail', true)];
+		if (!(lpp instanceof LPredicate))
+			return [sc.set("fail", true)];
 		const arggs = lpp.fn(
 			...args.map((arg) => sc.subst.find(arg)),
 		);

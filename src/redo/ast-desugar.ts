@@ -34,7 +34,10 @@ import { warnHolder, debugHolder } from "src/warnHolder";
 const parser = new Parser();
 parser.setLanguage(CrystalWalnut);
 
-type Expression = [ExpressionGeneric<undefined>, TermGeneric<undefined>[]];
+type Expression = [
+	ExpressionGeneric<undefined>,
+	TermGeneric<undefined>[],
+];
 
 // const inputKind = node.children[1].text as '=' | '!=' | '<<' | '>>' | '==';
 const eqnqeq = Pattern.union("=", "!=", "==");
@@ -164,7 +167,15 @@ export function toAst1(
 			const arglist = argActual.children.slice(1, -1);
 			const [allArgs, frCounter2] = arglist
 				.filter((nnc) => nnc.grammarType !== ",")
-				.reduce<[[ExpressionGeneric<undefined>, TermGeneric<undefined>[]][], number]>(
+				.reduce<
+					[
+						[
+							ExpressionGeneric<undefined>,
+							TermGeneric<undefined>[],
+						][],
+						number,
+					]
+				>(
 					(acc, nc) => {
 						const [arg, argTerms, frPlus] =
 							expressionToAstFRESH(nc, acc[1]);
@@ -276,7 +287,9 @@ export function toAst1(
 
 function isSameIdentifier(
 	a: ExpressionGeneric<undefined>,
-	b: ExpressionGeneric<undefined> | PredicateDefinitionGeneric<undefined>,
+	b:
+		| ExpressionGeneric<undefined>
+		| PredicateDefinitionGeneric<undefined>,
 ) {
 	if (b.type === "predicate_definition") {
 		return false;
@@ -351,7 +364,9 @@ function freshLvar(): IdentifierGeneric<undefined> {
 	return make_identifier(`__fresh_${freshCounter++}`);
 }
 
-function freshLvar2(frCounter: number): IdentifierGeneric<undefined> {
+function freshLvar2(
+	frCounter: number,
+): IdentifierGeneric<undefined> {
 	return make_identifier(`__fresh_${frCounter}`);
 }
 
@@ -371,7 +386,10 @@ function expressionOrPredicateDefinitionToAst(
 	frCounter: number,
 	unifyVar?: IdentifierGeneric<undefined>,
 ): [
-	ExpressionGeneric<undefined> | PredicateDefinitionGeneric<undefined>,
+	(
+		| ExpressionGeneric<undefined>
+		| PredicateDefinitionGeneric<undefined>
+	),
 	TermGeneric<undefined>[],
 	number,
 ] {
@@ -428,7 +446,11 @@ function expressionToAstFRESH(
 	node1: Parser.SyntaxNode | null | undefined,
 	frCounter: number,
 	unifyVar?: IdentifierGeneric<undefined>,
-): [ExpressionGeneric<undefined>, TermGeneric<undefined>[], number] {
+): [
+	ExpressionGeneric<undefined>,
+	TermGeneric<undefined>[],
+	number,
+] {
 	if (node1 === undefined || node1 === null) {
 		throw new Error("Node is undefined");
 	}
@@ -529,7 +551,10 @@ function expressionToAstFRESH(
 				.filter((nnc) => nnc.grammarType !== ",");
 			const [objv, fr3] = toExprIdent(unifyVar, frCounter);
 			type ReductionType = [
-				[ExpressionGeneric<undefined>, ExpressionGeneric<undefined>][],
+				[
+					ExpressionGeneric<undefined>,
+					ExpressionGeneric<undefined>,
+				][],
 				TermGeneric<undefined>[],
 				number,
 			];
@@ -548,7 +573,10 @@ function expressionToAstFRESH(
 						];
 					},
 					[
-						[] as [ExpressionGeneric<undefined>, ExpressionGeneric<undefined>][],
+						[] as [
+							ExpressionGeneric<undefined>,
+							ExpressionGeneric<undefined>,
+						][],
 						[] as TermGeneric<undefined>[],
 						fr3,
 					] as const,

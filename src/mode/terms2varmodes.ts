@@ -25,7 +25,11 @@ import {
 	reduceStreamArray,
 } from "src/utils/iterop";
 import { modeDetTypeToString } from "./modeTypeToString";
-import { listVarModes, type VarModeMap, varModesToKey } from "./listVarModes";
+import {
+	listVarModes,
+	type VarModeMap,
+	varModesToKey,
+} from "./listVarModes";
 
 // Map from predicate name to a list of mode/determinism types and the definitions they correspond to
 type TermModeDefinitionMap = ImmMap<

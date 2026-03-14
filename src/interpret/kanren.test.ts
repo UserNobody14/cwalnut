@@ -427,15 +427,6 @@ either:
 		]);
 	});
 
-
-
-
-
-
-
-
-
-
 	test("Kn Save and Call Pred 2", () => {
 		// Make an append predicate, then unify it as a predicate with lvar wq
 		// Then in a goal, retrieve wq and call it with some arguments
@@ -452,7 +443,12 @@ either:
 							kn.eq(kn.makePair(a, d), l),
 							kn.eq(kn.makePair(a, res), o),
 							// appendo(d, s, res)
-							kn.apply_pred(kn.makelvar("wq_recur"), d, s, res),
+							kn.apply_pred(
+								kn.makelvar("wq_recur"),
+								d,
+								s,
+								res,
+							),
 						),
 					),
 				)(scc);
@@ -462,14 +458,8 @@ either:
 		const outv = kn.run(
 			null,
 			kn.all(
-				kn.eq(
-					kn.makelvar("wq_recur"),
-					kn.makeLvar("wq2"),
-				),
-				kn.eq(
-					kn.makelvar("wq"),
-					kn.makeLvar("wq2"),
-				),
+				kn.eq(kn.makelvar("wq_recur"), kn.makeLvar("wq2")),
+				kn.eq(kn.makelvar("wq"), kn.makeLvar("wq2")),
 				kn.eq(
 					kn.makelvar("wq"),
 					new kn.LPredicate("appendo", appendo),
@@ -506,7 +496,9 @@ either:
 		// 	outv.map((ooo) => ooo.toString()),
 		// );
 
-		expect(outv.map((kkn) => kkn.toMap(false, ["wq", "c"]))).toEqual([
+		expect(
+			outv.map((kkn) => kkn.toMap(false, ["wq", "c"])),
+		).toEqual([
 			{
 				wq: "Predicate(appendo)",
 				c: "[a, [b, [c, [d, []]]]]",

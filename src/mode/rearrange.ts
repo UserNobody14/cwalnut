@@ -6,12 +6,34 @@ import type {
 	TermGeneric,
 } from "src/types/AstGeneric";
 import { Map as ImmMap } from "immutable";
-import { commonModes, Determinism, type Mode, type ModeDetType } from "./ModeDetType";
-import { mapStreams, mergePossibilitiesGeneral } from "src/utils/iterop";
+import {
+	commonModes,
+	Determinism,
+	type Mode,
+	type ModeDetType,
+} from "./ModeDetType";
+import {
+	mapStreams,
+	mergePossibilitiesGeneral,
+} from "src/utils/iterop";
 import { modeToString } from "./modeTypeToString";
-import { type VarModeMap, listVarModes, varModesToKey, getVarMode, transformMode, expressionToKey } from "./listVarModes";
-import { getPredModes, type DetTypeMap } from "./detTypeMap";
-import { disjunction1, conjunction1, make } from "src/utils/make_better_typed";
+import {
+	type VarModeMap,
+	listVarModes,
+	varModesToKey,
+	getVarMode,
+	transformMode,
+	expressionToKey,
+} from "./listVarModes";
+import {
+	getPredModes,
+	type DetTypeMap,
+} from "./detTypeMap";
+import {
+	disjunction1,
+	conjunction1,
+	make,
+} from "src/utils/make_better_typed";
 import memoize from "just-memoize";
 
 type EachArrangement =
@@ -102,8 +124,11 @@ const unifyMode = memoize(
 		t: PredicateCallGeneric<T>,
 		predicateDets: DetTypeMap,
 		s1: VarModeMap,
-	):  [DetTypeMap, VarModeMap, Determinism] | null {
-		const allModes = getPredModes(t.source.value, predicateDets);
+	): [DetTypeMap, VarModeMap, Determinism] | null {
+		const allModes = getPredModes(
+			t.source.value,
+			predicateDets,
+		);
 		if (!allModes) {
 			return null;
 		}
@@ -114,7 +139,11 @@ const unifyMode = memoize(
 		let s = s1;
 		for (let i = 0; i < t.args.length; i++) {
 			if (t.args[i].type === "identifier") {
-				const sNew = transformMode(s, t.args[i].value, modes.varModes[i]);
+				const sNew = transformMode(
+					s,
+					t.args[i].value,
+					modes.varModes[i],
+				);
 				if (sNew === null) {
 					return null;
 				}
@@ -129,7 +158,7 @@ const unifyMode = memoize(
 		s1: VarModeMap,
 	): string {
 		return `${t.source.value} ${expressionToKey(s1, t.args)}+${predicateDets.size}`;
-	}
+	},
 );
 
 export function mapToModeDetDisj<T>(
@@ -141,7 +170,13 @@ export function mapToModeDetDisj<T>(
 ): EachArrangement {
 	const s = s1;
 	const oMap = tt.map((t) =>
-		mapOneModeDet(t, s, predicateDets, currDetNum, bestDetNum1),
+		mapOneModeDet(
+			t,
+			s,
+			predicateDets,
+			currDetNum,
+			bestDetNum1,
+		),
 	);
 	const realMap = oMap.some((tr) => !tr[0]);
 	if (realMap) {
@@ -150,9 +185,11 @@ export function mapToModeDetDisj<T>(
 	const zzz = oMap.map(
 		(tr) => tr[1] as TermGeneric<string>,
 	);
-	const vv = oMap.map(
-		(tr) => tr[0] ? tr[2] as VarModeMap : undefined,
-	).filter(v => !!v);
+	const vv = oMap
+		.map((tr) =>
+			tr[0] ? (tr[2] as VarModeMap) : undefined,
+		)
+		.filter((v) => !!v);
 	const nd = oMap.map((tr) => tr[3] as number);
 	// Average
 	const currDetNum2 =
@@ -197,30 +234,17 @@ export function mapModeRearrange<T>(
 function mapQ<T>(
 	q: EachArrangement,
 	qfn: (q: TermGeneric<string>[]) => TermGeneric<T>,
-): [
-	true,
-	TermGeneric<T>,
-	VarModeMap,
-	number,
-] | [false] {
+): [true, TermGeneric<T>, VarModeMap, number] | [false] {
 	if (!q) {
 		return [false];
 	}
 	const [qq, vv, nd] = q;
-	return [
-		true,
-		qfn(qq),
-		vv,
-		nd,
-	];
+	return [true, qfn(qq), vv, nd];
 }
 
-type OneModeDetThing = [
-	true,
-	TermGeneric<string>,
-	VarModeMap,
-	number
-] | [false];
+type OneModeDetThing =
+	| [true, TermGeneric<string>, VarModeMap, number]
+	| [false];
 
 function mapOneModeDet<T>(
 	t: TermGeneric<T>,
@@ -270,12 +294,17 @@ function mapOneModeDet<T>(
 					continue;
 				}
 				if (currDetNum1 < bestDetNum2) {
-					best = [true, conjunction1(...outTerms), varModeMapEach, currDetNum1];
+					best = [
+						true,
+						conjunction1(...outTerms),
+						varModeMapEach,
+						currDetNum1,
+					];
 					bestDetNum2 = currDetNum1;
 					// return [outTerms, s, currDetNum1];
 				}
 			}
-			return best
+			return best;
 		}
 		case "disjunction": {
 			return mapQ(
@@ -287,7 +316,7 @@ function mapOneModeDet<T>(
 					bestDetNum,
 				),
 				(disj) => disjunction1(...disj),
-			)
+			);
 		}
 		case "fresh": {
 			const sss = t.newVars.reduce((acc, v) => {
@@ -394,10 +423,15 @@ function mapOneModeDet<T>(
 	}
 }
 
-function findMatchingMode<T>(t: PredicateCallGeneric<T>, s1: VarModeMap, allModes: ModeDetType[]) {
-	const currentVarStates = t.args.map((a) => a.type === "literal"
-		? "ground"
-		: s1.get(a.value, "free")
+function findMatchingMode<T>(
+	t: PredicateCallGeneric<T>,
+	s1: VarModeMap,
+	allModes: ModeDetType[],
+) {
+	const currentVarStates = t.args.map((a) =>
+		a.type === "literal"
+			? "ground"
+			: s1.get(a.value, "free"),
 	);
 	const modes = allModes.find((m) => {
 		if (m.varModes.length !== t.args.length) {
@@ -433,26 +467,19 @@ function* permuteModes<T>(
 	}
 }
 
-
 function mapPredDefinitionModeDet<T>(
 	t: PredicateDefinitionGeneric<T>,
 	s1: VarModeMap,
 	predicateDets: DetTypeMap,
-): [
-			true,
-			TermGeneric<string>,
-			VarModeMap,
-			number,
-	  ] {
-
-		// const zzz = mapToModeDetO(
-		// 	t.body.terms,
-		// 	s1,
-		// 	predicateDets,
-		// 	0,
-		// 	Number.POSITIVE_INFINITY,
-		// );
-		// return 
+): [true, TermGeneric<string>, VarModeMap, number] {
+	// const zzz = mapToModeDetO(
+	// 	t.body.terms,
+	// 	s1,
+	// 	predicateDets,
+	// 	0,
+	// 	Number.POSITIVE_INFINITY,
+	// );
+	// return
 	// const s = s1.set(t.name.value, commonModes.out);
 	// const pmtm = [...permuteModes(t.args, [commonModes.in, commonModes.out, commonModes.pass])];
 	// for (const eachModality of pmtm) {
@@ -513,15 +540,19 @@ function mapPredDefinitionModeDet<T>(
 	// 		nnd,
 	// 	];
 	// }
-	
-	throw new Error("No valid mode/determinacy arrangement for predicate definition");
+
+	throw new Error(
+		"No valid mode/determinacy arrangement for predicate definition",
+	);
 }
 
 function buildVarInformation<T>(
 	stateMapBefore: VarModeMap,
 	v: IdentifierGeneric<T>,
 ): string {
-	return modeToString(stateMapBefore.get(v.value, commonModes.pass));
+	return modeToString(
+		stateMapBefore.get(v.value, commonModes.pass),
+	);
 }
 
 // function mapToModeDetInner<T>(

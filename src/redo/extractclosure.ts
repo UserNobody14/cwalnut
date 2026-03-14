@@ -162,13 +162,14 @@ function freshenTermVars(
 			// const cv = ezcom(terms);
 			const cv = findCommonClosureVars(terms);
 			const common = cv.commonVars;
-			const minusBuiltins = common.merge(
-				ImmSet(cv.nestedVars)
-			).subtract(
-				ImmSet(varsToExclude),
-			);
+			const minusBuiltins = common
+				.merge(ImmSet(cv.nestedVars))
+				.subtract(ImmSet(varsToExclude));
 			const [allUnshadowed, terms2] = terms.reduce(
-				(acc, t): [string[], TermGeneric<undefined>[][]] => {
+				(
+					acc,
+					t,
+				): [string[], TermGeneric<undefined>[][]] => {
 					const [acc1, acc2] = acc;
 					const [newVars, newTerm] = freshenTermVars(
 						t,
@@ -178,9 +179,14 @@ function freshenTermVars(
 				},
 				[[], []] as [string[], TermGeneric<undefined>[][]],
 			);
-			const transformedTerms = term.type === "conjunction"
-			? [conjunction1(...(terms2.flat(1) ?? []))]
-			: [disjunction1(...terms2.map((t) => conjunction1(...t)))];
+			const transformedTerms =
+				term.type === "conjunction"
+					? [conjunction1(...(terms2.flat(1) ?? []))]
+					: [
+							disjunction1(
+								...terms2.map((t) => conjunction1(...t)),
+							),
+						];
 			if (minusBuiltins.size === 0) {
 				return [
 					// minusBuiltins.toArray(),
@@ -189,9 +195,9 @@ function freshenTermVars(
 				];
 			}
 			// Make a new "fresh" term, with the minusBuiltins as the new vars
-			const newVars = minusBuiltins.toArray().map((v) =>
-				make_identifier(v),
-			);
+			const newVars = minusBuiltins
+				.toArray()
+				.map((v) => make_identifier(v));
 			// TODO: same treatment for body?
 			const newTerm = {
 				type: "fresh" as const,
@@ -201,16 +207,20 @@ function freshenTermVars(
 			return [minusBuiltins.toArray(), [newTerm]];
 		}
 		case "fresh": {
-			const [varsToExcludeFurther, bodyTerms] = freshenTermVars(
-				term.body,
-				varsToExclude.concat(
-					term.newVars.map((v) => v.value),
-				),
-			);
+			const [varsToExcludeFurther, bodyTerms] =
+				freshenTermVars(
+					term.body,
+					varsToExclude.concat(
+						term.newVars.map((v) => v.value),
+					),
+				);
 			return [
 				varsToExcludeFurther,
 				[
-					make.fresh1(term.newVars, conjunction1(...bodyTerms)),
+					make.fresh1(
+						term.newVars,
+						conjunction1(...bodyTerms),
+					),
 				],
 			];
 		}

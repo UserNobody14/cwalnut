@@ -176,12 +176,8 @@ export function fresh1<T>(
 	newVars: IdentifierGeneric<T>[],
 	...terms: TermGeneric<T>[]
 ): FreshGeneric<T> {
-	return fresh_dat(
-		newVars,
-		conjunction1(...terms),
-	);
+	return fresh_dat(newVars, conjunction1(...terms));
 }
-
 
 export const [
 	set_key_of,
@@ -209,10 +205,8 @@ export const [
 	mk_string_to_list,
 ] = builtinList.map(
 	(id) =>
-		<T>(srcInfo: T,...args: ExpressionGeneric<T>[]) =>
-			predicate_call_dat(identifier_dat(
-				srcInfo, id
-			), args),
+		<T>(srcInfo: T, ...args: ExpressionGeneric<T>[]) =>
+			predicate_call_dat(identifier_dat(srcInfo, id), args),
 );
 
 export type FullExpression<T> = [
@@ -223,7 +217,9 @@ export type FullExpression<T> = [
 export type Expression<T> =
 	| [ExpressionGeneric<T>, TermGeneric<T>[]]
 	| FullExpression<T>;
-export type FlexExpression<T> = ExpressionGeneric<T> | Expression<T>;
+export type FlexExpression<T> =
+	| ExpressionGeneric<T>
+	| Expression<T>;
 
 export const deflex = <T>(
 	expr: FlexExpression<T>,
@@ -283,7 +279,10 @@ export const make_list_ast = <T>(
 	const terms = elements.flatMap(([_, t]) => [...t]);
 	return [
 		obj,
-		[...terms, list(srcInfo, obj, ...elements.map(([e, _]) => e))],
+		[
+			...terms,
+			list(srcInfo, obj, ...elements.map(([e, _]) => e)),
+		],
 	];
 };
 
@@ -303,14 +302,9 @@ export const make_internal_append = <T>(
 			...rightTerms,
 			...outTerms,
 			predicate_call_dat(
-				identifier_dat(
-					srcInfo,
-					"internal_append"
-				), [
-				left,
-				right,
-				out,
-			]),
+				identifier_dat(srcInfo, "internal_append"),
+				[left, right, out],
+			),
 		],
 	];
 };
@@ -345,10 +339,7 @@ export const make_pred_expr = <T>(
 			...otherTerms,
 			...outTerms,
 			predicate_call_dat(
-				identifier_dat(
-					srcInfo,
-					pred
-				),
+				identifier_dat(srcInfo, pred),
 				args.map(deflex).map(([e, t]) => e),
 			),
 		],
@@ -403,11 +394,9 @@ export const operate = <T>(
 		);
 	}
 	return predicate_call_dat(
-		identifier_dat(srcInfo, predName), [
-		left,
-		right,
-		value,
-	]);
+		identifier_dat(srcInfo, predName),
+		[left, right, value],
+	);
 };
 
 export const unary_operate = <T>(
@@ -427,20 +416,20 @@ export const unary_operate = <T>(
 			`Operator ${operator} is not supported`,
 		);
 	}
-	return predicate_call_dat(identifier_dat(srcInfo, predName), [
-		operand,
-		value,
-	]);
+	return predicate_call_dat(
+		identifier_dat(srcInfo, predName),
+		[operand, value],
+	);
 };
 
-export const ezmakeMaker = <T>(
-	srcInfo: T,
-) => ({
+export const ezmakeMaker = <T>(srcInfo: T) => ({
 	// The rest of (l) is out_id, the remainder of the list
 	rest: (out_id: IdentifierGeneric<T>, l: Expression<T>) =>
 		make_pred_expr("rest", out_id, 0, [l], srcInfo),
-	restRev: (out_id: IdentifierGeneric<T>, l: Expression<T>) =>
-		make_pred_expr("rest", out_id, 1, [l], srcInfo),
+	restRev: (
+		out_id: IdentifierGeneric<T>,
+		l: Expression<T>,
+	) => make_pred_expr("rest", out_id, 1, [l], srcInfo),
 	// The first of (l) is out_id
 	first: (out_id: IdentifierGeneric<T>, l: Expression<T>) =>
 		make_pred_expr("first", out_id, 0, [l], srcInfo),
@@ -449,7 +438,14 @@ export const ezmakeMaker = <T>(
 		out_id: IdentifierGeneric<T>,
 		a: FlexExpression<T>,
 		b: FlexExpression<T>,
-	) => make_pred_expr("internal_append", out_id, 2, [a, b], srcInfo),
+	) =>
+		make_pred_expr(
+			"internal_append",
+			out_id,
+			2,
+			[a, b],
+			srcInfo,
+		),
 	// Cons a and b, result is in l
 	cons: (
 		out_id: IdentifierGeneric<T>,
@@ -459,15 +455,26 @@ export const ezmakeMaker = <T>(
 	empty: (l: IdentifierGeneric<T>) =>
 		make_pred_expr("empty", l, 0, [], srcInfo),
 
-	rest2: (out_id: FlexExpression<T>, l: FlexExpression<T>) =>
-		make_pred_expr("rest", out_id, 0, [l], srcInfo),
-	first2: (out_id: FlexExpression<T>, l: FlexExpression<T>) =>
-		make_pred_expr("first", out_id, 0, [l], srcInfo),
+	rest2: (
+		out_id: FlexExpression<T>,
+		l: FlexExpression<T>,
+	) => make_pred_expr("rest", out_id, 0, [l], srcInfo),
+	first2: (
+		out_id: FlexExpression<T>,
+		l: FlexExpression<T>,
+	) => make_pred_expr("first", out_id, 0, [l], srcInfo),
 	append2: (
 		out_id: FlexExpression<T>,
 		a: FlexExpression<T>,
 		b: FlexExpression<T>,
-	) => make_pred_expr("internal_append", out_id, 2, [a, b], srcInfo),
+	) =>
+		make_pred_expr(
+			"internal_append",
+			out_id,
+			2,
+			[a, b],
+			srcInfo,
+		),
 	cons2: (
 		out_id: FlexExpression<T>,
 		a: FlexExpression<T>,
@@ -475,13 +482,12 @@ export const ezmakeMaker = <T>(
 	) => make_pred_expr("cons", out_id, 0, [a, b], srcInfo),
 });
 
-
-
 // Use Proxy to generate identifiers super easily
 
 export const ezlvar: Record<
 	string,
-	((<T = undefined>(t?: T) => IdentifierGeneric<T>)| (() => IdentifierGeneric<undefined>))
+	| (<T = undefined>(t?: T) => IdentifierGeneric<T>)
+	| (() => IdentifierGeneric<undefined>)
 > = new Proxy(
 	{},
 	{
@@ -495,31 +501,36 @@ export const ezlvar: Record<
 
 export function toLvar2<T = undefined>(t?: T) {
 	const ezlvar2: Record<
-	string,
-	IdentifierGeneric<T>
-> = new Proxy(
-	{},
-	{
-		get:
-			(_, prop) => identifier_dat(t, prop.toString()),
-	},
+		string,
+		IdentifierGeneric<T>
+	> = new Proxy(
+		{},
+		{
+			get: (_, prop) => identifier_dat(t, prop.toString()),
+		},
 	);
 	return ezlvar2;
 }
-type PredicateCallType<T> = (...args: ExpressionGeneric<T>[]) => PredicateCallGeneric<T>;
+type PredicateCallType<T> = (
+	...args: ExpressionGeneric<T>[]
+) => PredicateCallGeneric<T>;
 export function toPred2_<T>(t: T) {
-
 	const ezlvar2: Record<
-	string,
-	(...args: ExpressionGeneric<T>[]) => PredicateCallGeneric<T>
-> = new Proxy(
-	{},
-	{
-		get: (_, prop): PredicateCallType<T> => (...args) => predicate_call_dat(
-			identifier_dat(t, prop.toString()),
-			args
-		),
-	},
+		string,
+		(
+			...args: ExpressionGeneric<T>[]
+		) => PredicateCallGeneric<T>
+	> = new Proxy(
+		{},
+		{
+			get:
+				(_, prop): PredicateCallType<T> =>
+				(...args) =>
+					predicate_call_dat(
+						identifier_dat(t, prop.toString()),
+						args,
+					),
+		},
 	);
 	return ezlvar2;
 }
@@ -558,5 +569,4 @@ export const make = {
 	predicate: predicate_call_dat,
 	predicate_fn: predicate_definition_dat,
 	unification: make_unification,
-
 };

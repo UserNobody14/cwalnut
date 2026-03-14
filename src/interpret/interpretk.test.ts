@@ -1,27 +1,31 @@
 import { describe, expect, test } from "@jest/globals";
 import { codeToAst } from "src/redo/ast-desugar";
+import { toDummyTypes } from "src/interpret-types/type-pipe";
 import {
-	toDummyTypes,
-} from "src/interpret-types/type-pipe";
-import { interpretPlus, runFor } from "src/interpret/interpretk";
+	interpretPlus,
+	runFor,
+} from "src/interpret/interpretk";
 import { freshenTerms } from "src/redo/extractclosure";
 import { builtinList } from "src/utils/builtinList";
 import { modeExec } from "src/mode/modeconvert";
 import { linearize } from "src/redo/linearize";
 import { Set as ImmSet } from "immutable";
-import { pprintGeneric, pprintQuick } from "src/pprint/pprintgeneric";
+import {
+	pprintGeneric,
+	pprintQuick,
+} from "src/pprint/pprintgeneric";
 import type { TermGeneric } from "src/types/AstGeneric";
 
-const toFrsh = (varsToSelect: string[]) => (coder: TermGeneric<undefined>[]) => {
-	return freshenTerms(
+const toFrsh =
+	(varsToSelect: string[]) =>
+	(coder: TermGeneric<undefined>[]) => {
+		return freshenTerms(
+			coder,
 
-		coder,
-
-		"conjunction", [
-		...builtinList,
-		...varsToSelect,
-	]);
-}
+			"conjunction",
+			[...builtinList, ...varsToSelect],
+		);
+	};
 
 const prcs = (
 	srcc: string,
@@ -31,8 +35,8 @@ const prcs = (
 		toFrsh(varsToSelect)(
 			linearize(
 				codeToAst(srcc),
-				ImmSet([...builtinList, ...varsToSelect])
-			)
+				ImmSet([...builtinList, ...varsToSelect]),
+			),
 		),
 	);
 	// return toDummyTypes(
@@ -42,7 +46,7 @@ const prcs = (
 	// 		ImmSet([...builtinList, ...varsToSelect])
 	// 	)
 	// );
-}
+};
 
 describe.skip("Interpret simple cwal programs", () => {
 	// test("Simple father program", () => {
@@ -243,11 +247,9 @@ either:
     qq = [45]
 `;
 		const codev = codeToAst(sourceCode, true);
-    	const parsedCode = prcs(sourceCode, ["qq", "mid"]);
+		const parsedCode = prcs(sourceCode, ["qq", "mid"]);
 		console.log(pprintQuick(parsedCode));
-    	const res = interpretPlus(
-			modeExec(parsedCode)
-		);
+		const res = interpretPlus(modeExec(parsedCode));
 		// runFor(interpretPlus(prcs(sourceCode)), ['qq'])
 		// const resrun = runFor(res, false, ['qq']);
 		const resrun = runFor(res, false, ["qq", "mid"], 10);
@@ -323,9 +325,7 @@ appendo(einput, input2, qq)
 		// appendo(einput, input2, qq)`);
 		const ppr = prcs(sourceCode);
 		// console.log(pprintTermTFlex(ppr, 'withouttype'));
-		console.log(pprintQuick(
-			prcs(sourceCode)
-		));
+		console.log(pprintQuick(prcs(sourceCode)));
 		const res = interpretPlus(prcs(sourceCode));
 		const resrun = runFor(res, false, ["qq"], null);
 		expect(resrun).toEqual([
