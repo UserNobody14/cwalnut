@@ -513,12 +513,7 @@ function sigmaRules(
 					return b.occursCheck(a);
 				},
 				([_a, _b]): LPackage | null => {
-					console.log("sigmaRules lvar failing!!!", [
-						eqn[0].toString(),
-						eqn[1].toString(),
-					]);
 					return null;
-					// return [eqns, emptySigma, emptyNabla, increment];
 				},
 			)
 			.with(
@@ -527,10 +522,6 @@ function sigmaRules(
 					return a.occursCheck(b);
 				},
 				([_a, _b]): LPackage | null => {
-					console.log("sigmaRules lvar failing!!!", [
-						eqn[0].toString(),
-						eqn[1].toString(),
-					]);
 					return null;
 					// return [eqns, emptySigma, emptyNabla, increment];
 				},

@@ -1037,20 +1037,20 @@ export function bindStar(e: MStream, g1: MGoal[]): MStream {
 		return [];
 	}
 	if (g1.length === 1) {
-		// return g1[0];
 		return bind(e, g1[0]);
-		// return [() => bind(cInf, g1[0])];
-		// return [() => g1[0]]
 	}
 	const [first, ...rest] = g1;
-	// return [() => bindStar(
-	//     [() => bind(cInf, first)],
-	//     rest
-	// )];
 	return bindStar(bind(e, first), rest);
 }
 
 const emptyGoal: MGoal = (_m) => [];
+
+/** Lazy disjunction: only call goals[i](m) when we pull from that branch, not all at once. */
+function lazyMplusStar(goals: MGoal[], m: State): MStream {
+	if (goals.length === 0) return [];
+	const [first, ...rest] = goals;
+	return mplus(first(m), () => lazyMplusStar(rest, m));
+}
 
 export function eitherM(g1: MGoal[]): MGoal {
 	if (g1.length === 0) {
@@ -1129,15 +1129,4 @@ export function takeT(
 		}
 	}
 	return out;
-}
-
-export function fromIterable(
-	iterable: Iterable<[State]>,
-): MStream {
-	const next = iterable[Symbol.iterator]().next();
-	if (next.done) {
-		return [];
-	} else {
-		return [next.value[0], () => fromIterable(iterable)];
-	}
 }

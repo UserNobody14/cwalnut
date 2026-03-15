@@ -19,7 +19,7 @@ import {
 } from "./testutils";
 import type { MGoal } from "./streams";
 
-describe.skip("index", () => {
+describe("index", () => {
 	test.skip("Testkanren", () => {
 		const outv = kn.run(
 			3,
@@ -86,7 +86,7 @@ describe.skip("index", () => {
 		]);
 	});
 
-	test.skip("Kn Membero", () => {
+	test("Kn Membero", () => {
 		const firsto = (a: trm.LTerm, l: trm.LTerm): MGoal => {
 			return frf.call_fresh((v) =>
 				kn.eq(makePair(a, v), l),
@@ -123,6 +123,22 @@ describe.skip("index", () => {
 			{ init1: "b" },
 			{ init1: "c" },
 		]);
+		// run1 should also work - same goal, different extraction
+		const run1out = kn.run1(
+			3,
+			["init1"],
+			kn.all(
+				membero(
+					qlvar.init1,
+					makeList([
+						makeLiteral("a"),
+						makeLiteral("b"),
+						makeLiteral("c"),
+					]),
+				),
+			),
+		);
+		expect(run1out.map((s) => s.init1).sort()).toEqual(["a", "b", "c"]);
 	});
 
 	test.skip("Kn Append", () => {

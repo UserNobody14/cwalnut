@@ -176,10 +176,7 @@ describe.skip("Step equal", () => {
 			freshNom3((z, f, x) => {
 				return fresh((U) => {
 					return all(
-						kn.eq(
-							qlam(ezTie(f, qapp(U, U))),
-							qlvar.Y,
-						),
+						kn.eq(qlam(ezTie(f, qapp(U, U))), qlvar.Y),
 						kn.eq(
 							qlam(
 								ezTie(
@@ -302,10 +299,7 @@ describe.skip("Step equal", () => {
 			freshNom3((z, f, x) => {
 				return fresh((U) => {
 					return all(
-						kn.eq(
-							qlam(ezTie(f, qapp(U, U))),
-							qlvar.Y,
-						),
+						kn.eq(qlam(ezTie(f, qapp(U, U))), qlvar.Y),
 						availableo(z, qlvar.Y),
 						stepEqualo(
 							qapp(qvar(z), qapp(qlvar.Y, qvar(z))),

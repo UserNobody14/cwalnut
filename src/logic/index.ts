@@ -103,9 +103,7 @@ export function apply_pred(
 			throw new Error(
 				`Not a predicate: < ${lp.toString()} >`,
 			);
-		const arggs = lpp.fn(
-			...args.map((arg) => sc.reify(arg)),
-		);
+		const arggs = lpp.fn(...args);
 		if (typeof arggs === "function") {
 			return arggs(sc);
 		}

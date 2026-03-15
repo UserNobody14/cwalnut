@@ -19,8 +19,14 @@ import {
 	run,
 	eq,
 	apply_pred,
+	run1,
 } from "src/logic";
-import type { MGoal, MStream } from "src/logic/streams";
+import type { CleanOutput } from "src/logic/types";
+import {
+	bindStar,
+	type MGoal,
+	type MStream,
+} from "src/logic/streams";
 import { make } from "src/utils/make_better_typed";
 import type { LTerm } from "src/logic/terms";
 import { LLVar, LPredicate } from "src/logic/terms";
@@ -29,21 +35,45 @@ import { Map as ImmMap } from "immutable";
 import { freshInternal } from "src/logic/AnyFreshFn";
 import { builtinGoals } from "./builtins";
 
+/** Immutable environment: variable names -> LTerm (LLVar for fresh, any LTerm for predicate args) */
+export type Env = ImmMap<string, LTerm>;
+
+/** Create an env mapping names to LLVars with those names (for input/extract). */
+export function makeQueryEnv(names: string[]): Env {
+	return names.reduce(
+		(acc, n) => acc.set(n, new LLVar(n) as LTerm),
+		emptyEnv(),
+	);
+}
+
+export type InterpOptions = {
+	/** Vars to use for top-level fresh; names must match AST. Omit to allocate fresh. */
+	vars?: string[];
+};
+
+export type InterpResult = Record<string, CleanOutput>[];
+
 export function interp(
 	numb: number,
 	ast: TermGeneric<CodeLocation>[],
-): Iterable<State> {
-	const env = emptyEnv();
-	const [goal] = interpretOne(make.conjunction(ast), env);
+	options?: InterpOptions,
+): InterpResult {
+	const queryVars = options?.vars ?? [];
+	// Use makeQueryEnv so init1/theList are the same LLVars run1 will reify by name
+	const initialEnv =
+		queryVars.length > 0
+			? makeQueryEnv(queryVars)
+			: emptyEnv();
+	const [goal] = interpretOne(
+		make.conjunction(ast),
+		initialEnv,
+	);
 	const withBuiltins = all(builtinGoals(), goal);
-	return run(numb, withBuiltins);
+	return run1(numb, queryVars, withBuiltins);
 }
 
-/** Immutable environment: variable names (from fresh) -> LLVar */
-type Env = ImmMap<string, LLVar>;
-
 function emptyEnv(): Env {
-	return ImmMap<string, LLVar>();
+	return ImmMap<string, LTerm>();
 }
 
 const identityGoal: MGoal = (sc: State) => [sc];
@@ -122,7 +152,9 @@ function interpretCall(
 	return apply_pred(source, ...args);
 }
 
-/** Compile a predicate definition into a goal that binds name -> LPredicate, and the LPredicate runs body with per-call freshened formals. */
+/** Compile a predicate definition into a goal that binds name -> LPredicate.
+ * Pass actual args directly as the body env (no freshening) so the caller's
+ * variables (e.g. init1) stay in the substitution for run1 to extract. */
 function interpretDef(
 	ast: PredicateDefinitionGeneric<CodeLocation>,
 	env: Env,
@@ -130,28 +162,33 @@ function interpretDef(
 	const name = ast.name.value;
 	const pred = new LPredicate(name, (...args: LTerm[]) => {
 		return (sc: State): MStream => {
-			const rrr = freshenVars(sc.number, ast.args, env);
-			const unifyActuals = all(
-				...args.map((arg, i) =>
-					eq(arg, makelvar(ast.args[i].value, rrr)),
-				),
+			const argsEnv = ast.args.reduce(
+				(acc, id, i) => acc.set(id.value, args[i]),
+				emptyEnv(),
 			);
-			const [bodyGoal] = interpretOne(ast.body, rrr);
-			return all(unifyActuals, bodyGoal)(sc.increment());
+			const [bodyGoal] = interpretOne(ast.body, argsEnv);
+			return bodyGoal(sc);
 		};
 	});
 	return eq(makelvar(name), pred);
 }
 
 function freshenVars(
-	inc: number,
 	newVars: IdentifierGeneric<CodeLocation>[],
 	env: Env,
-): Env {
-	return newVars.reduce((acc, v) => {
-		const nvl = `$${v.value}_${inc}`;
-		return acc.set(v.value, new LLVar(nvl));
-	}, env);
+	state: State,
+): [Env, State] {
+	const [newVarsOut, newStateOut] = newVars.reduce(
+		(acc, v) => {
+			const nvl = `$${v.value}_${state.number}`;
+			return [
+				acc[0].set(v.value, new LLVar(nvl)),
+				acc[1].increment(),
+			];
+		},
+		[env, state],
+	);
+	return [newVarsOut, newStateOut];
 }
 
 /** Allocate one fresh LLVar per name in the same scope, extend env, run body. */
@@ -164,7 +201,7 @@ function interpretFresh(
 		const [bodyGoal] = interpretOne(ast.body, env);
 		return [bodyGoal, env];
 	}
-	const goal = foldFresh(names, (extendedEnv) => {
+	const goal = foldFreshOne(names, env, (extendedEnv) => {
 		const [bodyGoal] = interpretOne(ast.body, extendedEnv);
 		return bodyGoal;
 	});
@@ -174,14 +211,10 @@ function interpretFresh(
 /** Build a goal that allocates fresh vars for each name (in order), extending env each time, then runs body(extendedEnv). */
 function foldFresh(
 	names: string[],
+	env: Env,
 	body: (env: Env) => MGoal,
 ): MGoal {
-	if (names.length === 0) return body(emptyEnv());
-	const [first, ...rest] = names;
-	return freshInternal((lv) => {
-		const extendedEnv = emptyEnv().set(first, lv);
-		return foldFreshOne(rest, extendedEnv, body);
-	});
+	return foldFreshOne(names, env, body);
 }
 
 function foldFreshOne(
@@ -201,28 +234,30 @@ function interpretConjunction(
 	ast: ConjunctionGeneric<CodeLocation>,
 	env: Env,
 ): [MGoal, Env] {
-	let currentEnv = env;
-	const goals: MGoal[] = [];
-	for (const term of ast.terms) {
-		const [goal, nextEnv] = interpretOne(term, currentEnv);
-		goals.push(goal);
-		currentEnv = nextEnv;
-	}
-	return [all(...goals), currentEnv];
+	const [goal, env2] = ast.terms.reduce<[MGoal, Env]>(
+		([acc, e]: [MGoal, Env], term) => {
+			const [g, nextEnv] = interpretOne(term, e);
+			return [all(acc, g), nextEnv];
+		},
+		[identityGoal, env],
+	);
+	return [goal, env2];
 }
 
 function interpretDisjunction(
 	ast: DisjunctionGeneric<CodeLocation>,
 	env: Env,
 ): [MGoal, Env] {
-	const [goals, _] = ast.terms.reduce(
-		([acc, e]: [MGoal[], Env], term) => {
+	const [goals, env2]: [MGoal, Env] = ast.terms.reduce<
+		[MGoal, Env]
+	>(
+		([acc, e]: [MGoal, Env], term) => {
 			const [g, e2] = interpretOne(term, e);
-			return [[...acc, g], e2];
+			return [either(acc, g), e2];
 		},
-		[[] as MGoal[], env],
+		[emptyGoal, env],
 	);
-	return [either(...goals), env];
+	return [goals, env2];
 }
 
 function interpretWith(
@@ -231,4 +266,14 @@ function interpretWith(
 ): [MGoal, Env] {
 	const [bodyGoal] = interpretOne(ast.body, env);
 	return [bodyGoal, env];
+}
+function zip(
+	argList: (LLVar | undefined)[],
+	args: LTerm[],
+) {
+	return argList.map((arg, i) => [arg, args[i]]);
+}
+
+function emptyGoal(m: State): MStream {
+	return [];
 }
