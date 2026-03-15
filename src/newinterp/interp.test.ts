@@ -107,24 +107,22 @@ describe("newinterp", () => {
 		});
 		const init1Vals = states.map((s) => s.init1);
 		// Should include a, b, c among answers (recursive membero)
-		expect(init1Vals).toContain("a");
-		expect(init1Vals).toContain("b");
-		expect(init1Vals).toContain("c");
-		expect(states.length).toBeGreaterThanOrEqual(3);
+		expect(states.length).toBe(3);
+		expect(states.map((s) => s.init1).sort()).toEqual(["a", "b", "c"]);
 	});
 
-	test.skip("appendo via internal_append", () => {
+	test("appendo via internal_append", () => {
 		const main = conj(
-			call("internal_append", id("x"), id("y"), id("z")),
 			call("list", id("x"), lit("string", "a")),
 			call("list", id("y"), lit("string", "b")),
+			call("internal_append", id("x"), id("y"), id("z")),
 		);
 		const ast: TermGeneric<CodeLocation>[] = [main];
 		const states = runInterp(5, ast, {
 			vars: ["x", "y", "z"],
 		});
 		expect(states.length).toBeGreaterThanOrEqual(1);
-		expect(states[0].z).toBe("[a, [b, []]]");
+		expect(states[0].z).toEqual(["a", "b"]);
 	});
 
 	test("nested fresh shadowing", () => {

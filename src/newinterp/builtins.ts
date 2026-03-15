@@ -7,7 +7,7 @@ import {
 	type Builtin,
 	builtinList,
 } from "src/utils/builtinList";
-import { eq, all, apply_pred } from "src/logic";
+import { eq, all, either, apply_pred } from "src/logic";
 import type { LTerm, LPredicateFn } from "src/logic/terms";
 import {
 	LPredicate,
@@ -20,6 +20,7 @@ import {
 	makeLiteral,
 	makePair,
 	makeList,
+	makeEmpty,
 } from "src/logic/makelvar";
 import type { MGoal } from "src/logic/streams";
 import type { State } from "src/logic/State";
@@ -35,11 +36,14 @@ const resto = (r: LTerm, l: LTerm): MGoal =>
 	freshInternal((v) => eq(makePair(v, r), l));
 
 const appendo = (l: LTerm, s: LTerm, o: LTerm): MGoal =>
-	freshInternal3((a, d, res) =>
-		all(
-			eq(makePair(a, d), l),
-			eq(makePair(a, res), o),
-			apply_pred(makelvar("internal_append"), d, s, res),
+	either(
+		all(eq(makeEmpty(), l), eq(s, o)),
+		freshInternal3((a, d, res) =>
+			all(
+				eq(makePair(a, d), l),
+				eq(makePair(a, res), o),
+				apply_pred(makelvar("internal_append"), d, s, res),
+			),
 		),
 	);
 
