@@ -8,6 +8,7 @@ import {
 	ezlvar,
 	list,
 	make_fresh,
+	make_identifier,
 	make_literal_ast,
 	make_predicate,
 	make_with,
@@ -587,6 +588,26 @@ data MyData:
 		];
 		expect(clearMeta(res)).toEqual(expectation1);
 });
+
+	test("fresh statement with nominal", () => {
+		const sourceCode = `
+fresh nominal a:
+    b = 1
+`;
+		const res = codeToAst(sourceCode);
+		const expectation1 = [
+			make_fresh(
+				[ezlvar.a],
+				conjunction1(
+					conjunction1(
+						make_predicate(make_identifier('gen_nominal'), [ezlvar.a]),
+					),
+					unify(ezlvar.b, make_literal_ast(1)),
+				),
+			),
+		];
+		expect(clearMeta(res)).toEqual(expectation1);
+	});
 
 
 });

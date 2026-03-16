@@ -238,6 +238,12 @@ export function toAst1(
 				},
 				[[], frCounter],
 			);
+			if (node.children[1].text === "nominal") {
+				const genNominals = allIds.map(
+					(id) => make_predicate(make_identifier(tocloc(node.children[1]), 'gen_nominal'), [id])
+				);
+				blockTerms.unshift(conjunction1(...genNominals));			
+			}
 			return [
 				[make_fresh(allIds, conjunction1(...blockTerms))],
 				fr2,

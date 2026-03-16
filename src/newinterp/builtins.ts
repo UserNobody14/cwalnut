@@ -8,7 +8,7 @@ import {
 	builtinList,
 } from "src/utils/builtinList";
 import { eq, all, either, apply_pred } from "src/logic";
-import type { LTerm, LPredicateFn } from "src/logic/terms";
+import { LTerm, LPredicateFn, LNom } from "src/logic/terms";
 import {
 	LPredicate,
 	LPair,
@@ -22,6 +22,7 @@ import {
 	makePair,
 	makeList,
 	makeEmpty,
+	makeTie,
 } from "src/logic/makelvar";
 import type { MGoal } from "src/logic/streams";
 import type { State } from "src/logic/State";
@@ -29,7 +30,9 @@ import {
 	freshInternal,
 	freshInternal2,
 	freshInternal3,
+	freshNom,
 } from "src/logic/AnyFreshFn";
+import * as avo from "src/logic/availableo";
 
 const firsto = (a: LTerm, l: LTerm): MGoal =>
 	freshInternal((v) => eq(makePair(a, v), l));
@@ -435,6 +438,30 @@ const set_key_of: LPredicateFn =
 		return newState ? [newState] : [];
 	};
 
+const gen_nominal: LPredicateFn =
+	(a: LTerm): MGoal =>
+	freshNom((v) => eq(a, v));
+
+const tie: LPredicateFn =
+	(a: LTerm, tnom: LTerm,  tbody: LTerm): MGoal =>
+	(sc: State) => {
+		const tnomReified = sc.reify(tnom);
+		if (tnomReified instanceof LNom) {
+			return eq(a, makeTie(tnomReified, tbody))(sc);
+		}
+		throw new Error("tie: tnom must reify to a nominal");
+	};
+
+const hash: LPredicateFn =
+	(a: LTerm, b: LTerm): MGoal =>
+	(sc: State) => {
+		const aReified = sc.reify(a);
+		if (aReified instanceof LNom) {
+			return avo.hash(aReified, b)(sc);
+		}
+		throw new Error("hash: a must reify to a nominal");
+	};
+
 const builtinsMap: Record<
 	string,
 	LPredicateFn | ReturnType<typeof defaultPred>
@@ -473,6 +500,9 @@ const builtinsMap: Record<
 	internal_import: defaultPred("internal_import"),
 	internal_append: appendo,
 	string_to_list,
+	gen_nominal,
+	tie,
+	hash,
 };
 
 /** Single MGoal that binds all builtin names in the substitution. */
