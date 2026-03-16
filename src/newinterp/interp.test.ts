@@ -206,7 +206,7 @@ describe("newinterp", () => {
 		);
 		const main = conj(
 			make.with(
-				id("with_accept"),
+				make.predicate_call(id("with_accept"), []),
 				conj(call("unify", id("x"), lit("string", "ok"))),
 			),
 			call("unify", id("x"), lit("string", "ok")),
@@ -219,7 +219,7 @@ describe("newinterp", () => {
 
 	test("with undefined predicate fails", () => {
 		const main = make.with(
-			id("nonexistent_pred"),
+			make.predicate_call(id("nonexistent_pred"), []),
 			conj(call("unify", id("x"), lit("string", "ok"))),
 		);
 		const ast: TermGeneric<CodeLocation>[] = [main];

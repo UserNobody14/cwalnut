@@ -18,9 +18,6 @@
      "*": [
        "*",
        "src/*",
-       "src/type-unification/*",
-       "src/mode/*",
-       "src/interpret/*",
        "src/redo/*",
        "src/models/*",
        "config/*"
@@ -33,5 +30,5 @@
      "./test",
      "./*",
      "./config" 
-   ]
+, "trash/mode", "trash/alpha", "trash/souffle", "trash/interpret", "trash/type-unification"   ]
  }

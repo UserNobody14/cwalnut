@@ -1,5 +1,7 @@
-import { codeToSouffle } from "./souffle/tosouffle";
+
 import * as fs from "node:fs";
+import { codeToAst } from "src/redo/desugar-with-linenums";
+import { interp } from "./newinterp/interp";
 
 // List example folder
 const exampleFiles = fs.readdirSync("./src/examples");
@@ -12,4 +14,7 @@ const code = fs.readFileSync(
 	"./src/examples/index.cwal",
 	"utf8",
 );
-codeToSouffle(code);
+// codeToSouffle(code);
+const res = codeToAst(code);
+const results = interp(200, res, { vars: ["x"] });
+console.log(results);

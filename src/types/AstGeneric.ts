@@ -26,7 +26,7 @@ export interface FreshGeneric<T> {
 
 export interface WithGeneric<T> {
 	type: "with";
-	name: IdentifierGeneric<T>;
+	name: PredicateCallGeneric<T>;
 	body: ConjunctionGeneric<T>;
 }
 

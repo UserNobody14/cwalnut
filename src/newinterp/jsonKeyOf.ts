@@ -149,7 +149,7 @@ function termToJson(term: TermGeneric<unknown>): Record<string, unknown> {
 		case "with":
 			return {
 				type: "with",
-				name: { type: "identifier" as const, value: term.name.value },
+				name: termToJson(term.name),
 				body: termToJson(term.body),
 			};
 		case "predicate_call":

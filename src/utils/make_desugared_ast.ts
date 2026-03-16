@@ -110,7 +110,7 @@ export const make_predicate = (
 });
 
 export const make_with = (
-	source: IdentifierGeneric<undefined>,
+	source: PredicateCallGeneric<undefined>,
 	body: TermGeneric<undefined>[],
 ): WithGeneric<undefined> => ({
 	type: "with",

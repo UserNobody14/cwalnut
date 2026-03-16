@@ -14,8 +14,8 @@ import {
 	make,
 } from "src/utils/make_better_typed";
 
-export function* intoVars(
-	tt: TermGeneric<undefined>[],
+export function* intoVars<T>(
+	tt: TermGeneric<T>[],
 ): Generator<string> {
 	for (const t of tt) {
 		switch (t.type) {
@@ -30,7 +30,7 @@ export function* intoVars(
 				yield* intoVars(t.body.terms);
 				break;
 			case "with":
-				yield t.name.value;
+				yield* intoVars([t.name]);
 				break;
 			case "predicate_definition":
 				yield t.name.value;
@@ -70,7 +70,7 @@ export function* intoVarsUnshadowed(
 			case "with":
 				yield* intoVarsUnshadowed(
 					t.body.terms,
-					ignore.add(t.name.value),
+					ignore.merge(intoVars([t.name])),
 				);
 				break;
 			case "predicate_definition":
@@ -117,7 +117,7 @@ export function* intoVarsUnshadowedG<T>(
 			case "with":
 				yield* intoVarsUnshadowedG(
 					t.body.terms,
-					ignore.add(t.name.value),
+					ignore.merge(intoVars([t.name])),
 				);
 				break;
 			case "predicate_definition":
@@ -163,9 +163,7 @@ export function* intoUniqueVars(
 				yield* intoUniqueVars(t.body.terms, ignore);
 				break;
 			case "with":
-				if (!ignore.has(t.name.value)) {
-					yield t.name.value;
-				}
+				yield* intoUniqueVars([t.name], ignore);
 				break;
 			case "predicate_definition":
 				if (!ignore.has(t.name.value)) {
@@ -211,7 +209,7 @@ export function* intoVarsGeneric<T>(
 				yield* intoVarsGeneric(t.body.terms);
 				break;
 			case "with":
-				yield t.name;
+				yield* intoVarsGeneric([t.name]);
 				break;
 			case "predicate_definition":
 				yield t.name;
@@ -251,9 +249,7 @@ export function* intoUniqueVarsGeneric<T>(
 				yield* intoUniqueVarsGeneric(t.body.terms, ignore);
 				break;
 			case "with":
-				if (!ignore.has(t.name.value)) {
-					yield t.name;
-				}
+				yield* intoUniqueVarsGeneric([t.name], ignore);
 				break;
 			case "predicate_definition":
 				if (!ignore.has(t.name.value)) {
@@ -310,7 +306,7 @@ export function mapVars(
 			case "with":
 				return {
 					...t,
-					name: { ...t.name, value: fn(t.name.value) },
+					name: mapVars([t.name], fn)[0] as PredicateCallGeneric<undefined>,
 					body: {
 						...t.body,
 						terms: mapVars(t.body.terms, fn),
@@ -370,7 +366,7 @@ export function mapVarsGeneric<T, Z>(
 			case "with":
 				return {
 					...t,
-					name: fn(t.name),
+					name: mapVarsGeneric([t.name], fn)[0] as PredicateCallGeneric<Z>,
 					body: {
 						...t.body,
 						terms: mapVarsGeneric(t.body.terms, fn),
@@ -434,7 +430,7 @@ export function mapPredCalls<T, Z>(
 			case "with":
 				return {
 					...t,
-					name: freshen("name", [t.name])[0],
+					name: fn(t.name),
 					body: {
 						...t.body,
 						terms: mapPredCalls(t.body.terms, fn, freshen),
@@ -493,10 +489,14 @@ export function mapPredCallsRemovable<T, Z>(
 								),
 							},
 						};
-					case "with":
+					case "with": {
+						const fnr = fn(t.name);
+						if (fnr === undefined) {
+							return undefined;
+						}
 						return {
 							...t,
-							name: freshen("name", [t.name])[0],
+							name: fnr,
 							body: {
 								...t.body,
 								terms: mapPredCallsRemovable(
@@ -506,6 +506,7 @@ export function mapPredCallsRemovable<T, Z>(
 								),
 							},
 						};
+					}
 					case "predicate_definition":
 						return {
 							...t,
@@ -566,7 +567,15 @@ export function mapPredDefinitionsGeneric<T, Z>(
 			case "with":
 				return {
 					...t,
-					name: freshen("name", [t.name])[0],
+					name: {
+						...t.name,
+						source: freshen("name", [t.name.source])[0],
+						args: t.name.args.map((a) =>
+							a.type === "identifier"
+								? freshen("call-args", [a])[0]
+								: a,
+						),
+					},
 					body: {
 						...t.body,
 						terms: mapPredDefinitionsGeneric(
@@ -690,7 +699,7 @@ export function mapVarsWithState<T, Z, S>(
 				break;
 			}
 			case "with": {
-				const [newName, newState] = fn(t.name, s);
+				const [newName, newState] = mapVarsWithState([t.name], fn, s);
 				const [newBody, newState2] = mapVarsWithState(
 					t.body.terms,
 					fn,
@@ -698,7 +707,7 @@ export function mapVarsWithState<T, Z, S>(
 				);
 				result.push({
 					...t,
-					name: newName,
+					name: newName[0] as PredicateCallGeneric<Z>,
 					body: { ...t.body, terms: newBody },
 				});
 				s = newState2;
@@ -771,7 +780,7 @@ export function mapVarsToState<T, S>(
 				s = mapVarsToState(t.body.terms, fn, s);
 				break;
 			case "with":
-				s = fn(t.name, s);
+				s = mapVarsToState([t.name], fn, s);
 				s = mapVarsToState(t.body.terms, fn, s);
 				break;
 			case "predicate_definition":
@@ -844,11 +853,7 @@ export function mapPredCallsWithState<T, Z, S>(
 				break;
 			}
 			case "with": {
-				const [newName, newState] = freshen(
-					"name",
-					[t.name],
-					s,
-				);
+				const [newCall, newState] = fn(t.name, s);
 				const [newBody, newState2] = mapPredCallsWithState(
 					t.body.terms,
 					fn,
@@ -857,7 +862,7 @@ export function mapPredCallsWithState<T, Z, S>(
 				);
 				result.push({
 					...t,
-					name: newName[0],
+					name: newCall,
 					body: { ...t.body, terms: newBody },
 				});
 				s = newState2;
@@ -1402,7 +1407,7 @@ export function mapToGeneric<A, T>(
 			case "with":
 				return {
 					...t,
-					name: fn(t.name),
+					name: mapToGeneric([t.name], fn)[0] as PredicateCallGeneric<T>,
 					body: {
 						...t.body,
 						terms: mapToGeneric(t.body.terms, fn),
@@ -1479,19 +1484,20 @@ export function mapReducePredCalls<T, Z, S>(
 				break;
 			}
 			case "with": {
-				const [newBody, newState] = mapReducePredCalls(
+				const [newCall, newState0] = reduceFn(acc, mapFn(t.name));
+				const [newBody, newState1] = mapReducePredCalls(
 					t.body.terms,
 					mapFn,
 					reduceFn,
 					freshen,
-					acc,
+					newState0,
 				);
 				result.push({
 					...t,
-					name: freshen("name", [t.name])[0],
+					name: newCall,
 					body: { ...t.body, terms: newBody },
 				});
-				acc = newState;
+				acc = newState1;
 				break;
 			}
 			case "predicate_definition": {
@@ -1589,16 +1595,17 @@ export function mapReducePredCalls2<T, Z, S>(
 				break;
 			}
 			case "with": {
+				const [newCall, newState0] = reduceFn(acc, mapFn(t.name));
 				const [newBody, newState] = mapReducePredCalls2(
 					t.body.terms,
 					mapFn,
 					reduceFn,
 					freshen,
-					acc,
+					newState0,
 				);
 				result.push({
 					...t,
-					name: freshen("name", [t.name])[0],
+					name: newCall,
 					body: { ...t.body, terms: newBody },
 				});
 				acc = newState;

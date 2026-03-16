@@ -172,24 +172,6 @@ function interpretDef(
 	return eq(makelvar(name), pred);
 }
 
-function freshenVars(
-	newVars: IdentifierGeneric<CodeLocation>[],
-	env: Env,
-	state: State,
-): [Env, State] {
-	const [newVarsOut, newStateOut] = newVars.reduce(
-		(acc, v) => {
-			const nvl = `$${v.value}_${state.number}`;
-			return [
-				acc[0].set(v.value, new LLVar(nvl)),
-				acc[1].increment(),
-			];
-		},
-		[env, state],
-	);
-	return [newVarsOut, newStateOut];
-}
-
 /** Allocate one fresh LLVar per name in the same scope, extend env, run body. */
 function interpretFresh(
 	ast: FreshGeneric<CodeLocation>,
@@ -255,12 +237,13 @@ function interpretWith(
 	ast: WithGeneric<CodeLocation>,
 	env: Env,
 ): [MGoal, Env] {
-	const source = interpretExpr(ast.name, env);
+	const source = interpretExpr(ast.name.source, env);
+	const remainingArgs = ast.name.args.map((a) => interpretExpr(a, env));
 	const goal = freshInternal2((bodyAstVar, envVar) =>
 		all(
 			bodyAstToKeyOfGoal(bodyAstVar, ast.body),
 			envToKeyOfGoal(envVar, env),
-			apply_pred(source, bodyAstVar, envVar),
+			apply_pred(source, bodyAstVar, envVar, ...remainingArgs),
 		),
 	);
 	return [goal, env];

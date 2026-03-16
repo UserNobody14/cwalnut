@@ -41,7 +41,7 @@ const fresh_dat = <T>(
 	body,
 });
 const with_dat = <T>(
-	name: IdentifierGeneric<T>,
+	name: PredicateCallGeneric<T>,
 	body: ConjunctionGeneric<T>,
 ): WithGeneric<T> => ({
 	type: "with",
