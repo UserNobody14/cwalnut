@@ -485,11 +485,10 @@ with predcall(arg1, arg2):
 `;
 		const res = codeToAst(sourceCode);
 		const expectation1 = [
-			make_predicate(
+			make_with(make_predicate(
 				ezlvar.predcall,
 				[ezlvar.__fresh_0, ezlvar.arg1, ezlvar.arg2],
-			),
-			make_with(ezlvar.__fresh_0, [unify(ezlvar.b, make_literal_ast(1))]),
+			), [unify(ezlvar.b, make_literal_ast(1))]),
 		];
 		expect(clearMeta(res)).toEqual(expectation1);
 	});
@@ -501,11 +500,10 @@ when predcall(a):
 `;
 		const res = codeToAst(sourceCode);
 		const expectation1 = [
-			make_predicate(
+			make_with(make_predicate(
 				ezlvar.predcall,
 				[ezlvar.__fresh_0, ezlvar.a],
-			),
-			make_with(ezlvar.__fresh_0, [unify(ezlvar.b, make_literal_ast(1))]),
+			), [unify(ezlvar.b, make_literal_ast(1))]),
 		];
 		expect(clearMeta(res)).toEqual(expectation1);
 	});

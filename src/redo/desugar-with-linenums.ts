@@ -8,6 +8,7 @@ import type {
 	IdentifierGeneric,
 	PredicateDefinitionGeneric,
 	WithGeneric,
+	PredicateCallGeneric,
 } from "src/types/AstGeneric";
 import {
 	conjunction1,
@@ -149,63 +150,8 @@ export function toAst1(
 			return [[...aterms, ...bterms, ...unifT], frCounter6];
 		}
 		case "predicate": {
-			const argActual = node.children[1];
-			const arglist = argActual.children.slice(1, -1);
-			const [allArgs, frCounter2] = arglist
-				.filter((nnc) => nnc.grammarType !== ",")
-				.reduce<
-					[
-						[
-							ExpressionGeneric<CodeLocation>,
-							TermGeneric<CodeLocation>[],
-						][],
-						number,
-					]
-				>(
-					(acc, nc) => {
-						const [arg, argTerms, frPlus] =
-							expressionToAstFRESH(nc, acc[1]);
-						return [
-							acc[0].concat([[arg, argTerms]]),
-							frPlus,
-						];
-					},
-					[[], frCounter],
-				);
-			const [source, sourceTerms, frCounter3] =
-				expressionToAstFRESH(node.children[0], frCounter2);
-			if (source.type !== "identifier") {
-				throw new Error(
-					"Source of predicate must be an identifier",
-				);
-			}
-			const allArgs2 = allArgs.flatMap((aa) => aa[1]);
-			// validate that it is all termsdsast
-			for (const aa of allArgs2) {
-				// if (aa.type === "predicate_definition") {
-				// 	throw new Error("Cannot have predicate in predicate");
-				// }
-				if (aa === undefined) {
-					throw new Error("Undefined term");
-				}
-				if (typeof aa === "number") {
-					throw new Error("Number term!");
-				}
-				if (Array.isArray(aa)) {
-					throw new Error("Array term");
-				}
-			}
-			return [
-				[
-					...allArgs2,
-					...sourceTerms,
-					make_predicate(
-						source,
-						allArgs.map((aa) => aa[0]),
-					),
-				],
-				frCounter3,
-			];
+			const [aterms, predicate, frCounter2] = extractPredicate(node, frCounter);
+			return [[...aterms, predicate], frCounter2];
 		}
 		case "for_control_statement": {
 			const ctrltype = node.children[1].text;
@@ -221,47 +167,35 @@ export function toAst1(
 		}
 		// With statement
 		case "with_statement": {
-			const [a, aterms, frCounter2] = expressionToAstFRESH(
-				node.children[1],
-				frCounter,
-			);
+			const [aterms, predicate, frCounter2] = extractPredicate(node.children[1], frCounter);
 			const [b, frCounter3] = buildCompoundLogic(
 				node.children[3],
 				'conjunction',
 				frCounter2,
 			);
-			if (a.type !== "identifier") {
-				throw new Error("With statement name must be an identifier");
-			}
 			return [
 				
 				[
 					...aterms,
-					{ type: "with", name: a, body: conjunction1(...b) }], frCounter3];
+					{ type: "with", name: predicate, body: conjunction1(...b)
+
+					}], frCounter3];
 		}
 		// When statement (turns into a subvariety of with statements)
 		case "when_statement": {
-			console.log("when_statement", node.children[0].text);
-			console.log("when_statement", node.children[1].text);
-			console.log("when_statement", node.children[2].text);
-			console.log("when_statement", node.children[3].text);
-			const [a, aterms, frCounter2] = expressionToAstFRESH(
-				node.children[1],
-				frCounter,
-			);
+			const [aterms, predicate, frCounter2] = extractPredicate(node.children[1], frCounter);
 			const [b, frCounter3] = buildCompoundLogic(
 				node.children[3],
 				'conjunction',
 				frCounter2,
 			);
-			if (a.type !== "identifier") {
-				throw new Error("With statement name must be an identifier");
-			}
 			return [
 				
 				[
 					...aterms,
-					{ type: "with", name: a, body: conjunction1(...b) }], frCounter3];
+					{ type: "with", name: predicate, body: conjunction1(...b)
+						
+					}], frCounter3];
 		}
 
 
@@ -315,6 +249,68 @@ export function toAst1(
 				`Unrecognized node type: ${node.type}`,
 			);
 	}
+}
+
+function extractPredicate(node: Parser.SyntaxNode, frCounter: number): [
+	TermGeneric<CodeLocation>[],
+	PredicateCallGeneric<CodeLocation>,
+	number
+] {
+	const argActual = node.children[1];
+	const arglist = argActual.children.slice(1, -1);
+	const [allArgs, frCounter2] = arglist
+		.filter((nnc) => nnc.grammarType !== ",")
+		.reduce<
+			[
+				[
+					ExpressionGeneric<CodeLocation>,
+					TermGeneric<CodeLocation>[]
+				][],
+				number
+			]
+		>(
+			(acc, nc) => {
+				const [arg, argTerms, frPlus] = expressionToAstFRESH(nc, acc[1]);
+				return [
+					acc[0].concat([[arg, argTerms]]),
+					frPlus,
+				];
+			},
+			[[], frCounter]
+		);
+	const [source, sourceTerms, frCounter3] = expressionToAstFRESH(node.children[0], frCounter2);
+	if (source.type !== "identifier") {
+		throw new Error(
+			"Source of predicate must be an identifier"
+		);
+	}
+	const allArgs2 = allArgs.flatMap((aa) => aa[1]);
+	// validate that it is all termsdsast
+	for (const aa of allArgs2) {
+		// if (aa.type === "predicate_definition") {
+		// 	throw new Error("Cannot have predicate in predicate");
+		// }
+		if (aa === undefined) {
+			throw new Error("Undefined term");
+		}
+		if (typeof aa === "number") {
+			throw new Error("Number term!");
+		}
+		if (Array.isArray(aa)) {
+			throw new Error("Array term");
+		}
+	}
+	return [
+		[
+			...allArgs2,
+			...sourceTerms
+		],
+		make_predicate(
+			source,
+			allArgs.map((aa) => aa[0])
+		),
+		frCounter3,
+	];
 }
 
 function isSameIdentifier(
