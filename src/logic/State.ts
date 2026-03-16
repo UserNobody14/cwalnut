@@ -5,18 +5,20 @@ import {
 } from "immutable";
 import { type LTerm, LLVar, LNom } from "./terms";
 import { Subst } from "./Subst";
+import { unifyKeyOf as kvUnifyKeyOf, mergeKvStore } from "./kv";
 import {
 	type CleanOutput,
 	type Nominal,
 	type ImmatureStream,
 	StreamFailed,
 	type SingletonStream,
+	type KVStore,
 } from "./types";
 import { failed } from "./streams";
 import { type DeltaMap, emptyDelta } from "./DeltaMap";
 interface InfoParams {
 	nominal: Nominal;
-	// local: LocalScopeStore;
+	kvStore: KVStore;
 }
 export const infoDefaults: InfoParams = {
 	nominal: {
@@ -24,18 +26,15 @@ export const infoDefaults: InfoParams = {
 		fenv: ImmMap(),
 		fenv2: ImmMap(),
 	},
-	// local: new LocalScopeStore(),
+	kvStore: ImmMap(),
 };
 
 export class InfoStore extends ImmRecord(infoDefaults) {}
 
 interface StateParams {
-	// fail: boolean;
 	subst: Subst;
 	number: number;
 	nomNumber: number;
-	// allowFails: boolean;
-	// c: ConstraintStore;
 	i: InfoStore;
 	delta: DeltaMap;
 	timev: number;
@@ -77,7 +76,14 @@ export class State extends ImmRecord(stateDefaults) {
 	}
 
 	unifyVar(u: LTerm, v: LLVar): State | null {
-		return u.varUnifyEmptyScope(this, v);
+		const state1 = u.varUnifyEmptyScope(this, v);
+		if (state1 === null) return null;
+		const merged = mergeKvStore(state1);
+		return merged !== null ? merged : null;
+	}
+
+	unifyKeyOf(obj2: LTerm, key: string, value2: LTerm): State | null {
+		return kvUnifyKeyOf(this, obj2, key, value2);
 	}
 
 	// resetLvarList(): State {

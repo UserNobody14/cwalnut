@@ -14,6 +14,7 @@ import {
 	LPair,
 	LLiteral,
 	LEmpty,
+	LLVar,
 } from "src/logic/terms";
 import {
 	makelvar,
@@ -26,6 +27,7 @@ import type { MGoal } from "src/logic/streams";
 import type { State } from "src/logic/State";
 import {
 	freshInternal,
+	freshInternal2,
 	freshInternal3,
 } from "src/logic/AnyFreshFn";
 
@@ -192,10 +194,245 @@ const addc: LPredicateFn =
 		throw new Error("Invalid types for add");
 	};
 
+const multiplyc: LPredicateFn =
+	(a: LTerm, b: LTerm, c: LTerm): MGoal =>
+	(sc: State) => {
+		const aW = sc.reify(a);
+		const bW = sc.reify(b);
+		const cW = sc.reify(c);
+		if (
+			aW instanceof LLiteral &&
+			bW instanceof LLiteral &&
+			typeof aW.value === "number" &&
+			typeof bW.value === "number"
+		) {
+			return eq(c, makeLiteral(aW.value * bW.value))(sc);
+		}
+		if (
+			aW instanceof LLiteral &&
+			cW instanceof LLiteral &&
+			typeof aW.value === "number" &&
+			typeof cW.value === "number"
+		) {
+			if (aW.value === 0)
+				throw new Error("multiply: division by zero");
+			return eq(b, makeLiteral(cW.value / aW.value))(sc);
+		}
+		if (
+			bW instanceof LLiteral &&
+			cW instanceof LLiteral &&
+			typeof bW.value === "number" &&
+			typeof cW.value === "number"
+		) {
+			if (bW.value === 0)
+				throw new Error("multiply: division by zero");
+			return eq(a, makeLiteral(cW.value / bW.value))(sc);
+		}
+		throw new Error("Invalid types for multiply");
+	};
+
+const dividec: LPredicateFn =
+	(a: LTerm, b: LTerm, c: LTerm): MGoal =>
+	(sc: State) => {
+		const aW = sc.reify(a);
+		const bW = sc.reify(b);
+		const cW = sc.reify(c);
+		if (
+			aW instanceof LLiteral &&
+			bW instanceof LLiteral &&
+			typeof aW.value === "number" &&
+			typeof bW.value === "number"
+		) {
+			if (bW.value === 0)
+				throw new Error("divide: division by zero");
+			return eq(c, makeLiteral(aW.value / bW.value))(sc);
+		}
+		if (
+			aW instanceof LLiteral &&
+			cW instanceof LLiteral &&
+			typeof aW.value === "number" &&
+			typeof cW.value === "number"
+		) {
+			if (cW.value === 0 && aW.value !== 0) return [];
+			if (aW.value === 0)
+				throw new Error("divide: divisor indeterminate");
+			return eq(b, makeLiteral(aW.value / cW.value))(sc);
+		}
+		if (
+			bW instanceof LLiteral &&
+			cW instanceof LLiteral &&
+			typeof bW.value === "number" &&
+			typeof cW.value === "number"
+		) {
+			if (bW.value === 0)
+				throw new Error("divide: division by zero");
+			return eq(a, makeLiteral(cW.value * bW.value))(sc);
+		}
+		throw new Error("Invalid types for divide");
+	};
+
+const moduloc: LPredicateFn =
+	(a: LTerm, b: LTerm, c: LTerm): MGoal =>
+	(sc: State) => {
+		const aW = sc.reify(a);
+		const bW = sc.reify(b);
+		const cW = sc.reify(c);
+		if (
+			aW instanceof LLiteral &&
+			bW instanceof LLiteral &&
+			typeof aW.value === "number" &&
+			typeof bW.value === "number"
+		) {
+			if (bW.value === 0)
+				throw new Error("modulo: division by zero");
+			return eq(c, makeLiteral(aW.value % bW.value))(sc);
+		}
+		throw new Error("Invalid types for modulo");
+	};
+
+const negatec: LPredicateFn =
+	(a: LTerm, b: LTerm): MGoal =>
+	(sc: State) => {
+		const aW = sc.reify(a);
+		const bW = sc.reify(b);
+		if (
+			aW instanceof LLiteral &&
+			typeof aW.value === "number"
+		) {
+			return eq(b, makeLiteral(-aW.value))(sc);
+		}
+		if (
+			bW instanceof LLiteral &&
+			typeof bW.value === "number"
+		) {
+			return eq(a, makeLiteral(-bW.value))(sc);
+		}
+		throw new Error("Invalid types for negate");
+	};
+
 const defaultPred =
 	(s: string): LPredicateFn =>
 	() => {
 		throw new Error(`${s} Not implemented`);
+	};
+
+const unify_left: LPredicateFn =
+	(l: LTerm, r: LTerm): MGoal =>
+	(sc: State) => {
+		const lReified = sc.reify(l);
+		if (lReified instanceof LLVar) return [];
+		return eq(l, r)(sc);
+	};
+
+const unify_right: LPredicateFn =
+	(l: LTerm, r: LTerm): MGoal =>
+	(sc: State) => {
+		const rReified = sc.reify(r);
+		if (rReified instanceof LLVar) return [];
+		return eq(l, r)(sc);
+	};
+
+const unify_equal: LPredicateFn = (
+	l: LTerm,
+	r: LTerm,
+): MGoal => eq(l, r);
+
+const unify_not_equal: LPredicateFn =
+	(l: LTerm, r: LTerm): MGoal =>
+	(sc: State) => {
+		const res = eq(l, r)(sc);
+		// eq returns [] when unification fails, [state] when it succeeds
+		if (Array.isArray(res) && res.length === 0) return [sc];
+		return [];
+	};
+
+function listLength(t: LTerm): number | null {
+	if (t instanceof LEmpty) return 0;
+	if (t instanceof LPair) {
+		const r = listLength(t.second);
+		if (r === null) return null;
+		return 1 + r;
+	}
+	return null;
+}
+
+const lengtho: LPredicateFn =
+	(list: LTerm, n: LTerm): MGoal =>
+	(sc: State) => {
+		const listR = sc.reify(list);
+		const nR = sc.reify(n);
+		if (
+			nR instanceof LLiteral &&
+			typeof nR.value === "number"
+		) {
+			const N = nR.value;
+			if (N === 0) return eq(list, makeEmpty())(sc);
+			if (N > 0 && Number.isInteger(N)) {
+				return freshInternal2((h, t) =>
+					all(
+						eq(list, makePair(h, t)),
+						eq(n, makeLiteral(N)),
+						lengtho(t, makeLiteral(N - 1)),
+					),
+				)(sc);
+			}
+		}
+		if (listR instanceof LEmpty)
+			return eq(n, makeLiteral(0))(sc);
+		if (listR instanceof LPair) {
+			const len = listLength(listR);
+			if (len !== null) return eq(n, makeLiteral(len))(sc);
+		}
+		throw new Error(
+			"length: invalid or insufficiently instantiated",
+		);
+	};
+
+function nthOfList(t: LTerm, n: number): LTerm | null {
+	if (n === 0) {
+		if (t instanceof LPair) return t.first;
+		return null;
+	}
+	if (t instanceof LPair) return nthOfList(t.second, n - 1);
+	return null;
+}
+
+const sliceo: LPredicateFn =
+	(list: LTerm, index: LTerm, result: LTerm): MGoal =>
+	(sc: State) => {
+		const listR = sc.reify(list);
+		const indexR = sc.reify(index);
+		if (
+			!(indexR instanceof LLiteral) ||
+			typeof indexR.value !== "number"
+		) {
+			throw new Error("slice: index must be a number");
+		}
+		const idx = indexR.value;
+		if (!Number.isInteger(idx) || idx < 0) {
+			throw new Error(
+				"slice: index must be a non-negative integer",
+			);
+		}
+		const element = nthOfList(listR, idx);
+		if (element === null) return [];
+		return eq(result, element)(sc);
+	};
+
+const set_key_of: LPredicateFn =
+	(source: LTerm, key: LTerm, value: LTerm): MGoal =>
+	(sc: State) => {
+		const keyReified = sc.reify(key);
+		if (
+			!(keyReified instanceof LLiteral) ||
+			typeof keyReified.value !== "string"
+		) {
+			throw new Error("set_key_of: key must reify to a literal string");
+		}
+		const keyStr = keyReified.value;
+		const objCanon = sc.find(source);
+		const newState = sc.unifyKeyOf(objCanon, keyStr, value);
+		return newState ? [newState] : [];
 	};
 
 const builtinsMap: Record<
@@ -217,22 +454,22 @@ const builtinsMap: Record<
 	first: (a, l) => firsto(a, l),
 	rest: (r, l) => resto(l, r),
 	cons: (a, b, l) => eq(l, makePair(a, b)),
-	set_key_of: defaultPred("set_key_of"),
+	set_key_of,
 	internal_file: defaultPred("internal_file"),
-	unify_left: defaultPred("unify_left"),
-	unify_right: defaultPred("unify_right"),
-	unify_equal: defaultPred("unify_equal"),
-	unify_not_equal: defaultPred("unify_not_equal"),
-	slice: defaultPred("slice"),
-	length: defaultPred("length"),
+	unify_left,
+	unify_right,
+	unify_equal,
+	unify_not_equal,
+	slice: sliceo,
+	length: lengtho,
 	list: (al, ...l) => eq(al, makeList(l)),
 	empty: (l) => eq(l, makeList([])),
 	add: addc,
 	subtract: (a, b, c) => addc(b, c, a),
-	multiply: defaultPred("multiply"),
-	divide: defaultPred("divide"),
-	modulo: defaultPred("modulo"),
-	negate: defaultPred("negate"),
+	multiply: multiplyc,
+	divide: dividec,
+	modulo: moduloc,
+	negate: negatec,
 	internal_import: defaultPred("internal_import"),
 	internal_append: appendo,
 	string_to_list,

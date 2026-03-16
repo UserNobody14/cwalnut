@@ -75,6 +75,17 @@ describe("newinterp", () => {
 		expect(states[0].x).toEqual([]);
 	});
 
+	test("set_key_of then unify value", () => {
+		const main = conj(
+			call("set_key_of", id("obj"), lit("string", "k"), id("val")),
+			call("unify", id("val"), lit("string", "hello")),
+		);
+		const ast: TermGeneric<CodeLocation>[] = [main];
+		const states = runInterp(5, ast, { vars: ["val"] });
+		expect(states.length).toBe(1);
+		expect(states[0].val).toBe("hello");
+	});
+
 	test("recursive membero", () => {
 		const memberoBody = conj(
 			make.disjunction([
@@ -108,7 +119,11 @@ describe("newinterp", () => {
 		const init1Vals = states.map((s) => s.init1);
 		// Should include a, b, c among answers (recursive membero)
 		expect(states.length).toBe(3);
-		expect(states.map((s) => s.init1).sort()).toEqual(["a", "b", "c"]);
+		expect(states.map((s) => s.init1).sort()).toEqual([
+			"a",
+			"b",
+			"c",
+		]);
 	});
 
 	test("appendo via internal_append", () => {
@@ -193,5 +208,285 @@ describe("newinterp", () => {
 		});
 		expect(states.length).toBe(1);
 		expect(states[0].x).toBe("ok");
+	});
+
+	test("unify_left: left ground unifies with right", () => {
+		const main = conj(
+			call("unify_left", lit("string", "a"), id("x")),
+		);
+		const ast: TermGeneric<CodeLocation>[] = [main];
+		const states = runInterp(5, ast, { vars: ["x"] });
+		expect(states.length).toBe(1);
+		expect(states[0].x).toBe("a");
+	});
+
+	test("unify_left: left unbound (lvar) fails", () => {
+		const main = conj(
+			call("unify_left", id("x"), lit("string", "a")),
+		);
+		const ast: TermGeneric<CodeLocation>[] = [main];
+		const states = runInterp(5, ast, { vars: ["x"] });
+		expect(states.length).toBe(0);
+	});
+
+	test("unify_left: both ground equal succeeds", () => {
+		const main = conj(
+			call(
+				"unify_left",
+				lit("string", "a"),
+				lit("string", "a"),
+			),
+		);
+		const ast: TermGeneric<CodeLocation>[] = [main];
+		const states = runInterp(5, ast);
+		expect(states.length).toBe(1);
+	});
+
+	test("unify_right: right ground unifies with left", () => {
+		const main = conj(
+			call("unify_right", id("x"), lit("string", "a")),
+		);
+		const ast: TermGeneric<CodeLocation>[] = [main];
+		const states = runInterp(5, ast, { vars: ["x"] });
+		expect(states.length).toBe(1);
+		expect(states[0].x).toBe("a");
+	});
+
+	test("unify_right: right unbound (lvar) fails", () => {
+		const main = conj(
+			call("unify_right", lit("string", "a"), id("x")),
+		);
+		const ast: TermGeneric<CodeLocation>[] = [main];
+		const states = runInterp(5, ast, { vars: ["x"] });
+		expect(states.length).toBe(0);
+	});
+
+	test("unify_not_equal: different values succeed", () => {
+		const main = conj(
+			call("unify", id("x"), lit("string", "b")),
+			call("unify_not_equal", id("x"), lit("string", "a")),
+		);
+		const ast: TermGeneric<CodeLocation>[] = [main];
+		const states = runInterp(5, ast, { vars: ["x"] });
+		expect(states.length).toBe(1);
+		expect(states[0].x).toBe("b");
+	});
+
+	test("unify_not_equal: same value fails", () => {
+		const main = conj(
+			call("unify", id("x"), lit("string", "a")),
+			call("unify_not_equal", id("x"), lit("string", "a")),
+		);
+		const ast: TermGeneric<CodeLocation>[] = [main];
+		const states = runInterp(5, ast, { vars: ["x"] });
+		expect(states.length).toBe(0);
+	});
+
+	test("length: list ground yields count", () => {
+		const main = conj(
+			call(
+				"list",
+				id("l"),
+				lit("string", "a"),
+				lit("string", "b"),
+				lit("string", "c"),
+			),
+			call("length", id("l"), id("n")),
+		);
+		const ast: TermGeneric<CodeLocation>[] = [main];
+		const states = runInterp(5, ast, { vars: ["l", "n"] });
+		expect(states.length).toBe(1);
+		expect(states[0].n).toBe(3);
+	});
+
+	test("length: empty list yields 0", () => {
+		const main = conj(
+			call("empty", id("l")),
+			call("length", id("l"), id("n")),
+		);
+		const ast: TermGeneric<CodeLocation>[] = [main];
+		const states = runInterp(5, ast, { vars: ["l", "n"] });
+		expect(states.length).toBe(1);
+		expect(states[0].n).toBe(0);
+	});
+
+	test("slice: list and index ground yields element", () => {
+		const main = conj(
+			call(
+				"list",
+				id("l"),
+				lit("string", "a"),
+				lit("string", "b"),
+				lit("string", "c"),
+			),
+			call("slice", id("l"), lit("number", "1"), id("x")),
+		);
+		const ast: TermGeneric<CodeLocation>[] = [main];
+		const states = runInterp(5, ast, { vars: ["l", "x"] });
+		expect(states.length).toBe(1);
+		expect(states[0].x).toBe("b");
+	});
+
+	test("slice: index 0 yields first element", () => {
+		const main = conj(
+			call(
+				"list",
+				id("l"),
+				lit("string", "a"),
+				lit("string", "b"),
+			),
+			call("slice", id("l"), lit("number", "0"), id("x")),
+		);
+		const ast: TermGeneric<CodeLocation>[] = [main];
+		const states = runInterp(5, ast, { vars: ["l", "x"] });
+		expect(states.length).toBe(1);
+		expect(states[0].x).toBe("a");
+	});
+
+	test("multiply: two ground gives product", () => {
+		const main = conj(
+			call(
+				"multiply",
+				lit("number", "2"),
+				lit("number", "3"),
+				id("x"),
+			),
+		);
+		const ast: TermGeneric<CodeLocation>[] = [main];
+		const states = runInterp(5, ast, { vars: ["x"] });
+		expect(states.length).toBe(1);
+		expect(states[0].x).toBe(6);
+	});
+
+	test("multiply: one unknown (a, c ground) solves for b", () => {
+		const main = conj(
+			call(
+				"multiply",
+				lit("number", "2"),
+				id("x"),
+				lit("number", "6"),
+			),
+		);
+		const ast: TermGeneric<CodeLocation>[] = [main];
+		const states = runInterp(5, ast, { vars: ["x"] });
+		expect(states.length).toBe(1);
+		expect(states[0].x).toBe(3);
+	});
+
+	test("divide: two ground gives quotient", () => {
+		const main = conj(
+			call(
+				"divide",
+				lit("number", "6"),
+				lit("number", "2"),
+				id("x"),
+			),
+		);
+		const ast: TermGeneric<CodeLocation>[] = [main];
+		const states = runInterp(5, ast, { vars: ["x"] });
+		expect(states.length).toBe(1);
+		expect(states[0].x).toBe(3);
+	});
+
+	test("modulo: two ground gives remainder", () => {
+		const main = conj(
+			call(
+				"modulo",
+				lit("number", "7"),
+				lit("number", "3"),
+				id("x"),
+			),
+		);
+		const ast: TermGeneric<CodeLocation>[] = [main];
+		const states = runInterp(5, ast, { vars: ["x"] });
+		expect(states.length).toBe(1);
+		expect(states[0].x).toBe(1);
+	});
+
+	test("negate: ground gives negative", () => {
+		const main = conj(
+			call("negate", lit("number", "5"), id("x")),
+		);
+		const ast: TermGeneric<CodeLocation>[] = [main];
+		const states = runInterp(5, ast, { vars: ["x"] });
+		expect(states.length).toBe(1);
+		expect(states[0].x).toBe(-5);
+	});
+
+	test("integration: list then length only", () => {
+		const main = conj(
+			call(
+				"list",
+				id("theList"),
+				lit("string", "a"),
+				lit("string", "b"),
+				lit("string", "c"),
+			),
+			call("length", id("theList"), id("len")),
+		);
+		const ast: TermGeneric<CodeLocation>[] = [main];
+		const states = runInterp(5, ast, { vars: ["len"] });
+		expect(states.length).toBe(1);
+		expect(states[0].len).toBe(3);
+	});
+
+	test("integration: list then slice only", () => {
+		const main = conj(
+			call(
+				"list",
+				id("l"),
+				lit("string", "a"),
+				lit("string", "b"),
+				lit("string", "c"),
+			),
+			call("slice", id("l"), lit("number", "0"), id("x")),
+		);
+		const ast: TermGeneric<CodeLocation>[] = [main];
+		const states = runInterp(5, ast, { vars: ["l", "x"] });
+		expect(states.length).toBe(1);
+		expect(states[0].x).toBe("a");
+	});
+
+	test("integration: length then slice", () => {
+		const main = conj(
+			call(
+				"list",
+				id("l"),
+				lit("string", "a"),
+				lit("string", "b"),
+				lit("string", "c"),
+			),
+			call("length", id("l"), id("n")),
+			call("slice", id("l"), lit("number", "0"), id("x")),
+		);
+		const ast: TermGeneric<CodeLocation>[] = [main];
+		const states = runInterp(5, ast, {
+			vars: ["l", "n", "x"],
+		});
+		expect(states.length).toBe(1);
+		expect(states[0].n).toBe(3);
+		expect(states[0].x).toBe("a");
+	});
+
+	test("integration: add and multiply chain", () => {
+		const main = conj(
+			call(
+				"add",
+				lit("number", "1"),
+				lit("number", "2"),
+				id("s"),
+			),
+			call(
+				"multiply",
+				id("s"),
+				lit("number", "3"),
+				id("p"),
+			),
+		);
+		const ast: TermGeneric<CodeLocation>[] = [main];
+		const states = runInterp(5, ast, { vars: ["s", "p"] });
+		expect(states.length).toBe(1);
+		expect(states[0].s).toBe(3);
+		expect(states[0].p).toBe(9);
 	});
 });

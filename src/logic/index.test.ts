@@ -138,7 +138,11 @@ describe("index", () => {
 				),
 			),
 		);
-		expect(run1out.map((s) => s.init1).sort()).toEqual(["a", "b", "c"]);
+		expect(run1out.map((s) => s.init1).sort()).toEqual([
+			"a",
+			"b",
+			"c",
+		]);
 	});
 
 	test.skip("Kn Append", () => {

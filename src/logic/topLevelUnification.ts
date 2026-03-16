@@ -5,6 +5,7 @@ import {
 	type SingletonStream,
 	StreamFailed,
 } from "./types";
+import { mergeKvStore } from "./kv";
 
 // export function topLevelUnification(s: State, u: LTerm, v: LTerm): State | null {
 //     if (s.timev !== 0 && Date.now() - s.timev > 1000) {
@@ -78,30 +79,11 @@ export function topLevelUnificationS(
 	// const unrefinedState = s.unify(u, v);
 	const unrefinedState = unify(u, v, s);
 	if (unrefinedState) {
-		// const lvarList = unrefinedState.i.local.lvarList;
-		// const lvarCs = unrefinedState.c.constraints.keySeq().toArray().map(
-		//     k => new LLVar(k)
-		// )
-		// if (lvarCs.length === 0) {
-		//     return {
-		//         success: unrefinedState
-		//     };
-		// } else {
-		//     // yield* unrefinedState.applyConstraints(lvarList.toArray());
-		//     // yield unrefinedState.applyOneConstraint(lvarList.toArray()).resetLvarList();
-		//     // const lvarConstraintTest = unrefinedState.c.constraints.toArray().flatMap(
-		//     //     (c) => c.lvars.toArray()
-		//     // );
-		//     // const constrainedState = unrefinedState.applyOneConstraint(lvarCs);
-		//     // if (failed(constrainedState)) {
-		//     //     return StreamFailed.StreamOver;
-		//     // }
-		//     // return wrapSingleton(constrainedState.success.resetLvarList());
-		//     // return wrapSingleton(repeatedlyRunConstraints(unrefinedState, 20));
+		const merged = mergeKvStore(unrefinedState);
+		if (merged === null) return StreamFailed.StreamOver;
 		return {
-			success: unrefinedState,
+			success: merged,
 		};
-		// }
 	} else {
 		return StreamFailed.StreamOver;
 	}

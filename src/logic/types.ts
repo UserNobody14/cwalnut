@@ -59,3 +59,8 @@ export interface Nominal {
 	fenv: FEnv2;
 	fenv2: FEnv2;
 }
+
+/**
+ * Maps from the key-term to a substitution from object to value
+ */
+export type KVStore = ImmMap<string, ImmMap<string, LTerm>>;
