@@ -36,7 +36,7 @@ ${indentStr(1, pprintDsAst(ast.body.terms, notypes))}`;
 			return `fresh ${ast.newVars.map((v) => v.value).join(", ")}:
 ${indentStr(1, pprintDsAst(ast.body, notypes))}`;
 		case "with":
-			return `with ${ast.name.value}:
+			return `with ${pprintExprAst(ast.name.source, notypes)}(${pprintExprListAst(ast.name.args, notypes)}):
 ${indentStr(1, pprintDsAst(ast.body, notypes))}`;
 		default:
 			throw `Invalid ast type: ${ast}`;

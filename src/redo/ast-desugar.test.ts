@@ -487,7 +487,7 @@ with predcall(arg1, arg2):
 		const expectation1 = [
 			make_with(make_predicate(
 				ezlvar.predcall,
-				[ezlvar.__fresh_0, ezlvar.arg1, ezlvar.arg2],
+				[ezlvar.arg1, ezlvar.arg2],
 			), [unify(ezlvar.b, make_literal_ast(1))]),
 		];
 		expect(clearMeta(res)).toEqual(expectation1);
@@ -502,7 +502,7 @@ when predcall(a):
 		const expectation1 = [
 			make_with(make_predicate(
 				ezlvar.predcall,
-				[ezlvar.__fresh_0, ezlvar.a],
+				[ezlvar.a],
 			), [unify(ezlvar.b, make_literal_ast(1))]),
 		];
 		expect(clearMeta(res)).toEqual(expectation1);
@@ -574,12 +574,16 @@ data MyData:
 `;
 		const res = codeToAst(sourceCode);
 		const expectation1 = [
-			conjunction1(
-				disjunction1(
-					unify(ezlvar.a, make_literal_ast(1)),
-					unify(ezlvar.b, make_literal_ast(2)),
+			make_with(make_predicate(
+				ezlvar.data_generator,
+				[ezlvar.MyData],
+			), [
+
+				conjunction1(
+						unify(ezlvar.a, make_literal_ast(2)),
+						unify(ezlvar.b, make_literal_ast("hello")),
 				),
-			),
+			]),
 		];
 		expect(clearMeta(res)).toEqual(expectation1);
 });

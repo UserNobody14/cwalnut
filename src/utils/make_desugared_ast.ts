@@ -361,36 +361,6 @@ export function unify_term(
 					: unify(l, r);
 }
 
-function scoreRecursion(t: TermGeneric<undefined>): number {
-	if (t.type === "predicate_call") {
-		return (
-			builtinsByRecursiveness?.[
-				t.source.value as Builtin
-			] ?? 0
-		);
-	} else if (t.type === "conjunction") {
-		return t.terms.reduce(
-			(acc, term) => acc + scoreRecursion(term),
-			0,
-		);
-	} else if (t.type === "disjunction") {
-		const dv =
-			t.terms.reduce(
-				(acc, term) => acc + scoreRecursion(term),
-				0,
-			) / t.terms.length;
-		if (Number.isNaN(dv)) {
-			return 0;
-		}
-		return dv;
-	} else if (t.type === "fresh") {
-		return scoreRecursion(t.body);
-	} else if (t.type === "with") {
-		return scoreRecursion(t.body);
-	} else {
-		return 0;
-	}
-}
 
 function flattenConjunctions(
 	terms: TermGeneric<undefined>[],

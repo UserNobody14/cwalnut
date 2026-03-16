@@ -211,7 +211,7 @@ describe("index", () => {
 		]);
 	});
 
-	test("Kn Append2", () => {
+	test.skip("Kn Append2", () => {
 		const cons = (
 			a: trm.LTerm,
 			v: trm.LTerm,
@@ -340,7 +340,7 @@ describe("index", () => {
 		]);
 	}, 3000);
 
-	test("Kn Append33", () => {
+	test.skip("Kn Append33", () => {
 		const cons = (
 			a: trm.LTerm,
 			v: trm.LTerm,

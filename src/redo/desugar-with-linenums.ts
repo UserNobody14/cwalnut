@@ -30,6 +30,7 @@ import {
 	mergecloc,
 	mergeClocs,
 } from "./codeloc";
+import { indent } from "src/pprint/indentStr";
 
 const parser = new Parser();
 parser.setLanguage(CrystalWalnut);
@@ -195,6 +196,27 @@ export function toAst1(
 					...aterms,
 					{ type: "with", name: predicate, body: conjunction1(...b)
 						
+					}], frCounter3];
+		}
+		// Data statement
+		case "data_statement": {
+			// Extract identifier
+			const [c, cterms, fr1] = expressionToAstFRESH(
+				node.children[1],
+				frCounter,
+			);
+			const [b, frCounter3] = buildCompoundLogic(
+				node.children[3],
+				'conjunction',
+				fr1,
+			);
+			const dataWith = make_predicate(make_identifier(tocloc(node), 'data_generator'), [c]);
+			return [
+				
+				[
+					...cterms,
+					{ type: "with", name: dataWith, body: conjunction1(...b)
+
 					}], frCounter3];
 		}
 

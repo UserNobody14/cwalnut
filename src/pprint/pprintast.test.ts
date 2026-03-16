@@ -10,6 +10,7 @@ import {
 	conjunction1,
 	ezlvar,
 } from "src/utils/make_better_typed";
+import { make_predicate } from "src/utils/make_desugared_ast";
 
 describe.skip("pprintDsAst", () => {
 	test("formats conjunction AST correctly", () => {
@@ -108,7 +109,7 @@ describe.skip("pprintDsAst", () => {
 	test("formats with AST correctly", () => {
 		const ast: TermGeneric<undefined> = {
 			type: "with",
-			name: ezlvar.withName(),
+			name: make_predicate(ezlvar.withName(), []),
 			body: {
 				type: "conjunction",
 				terms: [

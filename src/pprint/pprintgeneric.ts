@@ -59,7 +59,7 @@ ${indentStr(1, pprintGeneric<T>(ast.body.terms, printMeta))}`;
 			return `fresh ${ast.newVars.map((v) => v.value).join(", ")}:
 ${indentStr(1, pprintGeneric<T>(ast.body, printMeta))}`;
 		case "with":
-			return `with ${ast.name.value}:
+			return `with ${pprintGeneric<T>(ast.name, printMeta)}:
 ${indentStr(1, pprintGeneric<T>(ast.body, printMeta))}`;
 		default:
 			throw `Invalid ast type: ${ast}`;
