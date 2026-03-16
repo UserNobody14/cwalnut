@@ -1,21 +1,33 @@
 import { test, describe, expect } from "@jest/globals";
 
-import { codeToAst } from "src/redo/ast-desugar";
-import { ExpressionGeneric } from "src/types/AstGeneric";
+import { codeToAst } from "src/redo/desugar-with-linenums";
+import { ConjunctionGeneric, ExpressionGeneric, IdentifierGeneric, TermGeneric } from "src/types/AstGeneric";
 import {
 	conjunction1,
 	disjunction1,
 	ezlvar,
 	list,
+	make_fresh,
 	make_literal_ast,
 	make_predicate,
+	make_with,
 	mk_cons,
 	mk_internal_append,
 	set_key_of,
 	to_empty,
 	unify,
 } from "src/utils/make_desugared_ast";
-import { pprintDsAst } from "../pprint/pprintast";
+
+import { pprintGeneric } from "src/pprint/pprintgeneric";
+import { mapToGeneric } from "src/lens/into-vars";
+
+
+function clearMeta<T>(ast: TermGeneric<T>[]): TermGeneric<undefined>[] {
+	return mapToGeneric(ast, (ig): IdentifierGeneric<undefined> => ({
+		...ig,
+		info: undefined,
+	}));
+}
 
 describe("ast-desugar", () => {
 	test("codeToAst", () => {
@@ -59,7 +71,7 @@ describe("ast-desugar", () => {
 				]),
 			),
 		];
-		expect(res).toEqual(expectation1);
+		expect(clearMeta(res)).toEqual(expectation1);
 	});
 
 	test("append", () => {
@@ -94,7 +106,7 @@ either:
 			),
 			// )
 		];
-		expect(res).toEqual(expectation1);
+		expect(clearMeta(res)).toEqual(expectation1);
 	});
 
 	test("append2", () => {
@@ -121,7 +133,7 @@ qq = [...einput, ...input2]
 			unify(ezlvar.qq, ezlvar.__fresh_2),
 			// )
 		];
-		expect(res).toEqual(expectation1);
+		expect(clearMeta(res)).toEqual(expectation1);
 	});
 
 	test("append3", () => {
@@ -186,10 +198,10 @@ either:
 				),
 			),
 		];
-		expect(pprintDsAst(res)).toEqual(
-			pprintDsAst(expectation1),
+		expect(pprintGeneric(res as TermGeneric<undefined>[], () => "")).toEqual(
+			pprintGeneric(expectation1 as TermGeneric<undefined>[], () => ""),
 		);
-		expect(res).toEqual(expectation1);
+		expect(clearMeta(res)).toEqual(expectation1);
 	});
 
 	test("binary oneline", () => {
@@ -210,7 +222,7 @@ either:
 				),
 			),
 		];
-		expect(res).toEqual(expectation1);
+		expect(clearMeta(res)).toEqual(expectation1);
 	});
 
 	test("binary twoline", () => {
@@ -233,7 +245,7 @@ either:
 				),
 			),
 		];
-		expect(res).toEqual(expectation1);
+		expect(clearMeta(res)).toEqual(expectation1);
 	});
 
 	test("compiles and runs on stuff", () => {
@@ -449,4 +461,130 @@ type_ast = (ast, type_map) =>
 		expect(() => codeToAst(source_file)).not.toThrow();
 		expect(() => codeToAst(source7)).not.toThrow();
 	});
+});
+
+
+describe("ast-desugar-additional desugaring", () => {
+
+	test("predicate expression", () => {
+		const sourceCode = `
+predcall(arg1, arg2) = 2
+`;
+		const res = codeToAst(sourceCode);
+		const expectation1 = [
+				make_predicate(ezlvar.predcall, [ezlvar.__fresh_0, ezlvar.arg1, ezlvar.arg2]),
+				unify(ezlvar.__fresh_0, make_literal_ast(2)),
+		];
+		expect(clearMeta(res)).toEqual(expectation1);
+	});
+
+	test("with statement", () => {
+		const sourceCode = `
+with predcall(arg1, arg2):
+    b = 1
+`;
+		const res = codeToAst(sourceCode);
+		const expectation1 = [
+			make_predicate(
+				ezlvar.predcall,
+				[ezlvar.__fresh_0, ezlvar.arg1, ezlvar.arg2],
+			),
+			make_with(ezlvar.__fresh_0, [unify(ezlvar.b, make_literal_ast(1))]),
+		];
+		expect(clearMeta(res)).toEqual(expectation1);
+	});
+
+	test("when statement", () => {
+		const sourceCode = `
+when predcall(a):
+    b = 1
+`;
+		const res = codeToAst(sourceCode);
+		const expectation1 = [
+			make_predicate(
+				ezlvar.predcall,
+				[ezlvar.__fresh_0, ezlvar.a],
+			),
+			make_with(ezlvar.__fresh_0, [unify(ezlvar.b, make_literal_ast(1))]),
+		];
+		expect(clearMeta(res)).toEqual(expectation1);
+	});
+
+
+	test("fresh statement", () => {
+		const sourceCode = `
+fresh a:
+    b = 1
+`;
+		const res = codeToAst(sourceCode);
+		const expectation1 = [
+			make_fresh(
+				[ezlvar.a],
+				conjunction1(
+					unify(ezlvar.b, make_literal_ast(1)),
+				),
+			),
+		];
+		expect(clearMeta(res)).toEqual(expectation1);
+	});
+
+	test("comment statement", () => {
+		const sourceCode = `
+# this is a comment
+`;
+		const res = codeToAst(sourceCode);
+		expect(clearMeta(res)).toEqual([]);
+	});
+
+	test.skip("binary operator statement", () => {
+		const sourceCode = `
+a = 1 and b = 2
+`;
+		const res = codeToAst(sourceCode);
+		const expectation1 = [
+			conjunction1(
+				disjunction1(
+					unify(ezlvar.vv, make_literal_ast(1)),
+					unify(ezlvar.zz, make_literal_ast(2)),
+				),
+			),
+		];
+		expect(clearMeta(res)).toEqual(expectation1);
+	});
+
+	test.skip("unary operator statement", () => {
+		const sourceCode = `
+a = -1
+`;
+		const res = codeToAst(sourceCode);
+		const expectation1 = [
+			conjunction1(
+				disjunction1(
+					unify(ezlvar.vv, make_literal_ast(1)),
+					unify(ezlvar.zz, make_literal_ast(2)),
+				),
+			),
+		];
+		expect(clearMeta(res)).toEqual(expectation1);
+	});
+
+	test("data statement", () => {
+		const sourceCode = `
+data MyData:
+		a = 2
+		b = "hello"
+`;
+		const res = codeToAst(sourceCode);
+		const expectation1 = [
+			conjunction1(
+				disjunction1(
+					unify(ezlvar.a, make_literal_ast(1)),
+					unify(ezlvar.b, make_literal_ast(2)),
+				),
+			),
+		];
+		expect(clearMeta(res)).toEqual(expectation1);
+});
+
+
 });

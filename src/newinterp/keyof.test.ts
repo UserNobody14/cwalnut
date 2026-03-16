@@ -1,9 +1,20 @@
 import { test, describe, expect } from "@jest/globals";
 import type { TermGeneric } from "src/types/AstGeneric";
 import type { CodeLocation } from "src/redo/codeloc";
-import { interp, makeQueryEnv } from "./interp";
+import { interp } from "./interp";
 import { make } from "src/utils/make_better_typed";
 import { defaultCodeLocation } from "src/redo/codeloc";
+import { run, all } from "src/logic";
+import { builtinGoals } from "./builtins";
+import { freshInternal } from "src/logic/AnyFreshFn";
+import {
+	jsonToKeyOfGoal,
+	bodyAstToKeyOfGoal,
+	envToKeyOfGoal,
+	astBodyToJson,
+} from "./jsonKeyOf";
+import { Map as ImmMap } from "immutable";
+import { makeLiteral } from "src/logic/makelvar";
 
 const cloc: CodeLocation = defaultCodeLocation;
 
@@ -114,4 +125,59 @@ describe("keyof tests", () => {
         expect(states[0].val).toBe("hello");
         expect(states[0].val2).toBe("hello");
     });
+
+	test("jsonToKeyOfGoal: nested JSON on a fresh var produces one state", () => {
+		const goal = all(
+			builtinGoals(),
+			freshInternal((obj) =>
+				jsonToKeyOfGoal(obj, { a: 1, b: "two", c: { d: true } }),
+			),
+		);
+		const states = run(1, goal);
+		expect(states.length).toBe(1);
+	});
+
+	test("jsonToKeyOfGoal: array in JSON", () => {
+		const goal = all(
+			builtinGoals(),
+			freshInternal((obj) =>
+				jsonToKeyOfGoal(obj, { arr: [1, "two", false] }),
+			),
+		);
+		const states = run(1, goal);
+		expect(states.length).toBe(1);
+	});
+
+	test("astBodyToJson: conjunction has type and terms", () => {
+		const body = conj(call("unify", id("x"), lit("string", "a")));
+		const json = astBodyToJson(body);
+		expect(json.type).toBe("conjunction");
+		expect(Array.isArray(json.terms)).toBe(true);
+		expect((json.terms as Record<string, unknown>[]).length).toBe(1);
+		const term = (json.terms as Record<string, unknown>[])[0];
+		expect(term.type).toBe("predicate_call");
+	});
+
+	test("bodyAstToKeyOfGoal: conjunction body produces one state", () => {
+		const body = conj(call("unify", id("x"), lit("string", "a")));
+		const goal = all(
+			builtinGoals(),
+			freshInternal((v) => bodyAstToKeyOfGoal(v, body)),
+		);
+		const states = run(1, goal);
+		expect(states.length).toBe(1);
+	});
+
+	test("envToKeyOfGoal: env bindings produce one state", () => {
+		const env = ImmMap<string, ReturnType<typeof makeLiteral>>().set(
+			"x",
+			makeLiteral("hello"),
+		);
+		const goal = all(
+			builtinGoals(),
+			freshInternal((envVar) => envToKeyOfGoal(envVar, env)),
+		);
+		const states = run(1, goal);
+		expect(states.length).toBe(1);
+	});
 });

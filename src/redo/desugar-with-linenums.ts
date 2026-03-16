@@ -1,13 +1,13 @@
 // import { Term, Expression, Conjunction } from "src/types/OldAstTyped";
 // import { make_unification, make_predicate, make_conjunction, make_disjunction, make_predicate_fn, make_lvar_ast, make_attribute_ast, make_list_ast, make_dictionary_ast, make_literal_ast } from "src/utils/make_unification";
 import Parser from "tree-sitter";
-import { Pattern } from "ts-pattern";
 import CrystalWalnut from "tree-sitter-crystal-walnut";
 import type {
 	TermGeneric,
 	ExpressionGeneric,
 	IdentifierGeneric,
 	PredicateDefinitionGeneric,
+	WithGeneric,
 } from "src/types/AstGeneric";
 import {
 	conjunction1,
@@ -219,6 +219,52 @@ export function toAst1(
 			);
 			return [[...cterms, ...dterms], fr3];
 		}
+		// With statement
+		case "with_statement": {
+			const [a, aterms, frCounter2] = expressionToAstFRESH(
+				node.children[1],
+				frCounter,
+			);
+			const [b, frCounter3] = buildCompoundLogic(
+				node.children[3],
+				'conjunction',
+				frCounter2,
+			);
+			if (a.type !== "identifier") {
+				throw new Error("With statement name must be an identifier");
+			}
+			return [
+				
+				[
+					...aterms,
+					{ type: "with", name: a, body: conjunction1(...b) }], frCounter3];
+		}
+		// When statement (turns into a subvariety of with statements)
+		case "when_statement": {
+			console.log("when_statement", node.children[0].text);
+			console.log("when_statement", node.children[1].text);
+			console.log("when_statement", node.children[2].text);
+			console.log("when_statement", node.children[3].text);
+			const [a, aterms, frCounter2] = expressionToAstFRESH(
+				node.children[1],
+				frCounter,
+			);
+			const [b, frCounter3] = buildCompoundLogic(
+				node.children[3],
+				'conjunction',
+				frCounter2,
+			);
+			if (a.type !== "identifier") {
+				throw new Error("With statement name must be an identifier");
+			}
+			return [
+				
+				[
+					...aterms,
+					{ type: "with", name: a, body: conjunction1(...b) }], frCounter3];
+		}
+
+
 		case "fresh_statement": {
 			const ids = node.children.filter(
 				(nc) => nc.grammarType === "identifier",
@@ -457,6 +503,59 @@ function expressionToAstFRESH(
 				frCounter,
 				unifyVar,
 			);
+
+
+		// If we get a predicate, we make a new fresh var, add it as the first parameter
+		// Add the predicate as a term
+		// and then return the fresh new var
+		case "predicate_expression":
+		case "predicate": {
+			const [freshVar, frCounter2] = toExprIdent(unifyVar, frCounter);
+			const argActual = node.children[1];
+			const arglist = argActual.children.slice(1, -1).filter(
+				(nnc) => nnc.grammarType !== ",",
+			);
+			const [allArgs, frCounter3] = arglist.reduce<
+				[
+					[ExpressionGeneric<CodeLocation>, TermGeneric<CodeLocation>[]][],
+					number,
+				]
+			>(
+				(acc, nc) => {
+					const [arg, argTerms, frPlus] = expressionToAstFRESH(
+						nc,
+						acc[1],
+						unifyVar,
+					);
+					return [acc[0].concat([[arg, argTerms]]), frPlus];
+				},
+				[[], frCounter2],
+			);
+			const [source, sourceTerms, frCounter4] = expressionToAstFRESH(
+				node.children[0],
+				frCounter3,
+				unifyVar,
+			);
+			if (source.type !== "identifier") {
+				throw new Error(
+					"Source of predicate must be an identifier",
+				);
+			}
+			const predicateArgs = [
+				freshVar,
+				...allArgs.map((aa) => aa[0]),
+			];
+			const predicateTerm = make_predicate(source, predicateArgs);
+			return [
+				freshVar,
+				[
+					...allArgs.flatMap((aa) => aa[1]),
+					...sourceTerms,
+					predicateTerm,
+				],
+				frCounter4,
+			];
+		}
 		case "expression":
 		case "primary_expression":
 			return expressionToAstFRESH(
@@ -648,42 +747,6 @@ const isT1 =
 			bCheck(rmN[1])
 		);
 	};
-
-// function foldF1<A>(
-// 	ls: [A, number][],
-// 	fn: (v: A, n: number) => ([A[], number] | A[]),
-// ): [A[], number] {
-// 	return ls.reduce<[A[], number]>(
-// 		(acc, [v, n]) => {
-// 			const rmN = fn(v, n);
-// 			if (isT1(bb => typeof bb === 'number')(rmN)) {
-// 				return [acc[0].concat(rmN[0]), rmN[1]];
-// 			} else {
-// 				return [acc[0].concat(rmN), acc[1]];
-// 			}
-// 		},
-// 		[[], 0],
-// 	);
-// }
-
-function foldF2<A, B>(
-	ls: A[],
-	fn: (v: A, b: B) => [A[], B] | A[],
-	b: B,
-	checkB: (v: [A[], B] | A[]) => v is [A[], B],
-): [A[], B] {
-	return ls.reduce<[A[], B]>(
-		([opt, acc], v) => {
-			const rmN = fn(v, acc);
-			if (checkB(rmN)) {
-				return [opt.concat(rmN[0]), rmN[1]];
-			} else {
-				return [opt.concat(rmN), acc];
-			}
-		},
-		[[], b],
-	);
-}
 
 function foldF3<A, B, C>(
 	ls: A[],

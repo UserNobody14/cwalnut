@@ -12,6 +12,7 @@ import type {
 	PredicateCallGeneric,
 	PredicateDefinitionGeneric,
 	TermGeneric,
+	WithGeneric,
 } from "src/types/AstGeneric";
 import {
 	builtinList,
@@ -108,6 +109,14 @@ export const make_predicate = (
 	args,
 });
 
+export const make_with = (
+	source: IdentifierGeneric<undefined>,
+	body: TermGeneric<undefined>[],
+): WithGeneric<undefined> => ({
+	type: "with",
+	name: source,
+	body: conjunction1(...body),
+});
 export const make_fresh = (
 	newVars: IdentifierGeneric<undefined>[],
 	body: ConjunctionGeneric<undefined>,

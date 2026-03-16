@@ -1,6 +1,6 @@
 import { describe, test, expect } from "@jest/globals";
 import { linearize } from "./linearize";
-import { codeToAst } from "./ast-desugar";
+import { codeToAst } from "./desugar-with-linenums";
 import {
 	gatherVarInstanceInfo,
 	intoVarsGeneric,
@@ -14,16 +14,26 @@ import {
 	pprintQuick,
 } from "src/pprint/pprintgeneric";
 import { Map as ImmMap, Set as ImmSet } from "immutable";
-import type { TermGeneric } from "src/types/AstGeneric";
+import type { IdentifierGeneric, TermGeneric } from "src/types/AstGeneric";
 import {
 	type Builtin,
 	builtinList,
 } from "src/utils/builtinList";
-import { freshenTerms } from "./extractclosure";
+import { freshenTerms } from "./trashofredo/extractclosure";
 import {
 	interpretPlus,
 	runFor,
 } from "src/interpret/interpretk";
+import { mapToGeneric } from "src/lens/into-vars";
+
+
+function clearMeta<T>(ast: TermGeneric<T>[]): TermGeneric<undefined>[] {
+	return mapToGeneric(ast, (ig): IdentifierGeneric<undefined> => ({
+		...ig,
+		info: undefined,
+	}));
+}
+
 
 describe("Linearize", () => {
 	test("linearize doesnt destroy vals", () => {
@@ -38,7 +48,7 @@ val.father = (a, b) =>
             a = "bob"
 val.father("bob", qq)
 `;
-		expect(linearize(codeToAst(sourceCode))).not.toBeNull();
+		expect(linearize(clearMeta(codeToAst(sourceCode)))).not.toBeNull();
 	});
 
 	test("linearize ensures each var used at most once 1", () => {
@@ -53,7 +63,7 @@ val.father = (a, b) =>
             a = "bob"
 val.father("bob", qq)
 `;
-		const res = linearize(codeToAst(sourceCode));
+		const res = linearize(clearMeta(codeToAst(sourceCode)));
 		const numv = getFilteredVarInstanceInfo(res);
 		expect(numv).toEqual(ImmMap());
 	});
@@ -77,7 +87,7 @@ einput = [1, 2, 3]
 input2 = [4, 5, 6]
 appendo(einput, input2, qq)
 `;
-		const res = linearize(codeToAst(sourceCode));
+		const res = linearize(clearMeta(codeToAst(sourceCode)));
 		console.log(pprintQuick(res));
 		const numv = getFilteredVarInstanceInfo(res);
 		expect(numv).toEqual(ImmMap());
@@ -94,7 +104,7 @@ either:
     qq = [45]
 `;
 		const res = linearize(
-			codeToAst(sourceCode),
+			clearMeta(codeToAst(sourceCode)),
 			ImmSet(["qq", "mid"]),
 		);
 		console.log(pprintQuick(res));
@@ -116,7 +126,7 @@ einput = [1, 2, 3, 4, 5]
 membero(qq, einput)
 `;
 
-		const res = linearize(codeToAst(sourceCode));
+		const res = linearize(clearMeta(codeToAst(sourceCode)));
 		console.log(pprintQuick(res));
 		const numv = getFilteredVarInstanceInfo(res);
 		expect(numv).toEqual(ImmMap());

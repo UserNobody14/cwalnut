@@ -1376,10 +1376,10 @@ export function gatherVarInstanceInfo<T>(
 	return result;
 }
 
-export function mapToGeneric<T>(
-	ts: TermGeneric<undefined>[],
+export function mapToGeneric<A, T>(
+	ts: TermGeneric<A>[],
 	fn: (
-		v: IdentifierGeneric<undefined>,
+		v: IdentifierGeneric<A>,
 	) => IdentifierGeneric<T>,
 ): TermGeneric<T>[] {
 	return ts.map((t) => {

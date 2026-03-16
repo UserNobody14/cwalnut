@@ -16,14 +16,12 @@ import type { CodeLocation } from "src/redo/codeloc";
 import {
 	all,
 	either,
-	run,
 	eq,
 	apply_pred,
 	run1,
 } from "src/logic";
 import type { CleanOutput } from "src/logic/types";
 import {
-	bindStar,
 	type MGoal,
 	type MStream,
 } from "src/logic/streams";
@@ -32,8 +30,9 @@ import type { LTerm } from "src/logic/terms";
 import { LLVar, LPredicate } from "src/logic/terms";
 import { makelvar, makeLiteral } from "src/logic/makelvar";
 import { Map as ImmMap } from "immutable";
-import { freshInternal } from "src/logic/AnyFreshFn";
+import { freshInternal, freshInternal2 } from "src/logic/AnyFreshFn";
 import { builtinGoals } from "./builtins";
+import { bodyAstToKeyOfGoal, envToKeyOfGoal } from "./jsonKeyOf";
 
 /** Immutable environment: variable names -> LTerm (LLVar for fresh, any LTerm for predicate args) */
 export type Env = ImmMap<string, LTerm>;
@@ -209,14 +208,6 @@ function interpretFresh(
 }
 
 /** Build a goal that allocates fresh vars for each name (in order), extending env each time, then runs body(extendedEnv). */
-function foldFresh(
-	names: string[],
-	env: Env,
-	body: (env: Env) => MGoal,
-): MGoal {
-	return foldFreshOne(names, env, body);
-}
-
 function foldFreshOne(
 	names: string[],
 	env: Env,
@@ -264,14 +255,15 @@ function interpretWith(
 	ast: WithGeneric<CodeLocation>,
 	env: Env,
 ): [MGoal, Env] {
-	const [bodyGoal] = interpretOne(ast.body, env);
-	return [bodyGoal, env];
-}
-function zip(
-	argList: (LLVar | undefined)[],
-	args: LTerm[],
-) {
-	return argList.map((arg, i) => [arg, args[i]]);
+	const source = interpretExpr(ast.name, env);
+	const goal = freshInternal2((bodyAstVar, envVar) =>
+		all(
+			bodyAstToKeyOfGoal(bodyAstVar, ast.body),
+			envToKeyOfGoal(envVar, env),
+			apply_pred(source, bodyAstVar, envVar),
+		),
+	);
+	return [goal, env];
 }
 
 function emptyGoal(m: State): MStream {

@@ -197,17 +197,33 @@ describe("newinterp", () => {
 		expect(states.length).toBe(0);
 	});
 
-	test("with is transparent", () => {
+	test("with invokes predicate with body AST and env objects", () => {
+		const withAcceptBody = conj(call("unify", id("bodyAst"), id("bodyAst")));
+		const withHandler = def(
+			"with_accept",
+			[id("bodyAst"), id("env")],
+			withAcceptBody,
+		);
+		const main = conj(
+			make.with(
+				id("with_accept"),
+				conj(call("unify", id("x"), lit("string", "ok"))),
+			),
+			call("unify", id("x"), lit("string", "ok")),
+		);
+		const ast: TermGeneric<CodeLocation>[] = [withHandler, main];
+		const states = runInterp(5, ast, { vars: ["x"] });
+		expect(states.length).toBe(1);
+		expect(states[0].x).toBe("ok");
+	});
+
+	test("with undefined predicate fails", () => {
 		const main = make.with(
-			id("_"),
+			id("nonexistent_pred"),
 			conj(call("unify", id("x"), lit("string", "ok"))),
 		);
 		const ast: TermGeneric<CodeLocation>[] = [main];
-		const states = runInterp(5, ast, {
-			vars: ["x"],
-		});
-		expect(states.length).toBe(1);
-		expect(states[0].x).toBe("ok");
+		expect(() => runInterp(5, ast, { vars: ["x"] })).toThrow("Not a predicate");
 	});
 
 	test("unify_left: left ground unifies with right", () => {

@@ -4,7 +4,7 @@ import {
 	toBasicTypes,
 	toDummyTypes,
 } from "src/interpret-types/type-pipe";
-import { freshenTerms } from "src/redo/extractclosure";
+import { freshenTerms } from "src/redo/trashofredo/extractclosure";
 import { builtinList } from "src/utils/builtinList";
 import { Map as ImmMap } from "immutable";
 import {

@@ -5,10 +5,10 @@ import {
 	interpretPlus,
 	runFor,
 } from "src/interpret/interpretk";
-import { freshenTerms } from "src/redo/extractclosure";
+import { freshenTerms } from "src/redo/trashofredo/extractclosure";
 import { builtinList } from "src/utils/builtinList";
 import { modeExec } from "src/mode/modeconvert";
-import { linearize } from "src/redo/linearize";
+import { linearize } from "src/redo/trashofredo/linearize";
 import { Set as ImmSet } from "immutable";
 import {
 	pprintGeneric,
