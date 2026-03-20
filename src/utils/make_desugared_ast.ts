@@ -122,6 +122,17 @@ export const make_fresh = (
 	body: ConjunctionGeneric<undefined>,
 ): FreshGeneric<undefined> => ({
 	type: "fresh",
+	nominal: false,
+	newVars,
+	body,
+});
+
+export const make_fresh_nominal = (
+	newVars: IdentifierGeneric<undefined>[],
+	body: ConjunctionGeneric<undefined>,
+): FreshGeneric<undefined> => ({
+	type: "fresh",
+	nominal: true,
 	newVars,
 	body,
 });

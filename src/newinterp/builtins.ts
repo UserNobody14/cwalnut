@@ -8,7 +8,7 @@ import {
 	builtinList,
 } from "src/utils/builtinList";
 import { eq, all, either, apply_pred } from "src/logic";
-import { LTerm, LPredicateFn, LNom } from "src/logic/terms";
+import { LTerm, LPredicateFn, LNom, LTie } from "src/logic/terms";
 import {
 	LPredicate,
 	LPair,
@@ -438,33 +438,26 @@ const set_key_of: LPredicateFn =
 		return newState ? [newState] : [];
 	};
 
-const gen_nominal: LPredicateFn =
-	(a: LTerm): MGoal =>
-	freshNom((v) => eq(a, v));
-
+/** Build a tie: tie(A, Nom, Body) unifies A with tie(Nom, Body). */
 const tie: LPredicateFn =
-	(a: LTerm, tnom: LTerm,  tbody: LTerm): MGoal =>
-	(sc: State) => {
-		const tnomReified = sc.reify(tnom);
-		if (tnomReified instanceof LNom) {
-			return eq(a, makeTie(tnomReified, tbody))(sc);
+	(a: LTerm, tnom: LTerm, tbody: LTerm): MGoal => {
+		if (tnom instanceof LNom) {
+			return eq(a, makeTie(tnom, tbody));
 		}
 		throw new Error("tie: tnom must reify to a nominal");
 	};
 
 const hash: LPredicateFn =
-	(a: LTerm, b: LTerm): MGoal =>
-	(sc: State) => {
-		const aReified = sc.reify(a);
-		if (aReified instanceof LNom) {
-			return avo.hash(aReified, b)(sc);
+	(a: LTerm, b: LTerm): MGoal => {
+		if (a instanceof LNom) {
+			return avo.hash(a, b);
 		}
 		throw new Error("hash: a must reify to a nominal");
 	};
 
-const builtinsMap: Record<
+export const builtinsMap: Record<
 	string,
-	LPredicateFn | ReturnType<typeof defaultPred>
+	LPredicateFn
 > = {
 	unify: (...args) => {
 		if (args.length < 2)
@@ -500,7 +493,6 @@ const builtinsMap: Record<
 	internal_import: defaultPred("internal_import"),
 	internal_append: appendo,
 	string_to_list,
-	gen_nominal,
 	tie,
 	hash,
 };

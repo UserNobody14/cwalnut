@@ -22,7 +22,6 @@ export const builtinList = [
 	"cons",
 	"internal_append",
 	"string_to_list",
-	"gen_nominal",
 	"tie",
 	"hash",
 ] as const;
@@ -53,7 +52,6 @@ export const builtinsByRecursiveness: Record<
 	string_to_list: 1,
 	cons: 1,
 	internal_append: 3,
-	gen_nominal: 0,
 	tie: 0,
 	hash: 0,
 };

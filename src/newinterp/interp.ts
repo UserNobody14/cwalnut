@@ -30,9 +30,10 @@ import type { LTerm } from "src/logic/terms";
 import { LLVar, LPredicate } from "src/logic/terms";
 import { makelvar, makeLiteral } from "src/logic/makelvar";
 import { Map as ImmMap } from "immutable";
-import { freshInternal, freshInternal2 } from "src/logic/AnyFreshFn";
-import { builtinGoals } from "./builtins";
+import { freshInternal, freshInternal2, freshNom } from "src/logic/AnyFreshFn";
+import { builtinGoals, builtinsMap } from "./builtins";
 import { bodyAstToKeyOfGoal, envToKeyOfGoal } from "./jsonKeyOf";
+import { builtinList } from "src/utils/builtinList";
 
 /** Immutable environment: variable names -> LTerm (LLVar for fresh, any LTerm for predicate args) */
 export type Env = ImmMap<string, LTerm>;
@@ -45,12 +46,28 @@ export function makeQueryEnv(names: string[]): Env {
 	);
 }
 
+/** Add all builtins to the env. */
+function addBuiltinsToEnv(env: Env): Env {
+	return builtinList.reduce((acc, name) => acc.set(name, new LPredicate(name, builtinsMap[name])), env);
+}
+
 export type InterpOptions = {
 	/** Vars to use for top-level fresh; names must match AST. Omit to allocate fresh. */
 	vars?: string[];
+	/** Max stream length for run1 (default 1000). Use a larger value if the goal has many solutions. */
+	extraNum?: number;
 };
 
 export type InterpResult = Record<string, CleanOutput>[];
+
+/** Lower AST to MGoal (no builtins). Env supplies query variables by name. */
+export function compileToGoal(
+	ast: TermGeneric<CodeLocation>[],
+	env: Env = emptyEnv(),
+): MGoal {
+	const [goal] = interpretOne(make.conjunction(ast), env);
+	return goal;
+}
 
 export function interp(
 	numb: number,
@@ -63,12 +80,10 @@ export function interp(
 		queryVars.length > 0
 			? makeQueryEnv(queryVars)
 			: emptyEnv();
-	const [goal] = interpretOne(
-		make.conjunction(ast),
-		initialEnv,
-	);
+	const envWithBuiltins = addBuiltinsToEnv(initialEnv);
+	const goal = compileToGoal(ast, envWithBuiltins);
 	const withBuiltins = all(builtinGoals(), goal);
-	return run1(numb, queryVars, withBuiltins);
+	return run1(numb, queryVars, withBuiltins, options?.extraNum);
 }
 
 function emptyEnv(): Env {
@@ -85,7 +100,7 @@ function interpretOne(
 		case "predicate_call":
 			return [interpretCall(ast, env), env];
 		case "predicate_definition":
-			return [interpretDef(ast, env), env];
+			return interpretDef(ast, env);
 		case "fresh":
 			return interpretFresh(ast, env);
 		case "conjunction":
@@ -105,7 +120,10 @@ function interpretExpr(
 	switch (expr.type) {
 		case "identifier": {
 			const resolved = env.get(expr.value);
-			return resolved ?? makelvar(expr.value);
+			if (!resolved) {
+				throw new Error(`Variable ${expr.value} not found in env`);
+			}
+			return resolved;
 		}
 		case "literal": {
 			const v = parseLiteral(expr);
@@ -157,19 +175,21 @@ function interpretCall(
 function interpretDef(
 	ast: PredicateDefinitionGeneric<CodeLocation>,
 	env: Env,
-): MGoal {
+): [MGoal, Env] {
 	const name = ast.name.value;
-	const pred = new LPredicate(name, (...args: LTerm[]) => {
-		return (sc: State): MStream => {
-			const argsEnv = ast.args.reduce(
-				(acc, id, i) => acc.set(id.value, args[i]),
-				emptyEnv(),
-			);
-			const [bodyGoal] = interpretOne(ast.body, argsEnv);
-			return bodyGoal(sc);
-		};
-	});
-	return eq(makelvar(name), pred);
+	const env2 = env.set(
+		name, new LPredicate(name, (...args: LTerm[]) => {
+			return (sc: State): MStream => {
+				const argsEnv = ast.args.reduce(
+					(acc, id, i) => acc.set(id.value, args[i]),
+					env2,
+				);
+				const [bodyGoal] = interpretOne(ast.body, argsEnv);
+				return bodyGoal(sc);
+			};
+		})
+	);
+	return [eq(makelvar(name), env2.get(name)!), env2];
 }
 
 /** Allocate one fresh LLVar per name in the same scope, extend env, run body. */
@@ -182,7 +202,7 @@ function interpretFresh(
 		const [bodyGoal] = interpretOne(ast.body, env);
 		return [bodyGoal, env];
 	}
-	const goal = foldFreshOne(names, env, (extendedEnv) => {
+	const goal = foldFreshOne(names, env, ast.nominal, (extendedEnv) => {
 		const [bodyGoal] = interpretOne(ast.body, extendedEnv);
 		return bodyGoal;
 	});
@@ -193,14 +213,22 @@ function interpretFresh(
 function foldFreshOne(
 	names: string[],
 	env: Env,
+	nominal: boolean,
 	body: (env: Env) => MGoal,
 ): MGoal {
 	if (names.length === 0) return body(env);
 	const [first, ...rest] = names;
-	return freshInternal((lv) => {
-		const extendedEnv = env.set(first, lv);
-		return foldFreshOne(rest, extendedEnv, body);
-	});
+	if (nominal) {
+		return freshNom((lv) => {
+			const extendedEnv = env.set(first, lv);
+			return foldFreshOne(rest, extendedEnv, nominal, body);
+		});
+	} else {
+		return freshInternal((lv) => {
+			const extendedEnv = env.set(first, lv);
+			return foldFreshOne(rest, extendedEnv, nominal, body);
+		});
+	}
 }
 
 function interpretConjunction(
@@ -221,16 +249,20 @@ function interpretDisjunction(
 	ast: DisjunctionGeneric<CodeLocation>,
 	env: Env,
 ): [MGoal, Env] {
-	const [goals, env2]: [MGoal, Env] = ast.terms.reduce<
-		[MGoal, Env]
-	>(
-		([acc, e]: [MGoal, Env], term) => {
-			const [g, e2] = interpretOne(term, e);
-			return [either(acc, g), e2];
-		},
-		[emptyGoal, env],
-	);
-	return [goals, env2];
+	const goals: MGoal[] = [];
+	let e = env;
+	for (const term of ast.terms) {
+		const [g, e2] = interpretOne(term, e);
+		goals.push(g);
+		e = e2;
+	}
+	if (goals.length === 0) {
+		return [emptyGoal, e];
+	}
+	if (goals.length === 1) {
+		return [goals[0], e];
+	}
+	return [either(...goals), e];
 }
 
 function interpretWith(

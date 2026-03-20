@@ -8,6 +8,7 @@ import {
 	ezlvar,
 	list,
 	make_fresh,
+	make_fresh_nominal,
 	make_identifier,
 	make_literal_ast,
 	make_predicate,
@@ -596,12 +597,9 @@ fresh nominal a:
 `;
 		const res = codeToAst(sourceCode);
 		const expectation1 = [
-			make_fresh(
+			make_fresh_nominal(
 				[ezlvar.a],
 				conjunction1(
-					conjunction1(
-						make_predicate(make_identifier('gen_nominal'), [ezlvar.a]),
-					),
 					unify(ezlvar.b, make_literal_ast(1)),
 				),
 			),

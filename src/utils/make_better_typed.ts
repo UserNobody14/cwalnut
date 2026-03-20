@@ -35,8 +35,10 @@ const disjunction_dat = <T>(
 const fresh_dat = <T>(
 	newVars: IdentifierGeneric<T>[],
 	body: ConjunctionGeneric<T>,
+	nominal: boolean,
 ): FreshGeneric<T> => ({
 	type: "fresh",
+	nominal,
 	newVars,
 	body,
 });
@@ -176,7 +178,14 @@ export function fresh1<T>(
 	newVars: IdentifierGeneric<T>[],
 	...terms: TermGeneric<T>[]
 ): FreshGeneric<T> {
-	return fresh_dat(newVars, conjunction1(...terms));
+	return fresh_dat(newVars, conjunction1(...terms), false);
+}
+
+export function freshNominal1<T>(
+	newVars: IdentifierGeneric<T>[],
+	...terms: TermGeneric<T>[]
+): FreshGeneric<T> {
+	return fresh_dat(newVars, conjunction1(...terms), true);
 }
 
 export const [
@@ -310,12 +319,16 @@ export const make_internal_append = <T>(
 };
 
 export const make_pred_expr = <T>(
-	pred: Builtin,
-	out_id: FlexExpression<T>,
-	out_index: number,
+	pred: string,
 	args2: FlexExpression<T>[],
 	srcInfo: T,
+	out_id: FlexExpression<T> | null = null,
+	out_index: number = 0,
 ): FullExpression<T> => {
+	// If out_id is null, create a new unique identifier
+	if (out_id === null) {
+		out_id = make.identifier(srcInfo, `out_${Math.random().toString(36).substring(2, 15)}`);
+	}
 	// splice in the id into the out_index
 	const args = args2.toSpliced(
 		out_index,
@@ -425,14 +438,14 @@ export const unary_operate = <T>(
 export const ezmakeMaker = <T>(srcInfo: T) => ({
 	// The rest of (l) is out_id, the remainder of the list
 	rest: (out_id: IdentifierGeneric<T>, l: Expression<T>) =>
-		make_pred_expr("rest", out_id, 0, [l], srcInfo),
+		make_pred_expr("rest", [l], srcInfo, out_id, 0),
 	restRev: (
 		out_id: IdentifierGeneric<T>,
 		l: Expression<T>,
-	) => make_pred_expr("rest", out_id, 1, [l], srcInfo),
+	) => make_pred_expr("rest", [l], srcInfo, out_id, 1),
 	// The first of (l) is out_id
 	first: (out_id: IdentifierGeneric<T>, l: Expression<T>) =>
-		make_pred_expr("first", out_id, 0, [l], srcInfo),
+		make_pred_expr("first", [l], srcInfo, out_id, 0),
 	// Append a and b, result is in l
 	append: (
 		out_id: IdentifierGeneric<T>,
@@ -441,28 +454,28 @@ export const ezmakeMaker = <T>(srcInfo: T) => ({
 	) =>
 		make_pred_expr(
 			"internal_append",
-			out_id,
-			2,
 			[a, b],
 			srcInfo,
+			out_id,
+			2,
 		),
 	// Cons a and b, result is in l
 	cons: (
 		out_id: IdentifierGeneric<T>,
 		a: FlexExpression<T>,
 		b: FlexExpression<T>,
-	) => make_pred_expr("cons", out_id, 2, [a, b], srcInfo),
+	) => make_pred_expr("cons", [a, b], srcInfo, out_id, 2),
 	empty: (l: IdentifierGeneric<T>) =>
-		make_pred_expr("empty", l, 0, [], srcInfo),
+		make_pred_expr("empty", [], srcInfo, l, 0),
 
 	rest2: (
 		out_id: FlexExpression<T>,
 		l: FlexExpression<T>,
-	) => make_pred_expr("rest", out_id, 0, [l], srcInfo),
+	) => make_pred_expr("rest", [l], srcInfo, out_id, 0),
 	first2: (
 		out_id: FlexExpression<T>,
 		l: FlexExpression<T>,
-	) => make_pred_expr("first", out_id, 0, [l], srcInfo),
+	) => make_pred_expr("first", [l], srcInfo, out_id, 0),
 	append2: (
 		out_id: FlexExpression<T>,
 		a: FlexExpression<T>,
@@ -470,17 +483,60 @@ export const ezmakeMaker = <T>(srcInfo: T) => ({
 	) =>
 		make_pred_expr(
 			"internal_append",
-			out_id,
-			2,
 			[a, b],
 			srcInfo,
+			out_id,
+			2,
 		),
 	cons2: (
 		out_id: FlexExpression<T>,
 		a: FlexExpression<T>,
 		b: FlexExpression<T>,
-	) => make_pred_expr("cons", out_id, 0, [a, b], srcInfo),
+	) => make_pred_expr("cons", [a, b], srcInfo, out_id, 0),
+	list: (
+		out_id: FlexExpression<T>,
+		...args: FlexExpression<T>[]
+	) => make_pred_expr("list", args, srcInfo, out_id, 0),
+	pred: (
+		pred: string,
+		args: FlexExpression<T>[],
+		out_id: FlexExpression<T> | null = null,
+	) => make_pred_expr(pred, args, srcInfo, out_id, 0),
 });
+
+
+export const ezmakeMaker2 = <T>(srcInfo: T) => (out_id: FlexExpression<T> | null = null) => {
+	const mkpred = (pred: string, ...args: FlexExpression<T>[]) => make_pred_expr(pred, args, srcInfo, out_id, 0,);
+	return ({
+		// The rest of (l) is out_id, the remainder of the list
+		rest: (l: Expression<T>) =>
+			mkpred("rest", l),
+		// The first of (l) is out_id
+		first: (l: Expression<T>) =>
+			mkpred("first", l),
+		empty: () =>
+			mkpred("empty"),
+	
+		rest2: (
+			l: FlexExpression<T>,
+		) => mkpred("rest", l),
+		first2: (
+			l: FlexExpression<T>,
+		) => mkpred("first", l),
+		cons2: (
+			a: FlexExpression<T>,
+			b: FlexExpression<T>,
+		) => mkpred("cons", a, b),
+		list: (
+			...args: FlexExpression<T>[]
+		) => mkpred("list", ...args),
+		pred: (
+			pred: string,
+			...args: FlexExpression<T>[]
+		) => mkpred(pred, ...args),
+	});
+};
+
 
 // Use Proxy to generate identifiers super easily
 

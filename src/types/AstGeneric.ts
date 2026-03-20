@@ -20,6 +20,7 @@ export interface DisjunctionGeneric<T> {
 
 export interface FreshGeneric<T> {
 	type: "fresh";
+	nominal: boolean;
 	newVars: IdentifierGeneric<T>[];
 	body: ConjunctionGeneric<T>;
 }
