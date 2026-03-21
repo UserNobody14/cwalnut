@@ -187,6 +187,36 @@ export function runExpressionDesugarSync(
 	);
 }
 
+/**
+ * Lower an expression using the current {@link FrCounter} counter value, same as
+ * {@link runExpressionDesugarSync} with tuple-threading — updates the shared ref to the
+ * returned next index. (Reusing one Ref inside nested `provideService` differed subtly
+ * from isolated runs; this keeps behavior aligned with the sync API.)
+ */
+export function runExpressionDesugarEffect(
+	eff: Effect.Effect<
+		ExpressionGeneric<CodeLocation>,
+		never,
+		ExpressionDesugarServices
+	>,
+): Effect.Effect<
+	readonly [
+		ExpressionGeneric<CodeLocation>,
+		TermGeneric<CodeLocation>[],
+		IdentifierGeneric<CodeLocation>[],
+	],
+	never,
+	FrCounter
+> {
+	return Effect.gen(function* () {
+		const frRef = yield* FrCounter;
+		const n = yield* Ref.get(frRef);
+		const [expr, terms, frNext, synth] = runExpressionDesugarSync(n, eff);
+		yield* Ref.set(frRef, frNext);
+		return [expr, terms, synth] as const;
+	});
+}
+
 /** Sync one-shot slot allocation (threads numeric `fr` for list lowering and legacy paths). */
 export function allocSynthIdSync(
 	unifyVar: IdentifierGeneric<CodeLocation> | undefined,

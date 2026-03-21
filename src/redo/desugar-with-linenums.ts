@@ -1,5 +1,10 @@
-// import { Term, Expression, Conjunction } from "src/types/OldAstTyped";
-// import { make_unification, make_predicate, make_conjunction, make_disjunction, make_predicate_fn, make_lvar_ast, make_attribute_ast, make_list_ast, make_dictionary_ast, make_literal_ast } from "src/utils/make_unification";
+/**
+ * Tree-sitter → AST: compound statements use {@link toAst1Effect} with {@link FrCounter}
+ * (same pattern as {@link parseExpr} in desugar-expr-effect). Expression sub-lowering goes
+ * through {@link runExpressionDesugarEffect}, which delegates to {@link runExpressionDesugarSync}
+ * so fresh-name numbering matches the legacy tuple-threaded API.
+ */
+import { Effect, Ref } from "effect";
 import Parser from "tree-sitter";
 import CrystalWalnut from "tree-sitter-crystal-walnut";
 import type {
@@ -7,40 +12,22 @@ import type {
 	ExpressionGeneric,
 	IdentifierGeneric,
 	PredicateDefinitionGeneric,
-	WithGeneric,
 	PredicateCallGeneric,
 } from "src/types/AstGeneric";
-import {
-	conjunction1,
-	disjunction1,
-	ezmakeMaker,
-	make,
-	operate,
-	set_key_of,
-	to_slice,
-	unary_operate,
-} from "src/utils/make_better_typed";
+import { conjunction1, disjunction1, make } from "src/utils/make_better_typed";
 import { warnHolder, debugHolder } from "src/warnHolder";
 import { parseExpr } from "./desugar-expr-effect";
 import {
-	type ExprFresh,
-	allocSynthIdSync,
+	FrCounter,
+	allocFrCounterSlotEffect,
 	mergeSynthIds,
-	runExpressionDesugarSync,
+	runExpressionDesugarEffect,
+	runWithFrCounterSync,
 } from "./desugar-fr";
-import {
-	type CodeLocation,
-	defaultCodeLocation,
-	tocloc,
-	mergecloc,
-} from "./codeloc";
+import { type CodeLocation, tocloc } from "./codeloc";
 
 const parser = new Parser();
 parser.setLanguage(CrystalWalnut);
-
-const ezmake = ezmakeMaker<CodeLocation>(
-	defaultCodeLocation,
-);
 
 const make_fresh = make.fresh;
 const make_identifier = make.identifier;
@@ -72,8 +59,14 @@ export function toAst1(
 	node: Parser.SyntaxNode,
 	frCounter: number,
 ): [TermGeneric<CodeLocation>[], number] {
+	return runWithFrCounterSync(frCounter, toAst1Effect(node));
+}
+
+/** Statement / compound-logic desugar: fresh counter lives in {@link FrCounter}. */
+function toAst1Effect(
+	node: Parser.SyntaxNode,
+): Effect.Effect<TermGeneric<CodeLocation>[], never, FrCounter> {
 	if (filterEmptyCompoundLogic(node) === false) {
-		// throw new Error('Empty compound logic');
 		warnHolder(
 			"Empty compound logic",
 			node.type,
@@ -82,342 +75,362 @@ export function toAst1(
 	}
 	switch (node.type) {
 		case "module":
-			return buildCompoundLogic(
-				node,
-				"conjunction",
-				frCounter,
-			);
+			return buildCompoundLogicEffect(node, "conjunction");
 		case "either_statement":
-			// disjunction
 			logEmptyCompoundLogic(node);
-			return buildCompoundLogic(
-				node.children[2],
-				"disjunction",
-				frCounter,
-			);
+			return buildCompoundLogicEffect(node.children[2], "disjunction");
 		case "all_statement":
-			// conjunction
 			logEmptyCompoundLogic(node);
-			return buildCompoundLogic(
-				node.children[2],
-				"conjunction",
-				frCounter,
+			return buildCompoundLogicEffect(node.children[2], "conjunction");
+		case "unification":
+			return unificationToAstEffect(node);
+		case "predicate":
+			return Effect.map(
+				extractPredicateEffect(node, true),
+				([terms]) => terms,
 			);
-		case "unification": {
-			const [a1, a1terms, frCounter2, a1Synth] =
-				runExpressionDesugarSync(
-					frCounter,
-					parseExpr(node.childForFieldName("lhs")),
+		case "for_control_statement":
+			return Effect.gen(function* () {
+				const [c, cterms, cSynth] = yield* runExpressionDesugarEffect(
+					parseExpr(node.children[2]),
 				);
-			const [b1, b1terms, frCounter5, b1Synth] =
-				expressionOrPredicateDefinitionToAst(
-					node.childForFieldName("rhs"),
-					frCounter2,
-					a1.type === "identifier" ? a1 : undefined,
+				const [d, dterms, dSynth] = yield* runExpressionDesugarEffect(
+					parseExpr(node.children[4]),
 				);
-			const [b2, b2terms, frCounter3, b2Synth] =
-				expressionOrPredicateDefinitionToAst(
-					node.childForFieldName("rhs"),
-					frCounter,
-				);
-			const [a2, a2terms, frCounter4, a2Synth] =
-				runExpressionDesugarSync(
-					frCounter3,
-					parseExpr(node.childForFieldName("lhs"), b2.type === "identifier" ? b2 : undefined),
-				);
-			const k = node.childForFieldName("operator")?.text as
-				| "="
-				| "<<"
-				| ">>"
-				| "!=";
-			const length1 =
-				a1terms.length +
-				b1terms.length +
-				(isSameIdentifier(a1, b1) ? 0 : 1);
-			const length2 =
-				a2terms.length +
-				b2terms.length +
-				(isSameIdentifier(a2, b2) ? 0 : 1);
-
-			const [
-				a,
-				aterms,
-				b,
-				bterms,
-				frCounter6,
-				mergedSynth,
-			] =
-				length1 <= length2
-					? [
-							a1,
-							a1terms,
-							b1,
-							b1terms,
-							frCounter5,
-							mergeSynthIds(a1Synth, b1Synth),
-						]
-					: [
-							a2,
-							a2terms,
-							b2,
-							b2terms,
-							frCounter4,
-							mergeSynthIds(a2Synth, b2Synth),
-						];
-			if (b.type === "predicate_definition") {
-				if (a.type !== "identifier") {
-					throw new Error(
-						"Source of predicate must be an identifier",
-					);
-				}
-				const predDefTerms: TermGeneric<CodeLocation>[] = [
-					...aterms,
-					{ ...b, name: a },
-				];
-				return [
-					scopeSynthFresh(mergedSynth, predDefTerms),
-					frCounter6,
-				];
-			}
-			const unifT = isSameIdentifier(a, b)
-				? []
-				: make_unification(a, k, b, tocloc(node))[1];
-			const bodyTerms = [...aterms, ...bterms, ...unifT];
-			return [
-				scopeSynthFresh(mergedSynth, bodyTerms),
-				frCounter6,
-			];
-		}
-		case "predicate": {
-			const [aterms, , frCounter2] = extractPredicate(
-				node,
-				frCounter,
-				true,
-			);
-			return [aterms, frCounter2];
-		}
-		case "for_control_statement": {
-			const [c, cterms, fr1, cSynth] = runExpressionDesugarSync(
-				frCounter,
-				parseExpr(node.children[2]),
-			);
-			const [d, dterms, fr3, dSynth] = runExpressionDesugarSync(
-				fr1,
-				parseExpr(node.children[4]),
-			);
-			return [
-				scopeSynthFresh(mergeSynthIds(cSynth, dSynth), [
+				return scopeSynthFresh(mergeSynthIds(cSynth, dSynth), [
 					...cterms,
 					...dterms,
-				]),
-				fr3,
-			];
-		}
-		// With statement
-		case "with_statement": {
-			const [aterms, predicate, frCounter2] =
-				extractPredicate(
-					node.children[1],
-					frCounter,
-					false,
+				]);
+			});
+		case "with_statement":
+			return withOrWhenStatementEffect(node.children[1], node.children[3]);
+		case "when_statement":
+			return withOrWhenStatementEffect(node.children[1], node.children[3]);
+		case "data_statement":
+			return Effect.gen(function* () {
+				const [c, cterms, cSynth] = yield* runExpressionDesugarEffect(
+					parseExpr(node.children[1]),
 				);
-			const [b, frCounter3] = buildCompoundLogic(
-				node.children[3],
-				"conjunction",
-				frCounter2,
-			);
-			return [
-				[
-					...aterms,
+				const b = yield* buildCompoundLogicEffect(
+					node.children[3],
+					"conjunction",
+				);
+				const dataWith = make_predicate(
+					make_identifier(tocloc(node), "data_generator"),
+					[c],
+				);
+				return scopeSynthFresh(cSynth, [
+					...cterms,
 					{
 						type: "with",
-						name: predicate,
+						name: dataWith,
 						body: conjunction1(...b),
 					},
-				],
-				frCounter3,
-			];
-		}
-		// When statement (turns into a subvariety of with statements)
-		case "when_statement": {
-			const [aterms, predicate, frCounter2] =
-				extractPredicate(
-					node.children[1],
-					frCounter,
-					false,
+				]);
+			});
+		case "fresh_statement":
+			return Effect.gen(function* () {
+				const ids = node.children.filter(
+					(nc) => nc.grammarType === "identifier",
 				);
-			const [b, frCounter3] = buildCompoundLogic(
-				node.children[3],
-				"conjunction",
-				frCounter2,
-			);
-			return [
-				[
-					...aterms,
-					{
-						type: "with",
-						name: predicate,
-						body: conjunction1(...b),
-					},
-				],
-				frCounter3,
-			];
-		}
-		// Data statement
-		case "data_statement": {
-			const [c, cterms, fr1, cSynth] = runExpressionDesugarSync(
-				frCounter,
-				parseExpr(node.children[1]),
-			);
-			const [b, frCounter3] = buildCompoundLogic(
-				node.children[3],
-				"conjunction",
-				fr1,
-			);
-			const dataWith = make_predicate(
-				make_identifier(tocloc(node), "data_generator"),
-				[c],
-			);
-			const inner: TermGeneric<CodeLocation>[] = [
-				...cterms,
-				{
-					type: "with",
-					name: dataWith,
-					body: conjunction1(...b),
-				},
-			];
-			return [scopeSynthFresh(cSynth, inner), frCounter3];
-		}
-
-		case "fresh_statement": {
-			const ids = node.children.filter(
-				(nc) => nc.grammarType === "identifier",
-			);
-			const allIds = ids.map((nc) =>
-				make_identifier(tocloc(nc), nc.text),
-			);
-			const block = node.children[node.children.length - 1];
-			const [blockTerms, fr2] = block.children.reduce<
-				[TermGeneric<CodeLocation>[], number]
-			>(
-				(acc, nc) => {
-					const [newTerms, newFr] = toAst1(nc, acc[1]);
-					return [acc[0].concat(newTerms), newFr];
-				},
-				[[], frCounter],
-			);
-			return [
-				[
+				const allIds = ids.map((nc) =>
+					make_identifier(tocloc(nc), nc.text),
+				);
+				const block = node.children[node.children.length - 1];
+				let blockTerms: TermGeneric<CodeLocation>[] = [];
+				for (const nc of block.children) {
+					blockTerms = blockTerms.concat(yield* toAst1Effect(nc));
+				}
+				return [
 					make_fresh(
 						allIds,
 						conjunction1(...blockTerms),
 						node.children[1].text === "nominal",
 					),
-				],
-				fr2,
-			];
-		}
-		case "comment": {
-			return [[], frCounter];
-		}
-		case "statement_binary_operator": {
-			// Produce a conjunction/disjunction of the segments
-			const [a, frCounter2] = toAst1(
-				node.children[0],
-				frCounter,
-			);
-			const op = node.children[1].text;
-			const [b, frCounter3] = toAst1(
-				node.children[2],
-				frCounter2,
-			);
-			if (op === "and") {
-				return [[conjunction1(...a, ...b)], frCounter3];
-			} else if (op === "or") {
-				return [[disjunction1(...a, ...b)], frCounter3];
-			} else {
+				];
+			});
+		case "comment":
+			return Effect.succeed([]);
+		case "statement_binary_operator":
+			return Effect.gen(function* () {
+				const a = yield* toAst1Effect(node.children[0]);
+				const op = node.children[1].text;
+				const b = yield* toAst1Effect(node.children[2]);
+				if (op === "and") {
+					return [conjunction1(...a, ...b)];
+				}
+				if (op === "or") {
+					return [disjunction1(...a, ...b)];
+				}
 				throw new Error(`Unknown operator: ${op}`);
-			}
-		}
-
+			});
 		default:
-			throw new Error(
-				`Unrecognized node type: ${node.type}`,
+			return Effect.die(
+				new Error(`Unrecognized node type: ${node.type}`),
 			);
 	}
 }
 
-function extractPredicate(
-	node: Parser.SyntaxNode,
-	frCounter: number,
-	embedPredInScope: boolean,
-): [
-	TermGeneric<CodeLocation>[],
-	PredicateCallGeneric<CodeLocation>,
-	number,
-] {
-	const argActual = node.children[1];
-	const arglist = argActual.children.slice(1, -1);
-	const [allArgs, frCounter2, argsSynth] = arglist
-		.filter((nnc) => nnc.grammarType !== ",")
-		.reduce<
-			[
-				[
-					ExpressionGeneric<CodeLocation>,
-					TermGeneric<CodeLocation>[],
-				][],
-				number,
-				IdentifierGeneric<CodeLocation>[],
-			]
-		>(
-			(acc, nc) => {
-				const [arg, argTerms, frPlus, sy] =
-					runExpressionDesugarSync(acc[1], parseExpr(nc));
-				return [
-					acc[0].concat([[arg, argTerms]]),
-					frPlus,
-					mergeSynthIds(acc[2], sy),
-				];
+function withOrWhenStatementEffect(
+	predicateNode: Parser.SyntaxNode,
+	bodyNode: Parser.SyntaxNode,
+): Effect.Effect<TermGeneric<CodeLocation>[], never, FrCounter> {
+	return Effect.gen(function* () {
+		const [aterms, predicate] = yield* extractPredicateEffect(
+			predicateNode,
+			false,
+		);
+		const b = yield* buildCompoundLogicEffect(bodyNode, "conjunction");
+		return [
+			...aterms,
+			{
+				type: "with",
+				name: predicate,
+				body: conjunction1(...b),
 			},
-			[
-				[],
-				frCounter,
-				[] as IdentifierGeneric<CodeLocation>[],
-			],
-		);
-	const [source, sourceTerms, frCounter3, srcSynth] =
-		runExpressionDesugarSync(frCounter2, parseExpr(node.children[0]));
-	if (source.type !== "identifier") {
-		throw new Error(
-			"Source of predicate must be an identifier",
-		);
+		];
+	});
+}
+
+function buildCompoundLogicEffect(
+	node: Parser.SyntaxNode,
+	variety: "conjunction" | "disjunction",
+): Effect.Effect<TermGeneric<CodeLocation>[], never, FrCounter> {
+	if (node.children.length === 0) {
+		return Effect.die(new Error("Empty compound logic"));
 	}
-	const allArgs2 = allArgs.flatMap((aa) => aa[1]);
-	for (const aa of allArgs2) {
-		if (aa === undefined) {
-			throw new Error("Undefined term");
-		}
-		if (typeof aa === "number") {
-			throw new Error("Number term!");
-		}
-		if (Array.isArray(aa)) {
-			throw new Error("Array term");
-		}
+	if (node.children.length === 1) {
+		return toAst1Effect(node.children[0]);
 	}
-	const mergedSynth = mergeSynthIds(argsSynth, srcSynth);
-	const pred = make_predicate(
-		source,
-		allArgs.map((aa) => aa[0]),
-	);
-	const innerTerms: TermGeneric<CodeLocation>[] =
-		embedPredInScope
+	return Effect.gen(function* () {
+		const cnj1 = yield* toAst1Effect(node.children[0]);
+		let terms: TermGeneric<CodeLocation>[] = [conjunction1(...cnj1)];
+		for (const nc of node.children.slice(1).filter(filterEmptyCompoundLogic)) {
+			const currAst = yield* toAst1Effect(nc);
+			terms = terms.concat([conjunction1(...currAst)]);
+		}
+		if (variety === "conjunction") {
+			return [conjunction1(...terms)];
+		}
+		return [disjunction1(...terms)];
+	});
+}
+
+function extractPredicateEffect(
+	node: Parser.SyntaxNode,
+	embedPredInScope: boolean,
+): Effect.Effect<
+	readonly [TermGeneric<CodeLocation>[], PredicateCallGeneric<CodeLocation>],
+	never,
+	FrCounter
+> {
+	return Effect.gen(function* () {
+		const argActual = node.children[1];
+		const arglist = argActual.children
+			.slice(1, -1)
+			.filter((nnc) => nnc.grammarType !== ",");
+		let argsSynth: IdentifierGeneric<CodeLocation>[] = [];
+		const allArgs: [
+			ExpressionGeneric<CodeLocation>,
+			TermGeneric<CodeLocation>[],
+		][] = [];
+		for (const nc of arglist) {
+			const [arg, argTerms, sy] = yield* runExpressionDesugarEffect(
+				parseExpr(nc),
+			);
+			allArgs.push([arg, argTerms]);
+			argsSynth = mergeSynthIds(argsSynth, sy);
+		}
+		const [source, sourceTerms, srcSynth] = yield* runExpressionDesugarEffect(
+			parseExpr(node.children[0]),
+		);
+		if (source.type !== "identifier") {
+			throw new Error("Source of predicate must be an identifier");
+		}
+		const allArgs2 = allArgs.flatMap((aa) => aa[1]);
+		for (const aa of allArgs2) {
+			if (aa === undefined) {
+				throw new Error("Undefined term");
+			}
+			if (typeof aa === "number") {
+				throw new Error("Number term!");
+			}
+			if (Array.isArray(aa)) {
+				throw new Error("Array term");
+			}
+		}
+		const mergedSynth = mergeSynthIds(argsSynth, srcSynth);
+		const pred = make_predicate(
+			source,
+			allArgs.map((aa) => aa[0]),
+		);
+		const innerTerms: TermGeneric<CodeLocation>[] = embedPredInScope
 			? [...allArgs2, ...sourceTerms, pred]
 			: [...allArgs2, ...sourceTerms];
-	return [
-		scopeSynthFresh(mergedSynth, innerTerms),
-		pred,
-		frCounter3,
-	];
+		return [scopeSynthFresh(mergedSynth, innerTerms), pred] as const;
+	});
+}
+
+function expressionOrPredicateDefinitionToAstEffect(
+	node: Parser.SyntaxNode | null,
+	unifyVar?: IdentifierGeneric<CodeLocation>,
+): Effect.Effect<
+	readonly [
+		(
+			| ExpressionGeneric<CodeLocation>
+			| PredicateDefinitionGeneric<CodeLocation>
+		),
+		TermGeneric<CodeLocation>[],
+		IdentifierGeneric<CodeLocation>[],
+	],
+	never,
+	FrCounter
+> {
+	if (node === null) {
+		return Effect.die(new Error("Node is null"));
+	}
+	switch (node.type) {
+		case "predicate_definition":
+			return Effect.gen(function* () {
+				const argsList = node.children
+					.slice(1, -3)
+					.filter((nnc) => nnc.grammarType !== ",");
+				let selectedNode =
+					node.children[node.children.length - 1];
+				selectedNode = handleEmptyCompoundLogic(
+					selectedNode,
+					node,
+				);
+				const freshTerm = yield* buildCompoundLogicEffect(
+					selectedNode,
+					"conjunction",
+				);
+				const { slot: frshName, synthIds: nameSynth } =
+					yield* allocFrCounterSlotEffect(unifyVar);
+				const pt = make_predicate_fn(
+					frshName,
+					argsList
+						.filter((ddf) => ddf.grammarType !== ",")
+						.map((nnc) =>
+							make_identifier(tocloc(nnc), nnc.text),
+						),
+					conjunction1(...freshTerm),
+				);
+				return [pt, [], [...nameSynth]] as const;
+			});
+		default:
+			return Effect.gen(function* () {
+				const [c1, c2, c4] = yield* runExpressionDesugarEffect(
+					parseExpr(node, unifyVar),
+				);
+				if (c1 === undefined) {
+					if (c2 === undefined) {
+						throw new Error("Both c1 and c2 are undefined");
+					}
+					if (c2.length === 0) {
+						throw new Error("c2 is empty");
+					}
+				}
+				return [c1, c2, c4] as const;
+			});
+	}
+}
+
+/**
+ * `lhs = rhs` lowering tries two unification-variable orders (cheaper side wins).
+ * Each try must start from the same fresh counter, so we snapshot / restore {@link FrCounter}.
+ */
+function unificationToAstEffect(
+	node: Parser.SyntaxNode,
+): Effect.Effect<TermGeneric<CodeLocation>[], never, FrCounter> {
+	return Effect.gen(function* () {
+		const frRef = yield* FrCounter;
+		const startFr = yield* Ref.get(frRef);
+		const lhsField = node.childForFieldName("lhs");
+		const rhsField = node.childForFieldName("rhs");
+		const k = node.childForFieldName("operator")?.text as
+			| "="
+			| "<<"
+			| ">>"
+			| "!=";
+
+		type Branch = {
+			readonly a: ExpressionGeneric<CodeLocation>;
+			readonly aterms: TermGeneric<CodeLocation>[];
+			readonly b:
+				| ExpressionGeneric<CodeLocation>
+				| PredicateDefinitionGeneric<CodeLocation>;
+			readonly bterms: TermGeneric<CodeLocation>[];
+			readonly mergedSynth: IdentifierGeneric<CodeLocation>[];
+		};
+
+		const [a1, a1terms, a1Synth] = yield* runExpressionDesugarEffect(
+			parseExpr(lhsField),
+		);
+		const [b1, b1terms, b1Synth] =
+			yield* expressionOrPredicateDefinitionToAstEffect(
+				rhsField,
+				a1.type === "identifier" ? a1 : undefined,
+			);
+		const p1: Branch = {
+			a: a1,
+			aterms: a1terms,
+			b: b1,
+			bterms: b1terms,
+			mergedSynth: mergeSynthIds(a1Synth, b1Synth),
+		};
+		const end1 = yield* Ref.get(frRef);
+		yield* Ref.set(frRef, startFr);
+		const [b2, b2terms, b2Synth] =
+			yield* expressionOrPredicateDefinitionToAstEffect(
+				rhsField,
+				undefined,
+			);
+		const [a2, a2terms, a2Synth] = yield* runExpressionDesugarEffect(
+			parseExpr(
+				lhsField,
+				b2.type === "identifier" ? b2 : undefined,
+			),
+		);
+		const p2: Branch = {
+			a: a2,
+			aterms: a2terms,
+			b: b2,
+			bterms: b2terms,
+			mergedSynth: mergeSynthIds(a2Synth, b2Synth),
+		};
+		const end2 = yield* Ref.get(frRef);
+
+		const cost1 =
+			p1.aterms.length +
+			p1.bterms.length +
+			(isSameIdentifier(p1.a, p1.b) ? 0 : 1);
+		const cost2 =
+			p2.aterms.length +
+			p2.bterms.length +
+			(isSameIdentifier(p2.a, p2.b) ? 0 : 1);
+		const pick1 = cost1 <= cost2;
+		yield* Ref.set(frRef, pick1 ? end1 : end2);
+		const { a, aterms, b, bterms, mergedSynth } = pick1 ? p1 : p2;
+
+		if (b.type === "predicate_definition") {
+			if (a.type !== "identifier") {
+				throw new Error("Source of predicate must be an identifier");
+			}
+			return scopeSynthFresh(mergedSynth, [
+				...aterms,
+				{ ...b, name: a },
+			]);
+		}
+		const unifT = isSameIdentifier(a, b)
+			? []
+			: make_unification(a, k, b, tocloc(node))[1];
+		return scopeSynthFresh(mergedSynth, [
+			...aterms,
+			...bterms,
+			...unifT,
+		]);
+	});
 }
 
 function isSameIdentifier(
@@ -460,102 +473,6 @@ function filterEmptyCompoundLogic(
 		return node.children.length !== 0;
 	}
 	return true;
-}
-
-function buildCompoundLogic(
-	node: Parser.SyntaxNode,
-	variety: "conjunction" | "disjunction",
-	frCounter: number,
-): [TermGeneric<CodeLocation>[], number] {
-	if (node.children.length === 0) {
-		throw new Error("Empty compound logic");
-	}
-	if (node.children.length === 1) {
-		return toAst1(node.children[0], frCounter);
-	}
-	const [cnj1, nm] = toAst1(node.children[0], frCounter);
-	const [terms, fr4] = node.children
-		.slice(1)
-		.filter(filterEmptyCompoundLogic)
-		.reduce<[TermGeneric<CodeLocation>[], number]>(
-			([acc, frNew], nc) => {
-				const [currAst, fr2] = toAst1(nc, frNew);
-				return [
-					acc.concat([conjunction1(...currAst)]),
-					fr2,
-				];
-			},
-			[[conjunction1(...cnj1)], nm],
-		);
-	if (variety === "conjunction") {
-		return [[conjunction1(...terms)], fr4];
-	}
-	return [[disjunction1(...terms)], fr4];
-}
-
-function expressionOrPredicateDefinitionToAst(
-	node: Parser.SyntaxNode | null,
-	frCounter: number,
-	unifyVar?: IdentifierGeneric<CodeLocation>,
-): [
-	(
-		| ExpressionGeneric<CodeLocation>
-		| PredicateDefinitionGeneric<CodeLocation>
-	),
-	TermGeneric<CodeLocation>[],
-	number,
-	readonly IdentifierGeneric<CodeLocation>[],
-] {
-	if (node === null) {
-		throw new Error("Node is null");
-	}
-	switch (node.type) {
-		case "predicate_definition": {
-			const argsList = node.children
-				.slice(1, -3)
-				.filter((nnc) => nnc.grammarType !== ",");
-			let selectedNode =
-				node.children[node.children.length - 1];
-			selectedNode = handleEmptyCompoundLogic(
-				selectedNode,
-				node,
-			);
-			const [freshTerm, n] = buildCompoundLogic(
-				selectedNode,
-				"conjunction",
-				frCounter,
-			);
-			const [frshName, nAfter, nameSynth] = allocSynthIdSync(
-				unifyVar,
-				n,
-			);
-			const pt = make_predicate_fn(
-				frshName,
-				argsList
-					.filter((ddf) => ddf.grammarType !== ",")
-					.map((nnc) =>
-						make_identifier(tocloc(nnc), nnc.text),
-					),
-				conjunction1(...freshTerm),
-			);
-			return [pt, [], nAfter, nameSynth];
-		}
-		default: {
-			const [c1, c2, c3, c4] = runExpressionDesugarSync(
-				frCounter,
-				parseExpr(node, unifyVar),
-			);
-			if (c1 === undefined) {
-				if (c2 === undefined) {
-					throw new Error("Both c1 and c2 are undefined");
-				}
-				if (c2.length === 0) {
-					throw new Error("c2 is empty");
-				}
-			}
-			return [c1, c2, c3, c4];
-		}
-	}
 }
 
 function handleEmptyCompoundLogic(
