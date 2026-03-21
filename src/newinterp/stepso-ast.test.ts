@@ -38,7 +38,7 @@ import { fresh } from "src/logic/AnyFreshFn";
 import {
 	conj,
 	call,
-	id,
+	type id,
 	lit,
 	def,
 	cx,

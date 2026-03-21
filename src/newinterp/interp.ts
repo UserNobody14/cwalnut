@@ -21,9 +21,9 @@ import {
 	run1,
 } from "src/logic";
 import type { CleanOutput } from "src/logic/types";
-import {
-	type MGoal,
-	type MStream,
+import type {
+	MGoal,
+	MStream,
 } from "src/logic/streams";
 import { make } from "src/utils/make_better_typed";
 import type { LTerm } from "src/logic/terms";

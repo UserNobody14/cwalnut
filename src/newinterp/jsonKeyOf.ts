@@ -17,7 +17,7 @@ import {
 	freshInternal,
 	freshInternal2,
 } from "src/logic/AnyFreshFn";
-import { Map as ImmMap } from "immutable";
+import type { Map as ImmMap } from "immutable";
 import type {
 	ConjunctionGeneric,
 	TermGeneric,

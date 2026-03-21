@@ -1,13 +1,13 @@
 import {
-	CodeLocation,
+	type CodeLocation,
 	defaultCodeLocation,
 } from "src/redo/codeloc";
 import {
 	deflex,
 	Expression,
 	ezmakeMaker,
-	FlexExpression,
-	FullExpression,
+	type FlexExpression,
+	type FullExpression,
 	make,
 	make_pred_expr,
 } from "src/utils/make_better_typed";

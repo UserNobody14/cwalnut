@@ -24,22 +24,30 @@ export type ExprFresh = [
 
 const make_identifier = make.identifier;
 
-export class FrCounter extends Context.Tag("cwal/DesugarFrCounter")<
-	FrCounter,
-	Ref.Ref<number>
->() {}
+export class FrCounter extends Context.Tag(
+	"cwal/DesugarFrCounter",
+)<FrCounter, Ref.Ref<number>>() {}
 
 /** Next integer slot for `__fresh_${n}` (mutates ref). */
-export const nextFrIndex: Effect.Effect<number, never, FrCounter> =
-	Effect.gen(function* () {
-		const ref = yield* FrCounter;
-		return yield* Ref.modify(ref, (n: number) => [n, n + 1] as const);
-	});
+export const nextFrIndex: Effect.Effect<
+	number,
+	never,
+	FrCounter
+> = Effect.gen(function* () {
+	const ref = yield* FrCounter;
+	return yield* Ref.modify(
+		ref,
+		(n: number) => [n, n + 1] as const,
+	);
+});
 
 export function freshSynthName(
 	n: number,
 ): IdentifierGeneric<CodeLocation> {
-	return make_identifier(defaultCodeLocation, `__fresh_${n}`);
+	return make_identifier(
+		defaultCodeLocation,
+		`__fresh_${n}`,
+	);
 }
 
 /**
@@ -71,12 +79,12 @@ export type AccState = {
 };
 
 /** Mutable sink for goals produced while lowering an expression; return value stays a var or literal. */
-export class ExpressionAcc extends Context.Tag("cwal/DesugarExpressionAcc")<
-	ExpressionAcc,
-	Ref.Ref<AccState>
->() {}
+export class ExpressionAcc extends Context.Tag(
+	"cwal/DesugarExpressionAcc",
+)<ExpressionAcc, Ref.Ref<AccState>>() {}
 
-export type SynthIdChunk = readonly IdentifierGeneric<CodeLocation>[];
+export type SynthIdChunk =
+	readonly IdentifierGeneric<CodeLocation>[];
 
 export function mergeSynthIds(
 	...parts: SynthIdChunk[]
@@ -135,7 +143,9 @@ export function genFresh(): Effect.Effect<
 	});
 }
 
-export type ExpressionDesugarServices = FrCounter | ExpressionAcc;
+export type ExpressionDesugarServices =
+	| FrCounter
+	| ExpressionAcc;
 
 export function runWithFrCounterSync<A>(
 	initialFr: number,
@@ -144,7 +154,11 @@ export function runWithFrCounterSync<A>(
 	return Effect.runSync(
 		Effect.gen(function* () {
 			const ref = yield* Ref.make(initialFr);
-			const a = yield* Effect.provideService(eff, FrCounter, ref);
+			const a = yield* Effect.provideService(
+				eff,
+				FrCounter,
+				ref,
+			);
 			const fr = yield* Ref.get(ref);
 			return [a, fr] as const;
 		}),
@@ -211,7 +225,8 @@ export function runExpressionDesugarEffect(
 	return Effect.gen(function* () {
 		const frRef = yield* FrCounter;
 		const n = yield* Ref.get(frRef);
-		const [expr, terms, frNext, synth] = runExpressionDesugarSync(n, eff);
+		const [expr, terms, frNext, synth] =
+			runExpressionDesugarSync(n, eff);
 		yield* Ref.set(frRef, frNext);
 		return [expr, terms, synth] as const;
 	});
@@ -226,6 +241,9 @@ export function allocSynthIdSync(
 	number,
 	readonly IdentifierGeneric<CodeLocation>[],
 ] {
-	const [r, fr2] = runWithFrCounterSync(fr, allocFrCounterSlotEffect(unifyVar));
+	const [r, fr2] = runWithFrCounterSync(
+		fr,
+		allocFrCounterSlotEffect(unifyVar),
+	);
 	return [r.slot, fr2, r.synthIds];
 }

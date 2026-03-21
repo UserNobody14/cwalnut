@@ -4,8 +4,8 @@ import { codeToAst } from "src/redo/desugar-with-linenums";
 import {
 	ConjunctionGeneric,
 	ExpressionGeneric,
-	IdentifierGeneric,
-	TermGeneric,
+	type IdentifierGeneric,
+	type TermGeneric,
 } from "src/types/AstGeneric";
 import {
 	conjunction1,

@@ -9,8 +9,8 @@ import {
 } from "src/utils/builtinList";
 import { eq, all, either, apply_pred } from "src/logic";
 import {
-	LTerm,
-	LPredicateFn,
+	type LTerm,
+	type LPredicateFn,
 	LNom,
 	LTie,
 } from "src/logic/terms";

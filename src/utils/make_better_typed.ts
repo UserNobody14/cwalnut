@@ -323,7 +323,7 @@ export const make_pred_expr = <T>(
 	args2: FlexExpression<T>[],
 	srcInfo: T,
 	out_id: FlexExpression<T> | null = null,
-	out_index: number = 0,
+	out_index = 0,
 ): FullExpression<T> => {
 	// If out_id is null, create a new unique identifier
 	if (out_id === null) {

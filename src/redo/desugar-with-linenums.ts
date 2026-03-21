@@ -14,7 +14,11 @@ import type {
 	PredicateDefinitionGeneric,
 	PredicateCallGeneric,
 } from "src/types/AstGeneric";
-import { conjunction1, disjunction1, make } from "src/utils/make_better_typed";
+import {
+	conjunction1,
+	disjunction1,
+	make,
+} from "src/utils/make_better_typed";
 import { warnHolder, debugHolder } from "src/warnHolder";
 import { parseExpr } from "./desugar-expr-effect";
 import {
@@ -59,13 +63,20 @@ export function toAst1(
 	node: Parser.SyntaxNode,
 	frCounter: number,
 ): [TermGeneric<CodeLocation>[], number] {
-	return runWithFrCounterSync(frCounter, toAst1Effect(node));
+	return runWithFrCounterSync(
+		frCounter,
+		toAst1Effect(node),
+	);
 }
 
 /** Statement / compound-logic desugar: fresh counter lives in {@link FrCounter}. */
 function toAst1Effect(
 	node: Parser.SyntaxNode,
-): Effect.Effect<TermGeneric<CodeLocation>[], never, FrCounter> {
+): Effect.Effect<
+	TermGeneric<CodeLocation>[],
+	never,
+	FrCounter
+> {
 	if (filterEmptyCompoundLogic(node) === false) {
 		warnHolder(
 			"Empty compound logic",
@@ -78,10 +89,16 @@ function toAst1Effect(
 			return buildCompoundLogicEffect(node, "conjunction");
 		case "either_statement":
 			logEmptyCompoundLogic(node);
-			return buildCompoundLogicEffect(node.children[2], "disjunction");
+			return buildCompoundLogicEffect(
+				node.children[2],
+				"disjunction",
+			);
 		case "all_statement":
 			logEmptyCompoundLogic(node);
-			return buildCompoundLogicEffect(node.children[2], "conjunction");
+			return buildCompoundLogicEffect(
+				node.children[2],
+				"conjunction",
+			);
 		case "unification":
 			return unificationToAstEffect(node);
 		case "predicate":
@@ -91,26 +108,35 @@ function toAst1Effect(
 			);
 		case "for_control_statement":
 			return Effect.gen(function* () {
-				const [c, cterms, cSynth] = yield* runExpressionDesugarEffect(
-					parseExpr(node.children[2]),
+				const [c, cterms, cSynth] =
+					yield* runExpressionDesugarEffect(
+						parseExpr(node.children[2]),
+					);
+				const [d, dterms, dSynth] =
+					yield* runExpressionDesugarEffect(
+						parseExpr(node.children[4]),
+					);
+				return scopeSynthFresh(
+					mergeSynthIds(cSynth, dSynth),
+					[...cterms, ...dterms],
 				);
-				const [d, dterms, dSynth] = yield* runExpressionDesugarEffect(
-					parseExpr(node.children[4]),
-				);
-				return scopeSynthFresh(mergeSynthIds(cSynth, dSynth), [
-					...cterms,
-					...dterms,
-				]);
 			});
 		case "with_statement":
-			return withOrWhenStatementEffect(node.children[1], node.children[3]);
+			return withOrWhenStatementEffect(
+				node.children[1],
+				node.children[3],
+			);
 		case "when_statement":
-			return withOrWhenStatementEffect(node.children[1], node.children[3]);
+			return withOrWhenStatementEffect(
+				node.children[1],
+				node.children[3],
+			);
 		case "data_statement":
 			return Effect.gen(function* () {
-				const [c, cterms, cSynth] = yield* runExpressionDesugarEffect(
-					parseExpr(node.children[1]),
-				);
+				const [c, cterms, cSynth] =
+					yield* runExpressionDesugarEffect(
+						parseExpr(node.children[1]),
+					);
 				const b = yield* buildCompoundLogicEffect(
 					node.children[3],
 					"conjunction",
@@ -136,10 +162,13 @@ function toAst1Effect(
 				const allIds = ids.map((nc) =>
 					make_identifier(tocloc(nc), nc.text),
 				);
-				const block = node.children[node.children.length - 1];
+				const block =
+					node.children[node.children.length - 1];
 				let blockTerms: TermGeneric<CodeLocation>[] = [];
 				for (const nc of block.children) {
-					blockTerms = blockTerms.concat(yield* toAst1Effect(nc));
+					blockTerms = blockTerms.concat(
+						yield* toAst1Effect(nc),
+					);
 				}
 				return [
 					make_fresh(
@@ -174,13 +203,18 @@ function toAst1Effect(
 function withOrWhenStatementEffect(
 	predicateNode: Parser.SyntaxNode,
 	bodyNode: Parser.SyntaxNode,
-): Effect.Effect<TermGeneric<CodeLocation>[], never, FrCounter> {
+): Effect.Effect<
+	TermGeneric<CodeLocation>[],
+	never,
+	FrCounter
+> {
 	return Effect.gen(function* () {
-		const [aterms, predicate] = yield* extractPredicateEffect(
-			predicateNode,
-			false,
+		const [aterms, predicate] =
+			yield* extractPredicateEffect(predicateNode, false);
+		const b = yield* buildCompoundLogicEffect(
+			bodyNode,
+			"conjunction",
 		);
-		const b = yield* buildCompoundLogicEffect(bodyNode, "conjunction");
 		return [
 			...aterms,
 			{
@@ -195,7 +229,11 @@ function withOrWhenStatementEffect(
 function buildCompoundLogicEffect(
 	node: Parser.SyntaxNode,
 	variety: "conjunction" | "disjunction",
-): Effect.Effect<TermGeneric<CodeLocation>[], never, FrCounter> {
+): Effect.Effect<
+	TermGeneric<CodeLocation>[],
+	never,
+	FrCounter
+> {
 	if (node.children.length === 0) {
 		return Effect.die(new Error("Empty compound logic"));
 	}
@@ -204,8 +242,12 @@ function buildCompoundLogicEffect(
 	}
 	return Effect.gen(function* () {
 		const cnj1 = yield* toAst1Effect(node.children[0]);
-		let terms: TermGeneric<CodeLocation>[] = [conjunction1(...cnj1)];
-		for (const nc of node.children.slice(1).filter(filterEmptyCompoundLogic)) {
+		let terms: TermGeneric<CodeLocation>[] = [
+			conjunction1(...cnj1),
+		];
+		for (const nc of node.children
+			.slice(1)
+			.filter(filterEmptyCompoundLogic)) {
 			const currAst = yield* toAst1Effect(nc);
 			terms = terms.concat([conjunction1(...currAst)]);
 		}
@@ -220,7 +262,10 @@ function extractPredicateEffect(
 	node: Parser.SyntaxNode,
 	embedPredInScope: boolean,
 ): Effect.Effect<
-	readonly [TermGeneric<CodeLocation>[], PredicateCallGeneric<CodeLocation>],
+	readonly [
+		TermGeneric<CodeLocation>[],
+		PredicateCallGeneric<CodeLocation>,
+	],
 	never,
 	FrCounter
 > {
@@ -235,17 +280,19 @@ function extractPredicateEffect(
 			TermGeneric<CodeLocation>[],
 		][] = [];
 		for (const nc of arglist) {
-			const [arg, argTerms, sy] = yield* runExpressionDesugarEffect(
-				parseExpr(nc),
-			);
+			const [arg, argTerms, sy] =
+				yield* runExpressionDesugarEffect(parseExpr(nc));
 			allArgs.push([arg, argTerms]);
 			argsSynth = mergeSynthIds(argsSynth, sy);
 		}
-		const [source, sourceTerms, srcSynth] = yield* runExpressionDesugarEffect(
-			parseExpr(node.children[0]),
-		);
+		const [source, sourceTerms, srcSynth] =
+			yield* runExpressionDesugarEffect(
+				parseExpr(node.children[0]),
+			);
 		if (source.type !== "identifier") {
-			throw new Error("Source of predicate must be an identifier");
+			throw new Error(
+				"Source of predicate must be an identifier",
+			);
 		}
 		const allArgs2 = allArgs.flatMap((aa) => aa[1]);
 		for (const aa of allArgs2) {
@@ -264,10 +311,14 @@ function extractPredicateEffect(
 			source,
 			allArgs.map((aa) => aa[0]),
 		);
-		const innerTerms: TermGeneric<CodeLocation>[] = embedPredInScope
-			? [...allArgs2, ...sourceTerms, pred]
-			: [...allArgs2, ...sourceTerms];
-		return [scopeSynthFresh(mergedSynth, innerTerms), pred] as const;
+		const innerTerms: TermGeneric<CodeLocation>[] =
+			embedPredInScope
+				? [...allArgs2, ...sourceTerms, pred]
+				: [...allArgs2, ...sourceTerms];
+		return [
+			scopeSynthFresh(mergedSynth, innerTerms),
+			pred,
+		] as const;
 	});
 }
 
@@ -320,9 +371,10 @@ function expressionOrPredicateDefinitionToAstEffect(
 			});
 		default:
 			return Effect.gen(function* () {
-				const [c1, c2, c4] = yield* runExpressionDesugarEffect(
-					parseExpr(node, unifyVar),
-				);
+				const [c1, c2, c4] =
+					yield* runExpressionDesugarEffect(
+						parseExpr(node, unifyVar),
+					);
 				if (c1 === undefined) {
 					if (c2 === undefined) {
 						throw new Error("Both c1 and c2 are undefined");
@@ -342,7 +394,11 @@ function expressionOrPredicateDefinitionToAstEffect(
  */
 function unificationToAstEffect(
 	node: Parser.SyntaxNode,
-): Effect.Effect<TermGeneric<CodeLocation>[], never, FrCounter> {
+): Effect.Effect<
+	TermGeneric<CodeLocation>[],
+	never,
+	FrCounter
+> {
 	return Effect.gen(function* () {
 		const frRef = yield* FrCounter;
 		const startFr = yield* Ref.get(frRef);
@@ -364,9 +420,10 @@ function unificationToAstEffect(
 			readonly mergedSynth: IdentifierGeneric<CodeLocation>[];
 		};
 
-		const [a1, a1terms, a1Synth] = yield* runExpressionDesugarEffect(
-			parseExpr(lhsField),
-		);
+		const [a1, a1terms, a1Synth] =
+			yield* runExpressionDesugarEffect(
+				parseExpr(lhsField),
+			);
 		const [b1, b1terms, b1Synth] =
 			yield* expressionOrPredicateDefinitionToAstEffect(
 				rhsField,
@@ -386,12 +443,13 @@ function unificationToAstEffect(
 				rhsField,
 				undefined,
 			);
-		const [a2, a2terms, a2Synth] = yield* runExpressionDesugarEffect(
-			parseExpr(
-				lhsField,
-				b2.type === "identifier" ? b2 : undefined,
-			),
-		);
+		const [a2, a2terms, a2Synth] =
+			yield* runExpressionDesugarEffect(
+				parseExpr(
+					lhsField,
+					b2.type === "identifier" ? b2 : undefined,
+				),
+			);
 		const p2: Branch = {
 			a: a2,
 			aterms: a2terms,
@@ -411,11 +469,15 @@ function unificationToAstEffect(
 			(isSameIdentifier(p2.a, p2.b) ? 0 : 1);
 		const pick1 = cost1 <= cost2;
 		yield* Ref.set(frRef, pick1 ? end1 : end2);
-		const { a, aterms, b, bterms, mergedSynth } = pick1 ? p1 : p2;
+		const { a, aterms, b, bterms, mergedSynth } = pick1
+			? p1
+			: p2;
 
 		if (b.type === "predicate_definition") {
 			if (a.type !== "identifier") {
-				throw new Error("Source of predicate must be an identifier");
+				throw new Error(
+					"Source of predicate must be an identifier",
+				);
 			}
 			return scopeSynthFresh(mergedSynth, [
 				...aterms,
