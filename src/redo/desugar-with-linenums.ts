@@ -105,9 +105,9 @@ export function toAst1(
 			);
 		case "unification": {
 			const [a1, a1terms, frCounter2, a1Synth] =
-				expressionToAstFRESH(
-					node.childForFieldName("lhs"),
+				runExpressionDesugarSync(
 					frCounter,
+					parseExpr(node.childForFieldName("lhs")),
 				);
 			const [b1, b1terms, frCounter5, b1Synth] =
 				expressionOrPredicateDefinitionToAst(
@@ -121,10 +121,9 @@ export function toAst1(
 					frCounter,
 				);
 			const [a2, a2terms, frCounter4, a2Synth] =
-				expressionToAstFRESH(
-					node.childForFieldName("lhs"),
+				runExpressionDesugarSync(
 					frCounter3,
-					b2.type === "identifier" ? b2 : undefined,
+					parseExpr(node.childForFieldName("lhs"), b2.type === "identifier" ? b2 : undefined),
 				);
 			const k = node.childForFieldName("operator")?.text as
 				| "="
@@ -198,13 +197,13 @@ export function toAst1(
 			return [aterms, frCounter2];
 		}
 		case "for_control_statement": {
-			const [c, cterms, fr1, cSynth] = expressionToAstFRESH(
-				node.children[2],
+			const [c, cterms, fr1, cSynth] = runExpressionDesugarSync(
 				frCounter,
+				parseExpr(node.children[2]),
 			);
-			const [d, dterms, fr3, dSynth] = expressionToAstFRESH(
-				node.children[4],
+			const [d, dterms, fr3, dSynth] = runExpressionDesugarSync(
 				fr1,
+				parseExpr(node.children[4]),
 			);
 			return [
 				scopeSynthFresh(mergeSynthIds(cSynth, dSynth), [
@@ -266,9 +265,9 @@ export function toAst1(
 		}
 		// Data statement
 		case "data_statement": {
-			const [c, cterms, fr1, cSynth] = expressionToAstFRESH(
-				node.children[1],
+			const [c, cterms, fr1, cSynth] = runExpressionDesugarSync(
 				frCounter,
+				parseExpr(node.children[1]),
 			);
 			const [b, frCounter3] = buildCompoundLogic(
 				node.children[3],
@@ -373,7 +372,7 @@ function extractPredicate(
 		>(
 			(acc, nc) => {
 				const [arg, argTerms, frPlus, sy] =
-					expressionToAstFRESH(nc, acc[1]);
+					runExpressionDesugarSync(acc[1], parseExpr(nc));
 				return [
 					acc[0].concat([[arg, argTerms]]),
 					frPlus,
@@ -387,7 +386,7 @@ function extractPredicate(
 			],
 		);
 	const [source, sourceTerms, frCounter3, srcSynth] =
-		expressionToAstFRESH(node.children[0], frCounter2);
+		runExpressionDesugarSync(frCounter2, parseExpr(node.children[0]));
 	if (source.type !== "identifier") {
 		throw new Error(
 			"Source of predicate must be an identifier",
@@ -542,10 +541,9 @@ function expressionOrPredicateDefinitionToAst(
 			return [pt, [], nAfter, nameSynth];
 		}
 		default: {
-			const [c1, c2, c3, c4] = expressionToAstFRESH(
-				node,
+			const [c1, c2, c3, c4] = runExpressionDesugarSync(
 				frCounter,
-				unifyVar,
+				parseExpr(node, unifyVar),
 			);
 			if (c1 === undefined) {
 				if (c2 === undefined) {
@@ -558,21 +556,6 @@ function expressionOrPredicateDefinitionToAst(
 			return [c1, c2, c3, c4];
 		}
 	}
-}
-
-/** Outer entry: one `runExpressionDesugarSync` per source expression (unify arm, `for_control`, etc.). */
-function expressionToAstFRESH(
-	node1: Parser.SyntaxNode | null | undefined,
-	frCounter: number,
-	unifyVar?: IdentifierGeneric<CodeLocation>,
-): ExprFresh {
-	if (node1 === undefined || node1 === null) {
-		throw new Error("Node is undefined");
-	}
-	return runExpressionDesugarSync(
-		frCounter,
-		parseExpr(node1, unifyVar),
-	);
 }
 
 function handleEmptyCompoundLogic(
