@@ -96,7 +96,7 @@ function listValsToList(
           nnc.children[1],
           undefined,
         );
-        const out = unifyVar ?? (yield* genFresh());
+        const out = yield* genFresh();
         yield* appendTermsEffect([
           builtin("internal_append", src, [splatExpr, cur, out]),
         ]);
