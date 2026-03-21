@@ -306,7 +306,10 @@ export function mapVars(
 			case "with":
 				return {
 					...t,
-					name: mapVars([t.name], fn)[0] as PredicateCallGeneric<undefined>,
+					name: mapVars(
+						[t.name],
+						fn,
+					)[0] as PredicateCallGeneric<undefined>,
 					body: {
 						...t.body,
 						terms: mapVars(t.body.terms, fn),
@@ -366,7 +369,10 @@ export function mapVarsGeneric<T, Z>(
 			case "with":
 				return {
 					...t,
-					name: mapVarsGeneric([t.name], fn)[0] as PredicateCallGeneric<Z>,
+					name: mapVarsGeneric(
+						[t.name],
+						fn,
+					)[0] as PredicateCallGeneric<Z>,
 					body: {
 						...t.body,
 						terms: mapVarsGeneric(t.body.terms, fn),
@@ -699,7 +705,11 @@ export function mapVarsWithState<T, Z, S>(
 				break;
 			}
 			case "with": {
-				const [newName, newState] = mapVarsWithState([t.name], fn, s);
+				const [newName, newState] = mapVarsWithState(
+					[t.name],
+					fn,
+					s,
+				);
 				const [newBody, newState2] = mapVarsWithState(
 					t.body.terms,
 					fn,
@@ -1383,9 +1393,7 @@ export function gatherVarInstanceInfo<T>(
 
 export function mapToGeneric<A, T>(
 	ts: TermGeneric<A>[],
-	fn: (
-		v: IdentifierGeneric<A>,
-	) => IdentifierGeneric<T>,
+	fn: (v: IdentifierGeneric<A>) => IdentifierGeneric<T>,
 ): TermGeneric<T>[] {
 	return ts.map((t) => {
 		switch (t.type) {
@@ -1407,7 +1415,10 @@ export function mapToGeneric<A, T>(
 			case "with":
 				return {
 					...t,
-					name: mapToGeneric([t.name], fn)[0] as PredicateCallGeneric<T>,
+					name: mapToGeneric(
+						[t.name],
+						fn,
+					)[0] as PredicateCallGeneric<T>,
 					body: {
 						...t.body,
 						terms: mapToGeneric(t.body.terms, fn),
@@ -1484,7 +1495,10 @@ export function mapReducePredCalls<T, Z, S>(
 				break;
 			}
 			case "with": {
-				const [newCall, newState0] = reduceFn(acc, mapFn(t.name));
+				const [newCall, newState0] = reduceFn(
+					acc,
+					mapFn(t.name),
+				);
 				const [newBody, newState1] = mapReducePredCalls(
 					t.body.terms,
 					mapFn,
@@ -1595,7 +1609,10 @@ export function mapReducePredCalls2<T, Z, S>(
 				break;
 			}
 			case "with": {
-				const [newCall, newState0] = reduceFn(acc, mapFn(t.name));
+				const [newCall, newState0] = reduceFn(
+					acc,
+					mapFn(t.name),
+				);
 				const [newBody, newState] = mapReducePredCalls2(
 					t.body.terms,
 					mapFn,

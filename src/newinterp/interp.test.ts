@@ -2,14 +2,24 @@ import { test, describe, expect } from "@jest/globals";
 import type { TermGeneric } from "src/types/AstGeneric";
 import type { CodeLocation } from "src/redo/codeloc";
 import { interp } from "./interp";
-import { fresh1, freshNominal1, make } from "src/utils/make_better_typed";
+import {
+	fresh1,
+	freshNominal1,
+	make,
+} from "src/utils/make_better_typed";
 
-import { conj, call, id, lit, def, cx, cl } from "./asttestutils";
+import {
+	conj,
+	call,
+	id,
+	lit,
+	def,
+	cx,
+	cl,
+} from "./asttestutils";
 describe("newinterp", () => {
 	test("simple unify", () => {
-		const main = conj(
-			cl.unify(cx.x, lit("hello")),
-		);
+		const main = conj(cl.unify(cx.x, lit("hello")));
 		const ast: TermGeneric<CodeLocation>[] = [main];
 		const states = interp(5, ast, {
 			vars: ["x"],
@@ -29,7 +39,8 @@ describe("newinterp", () => {
 	});
 
 	test("set_key_of then unify value", () => {
-		const main = fresh1([cx.obj],
+		const main = fresh1(
+			[cx.obj],
 			cl.set_key_of(cx.obj, lit("k"), cx.val),
 			cl.unify(cx.val, lit("hello")),
 		);
@@ -45,9 +56,9 @@ describe("newinterp", () => {
 				cl.first(cx.a, cx.l),
 				fresh1(
 					[cx.vv],
-					
-						cl.rest(cx.l, cx.vv),
-						cl.membero(cx.a, cx.vv),
+
+					cl.rest(cx.l, cx.vv),
+					cl.membero(cx.a, cx.vv),
 				),
 			]),
 		);
@@ -96,20 +107,14 @@ describe("newinterp", () => {
 		const ast: TermGeneric<CodeLocation>[] = [
 			fresh1(
 				[cx.x],
-				
-					cl.unify(cx.x, lit("outer")),
-					fresh1(
-						[cx.x],
-					
-							call(
-								"unify",
-								cx.x,
-								lit("inner"),
-							),
-						
-					),
-					cl.unify(cx.x, lit("outer")),
-				
+
+				cl.unify(cx.x, lit("outer")),
+				fresh1(
+					[cx.x],
+
+					call("unify", cx.x, lit("inner")),
+				),
+				cl.unify(cx.x, lit("outer")),
 			),
 		];
 		const states = interp(5, ast);
@@ -150,7 +155,9 @@ describe("newinterp", () => {
 	});
 
 	test("with invokes predicate with body AST and env objects", () => {
-		const withAcceptBody = conj(cl.unify(cx.bodyAst, cx.bodyAst));
+		const withAcceptBody = conj(
+			cl.unify(cx.bodyAst, cx.bodyAst),
+		);
 		const withHandler = def(
 			"with_accept",
 			[cx.bodyAst, cx.env],
@@ -163,7 +170,10 @@ describe("newinterp", () => {
 			),
 			cl.unify(cx.x, lit("ok")),
 		);
-		const ast: TermGeneric<CodeLocation>[] = [withHandler, main];
+		const ast: TermGeneric<CodeLocation>[] = [
+			withHandler,
+			main,
+		];
 		const states = interp(5, ast, { vars: ["x"] });
 		expect(states.length).toBe(1);
 		expect(states[0].x).toBe("ok");
@@ -175,13 +185,13 @@ describe("newinterp", () => {
 			conj(cl.unify(cx.x, lit("ok"))),
 		);
 		const ast: TermGeneric<CodeLocation>[] = [main];
-		expect(() => interp(5, ast, { vars: ["x"] })).toThrow("Variable nonexistent_pred not found in env");
+		expect(() => interp(5, ast, { vars: ["x"] })).toThrow(
+			"Variable nonexistent_pred not found in env",
+		);
 	});
 
 	test("unify_left: left ground unifies with right", () => {
-		const main = conj(
-			cl.unify_left(lit("a"), cx.x),
-		);
+		const main = conj(cl.unify_left(lit("a"), cx.x));
 		const ast: TermGeneric<CodeLocation>[] = [main];
 		const states = interp(5, ast, { vars: ["x"] });
 		expect(states.length).toBe(1);
@@ -189,9 +199,7 @@ describe("newinterp", () => {
 	});
 
 	test("unify_left: left unbound (lvar) fails", () => {
-		const main = conj(
-			cl.unify_left(cx.x, lit("a")),
-		);
+		const main = conj(cl.unify_left(cx.x, lit("a")));
 		const ast: TermGeneric<CodeLocation>[] = [main];
 		const states = interp(5, ast, { vars: ["x"] });
 		expect(states.length).toBe(0);
@@ -199,11 +207,7 @@ describe("newinterp", () => {
 
 	test("unify_left: both ground equal succeeds", () => {
 		const main = conj(
-			call(
-				"unify_left",
-				lit("a"),
-				lit("a"),
-			),
+			call("unify_left", lit("a"), lit("a")),
 		);
 		const ast: TermGeneric<CodeLocation>[] = [main];
 		const states = interp(5, ast);
@@ -211,9 +215,7 @@ describe("newinterp", () => {
 	});
 
 	test("unify_right: right ground unifies with left", () => {
-		const main = conj(
-			cl.unify_right(cx.x, lit("a")),
-		);
+		const main = conj(cl.unify_right(cx.x, lit("a")));
 		const ast: TermGeneric<CodeLocation>[] = [main];
 		const states = interp(5, ast, { vars: ["x"] });
 		expect(states.length).toBe(1);
@@ -221,9 +223,7 @@ describe("newinterp", () => {
 	});
 
 	test("unify_right: right unbound (lvar) fails", () => {
-		const main = conj(
-			cl.unify_right(lit("a"), cx.x),
-		);
+		const main = conj(cl.unify_right(lit("a"), cx.x));
 		const ast: TermGeneric<CodeLocation>[] = [main];
 		const states = interp(5, ast, { vars: ["x"] });
 		expect(states.length).toBe(0);
@@ -252,13 +252,7 @@ describe("newinterp", () => {
 
 	test("length: list ground yields count", () => {
 		const main = conj(
-			call(
-				"list",
-				cx.l,
-				lit("a"),
-				lit("b"),
-				lit("c"),
-			),
+			call("list", cx.l, lit("a"), lit("b"), lit("c")),
 			cl.length(cx.l, cx.n),
 		);
 		const ast: TermGeneric<CodeLocation>[] = [main];
@@ -280,13 +274,7 @@ describe("newinterp", () => {
 
 	test("slice: list and index ground yields element", () => {
 		const main = conj(
-			call(
-				"list",
-				cx.l,
-				lit("a"),
-				lit("b"),
-				lit("c"),
-			),
+			call("list", cx.l, lit("a"), lit("b"), lit("c")),
 			cl.slice(cx.l, lit(1), cx.x),
 		);
 		const ast: TermGeneric<CodeLocation>[] = [main];
@@ -297,12 +285,7 @@ describe("newinterp", () => {
 
 	test("slice: index 0 yields first element", () => {
 		const main = conj(
-			call(
-				"list",
-				cx.l,
-				lit("a"),
-				lit("b"),
-			),
+			call("list", cx.l, lit("a"), lit("b")),
 			cl.slice(cx.l, lit(0), cx.x),
 		);
 		const ast: TermGeneric<CodeLocation>[] = [main];
@@ -313,12 +296,7 @@ describe("newinterp", () => {
 
 	test("multiply: two ground gives product", () => {
 		const main = conj(
-			call(
-				"multiply",
-				lit(2),
-				lit(3),
-				cx.x,
-			),
+			call("multiply", lit(2), lit(3), cx.x),
 		);
 		const ast: TermGeneric<CodeLocation>[] = [main];
 		const states = interp(5, ast, { vars: ["x"] });
@@ -328,12 +306,7 @@ describe("newinterp", () => {
 
 	test("multiply: one unknown (a, c ground) solves for b", () => {
 		const main = conj(
-			call(
-				"multiply",
-				lit(2),
-				cx.x,
-				lit(6),
-			),
+			call("multiply", lit(2), cx.x, lit(6)),
 		);
 		const ast: TermGeneric<CodeLocation>[] = [main];
 		const states = interp(5, ast, { vars: ["x"] });
@@ -342,14 +315,7 @@ describe("newinterp", () => {
 	});
 
 	test("divide: two ground gives quotient", () => {
-		const main = conj(
-			call(
-				"divide",
-				lit(6),
-				lit(2),
-				cx.x,
-			),
-		);
+		const main = conj(call("divide", lit(6), lit(2), cx.x));
 		const ast: TermGeneric<CodeLocation>[] = [main];
 		const states = interp(5, ast, { vars: ["x"] });
 		expect(states.length).toBe(1);
@@ -357,14 +323,7 @@ describe("newinterp", () => {
 	});
 
 	test("modulo: two ground gives remainder", () => {
-		const main = conj(
-			call(
-				"modulo",
-				lit(7),
-				lit(3),
-				cx.x,
-			),
-		);
+		const main = conj(call("modulo", lit(7), lit(3), cx.x));
 		const ast: TermGeneric<CodeLocation>[] = [main];
 		const states = interp(5, ast, { vars: ["x"] });
 		expect(states.length).toBe(1);
@@ -372,9 +331,7 @@ describe("newinterp", () => {
 	});
 
 	test("negate: ground gives negative", () => {
-		const main = conj(
-			cl.negate(lit(5), cx.x),
-		);
+		const main = conj(cl.negate(lit(5), cx.x));
 		const ast: TermGeneric<CodeLocation>[] = [main];
 		const states = interp(5, ast, { vars: ["x"] });
 		expect(states.length).toBe(1);
@@ -382,7 +339,8 @@ describe("newinterp", () => {
 	});
 
 	test("integration: list then length only", () => {
-		const main = fresh1([cx.theList],
+		const main = fresh1(
+			[cx.theList],
 			call(
 				"list",
 				cx.theList,
@@ -400,13 +358,7 @@ describe("newinterp", () => {
 
 	test("integration: list then slice only", () => {
 		const main = conj(
-			call(
-				"list",
-				cx.l,
-				lit("a"),
-				lit("b"),
-				lit("c"),
-			),
+			call("list", cx.l, lit("a"), lit("b"), lit("c")),
 			cl.slice(cx.l, lit(0), cx.x),
 		);
 		const ast: TermGeneric<CodeLocation>[] = [main];
@@ -417,13 +369,7 @@ describe("newinterp", () => {
 
 	test("integration: length then slice", () => {
 		const main = conj(
-			call(
-				"list",
-				cx.l,
-				lit("a"),
-				lit("b"),
-				lit("c"),
-			),
+			call("list", cx.l, lit("a"), lit("b"), lit("c")),
 			cl.length(cx.l, cx.n),
 			cl.slice(cx.l, lit(0), cx.x),
 		);
@@ -438,18 +384,8 @@ describe("newinterp", () => {
 
 	test("integration: add and multiply chain", () => {
 		const main = conj(
-			call(
-				"add",
-				lit(1),
-				lit(2),
-				cx.s,
-			),
-			call(
-				"multiply",
-				cx.s,
-				lit(3),
-				cx.p,
-			),
+			call("add", lit(1), lit(2), cx.s),
+			call("multiply", cx.s, lit(3), cx.p),
 		);
 		const ast: TermGeneric<CodeLocation>[] = [main];
 		const states = interp(5, ast, { vars: ["s", "p"] });
@@ -459,7 +395,6 @@ describe("newinterp", () => {
 	});
 
 	describe("nominal logic builtins (tie, hash)", () => {
-
 		test("tie: builds tie term from nominal and body", () => {
 			const main = freshNominal1(
 				[cx.nom],
@@ -467,7 +402,9 @@ describe("newinterp", () => {
 				cl.tie(cx.t, cx.nom, lit("body")),
 			);
 			const ast: TermGeneric<CodeLocation>[] = [main];
-			const states = interp(5, ast, { vars: ["nomf", "t"] });
+			const states = interp(5, ast, {
+				vars: ["nomf", "t"],
+			});
 			expect(states.length).toBe(1);
 			expect(states[0].t).toEqual({
 				name: "Nom(0)",
@@ -485,11 +422,15 @@ describe("newinterp", () => {
 			const ast: TermGeneric<CodeLocation>[] = [main];
 			const states = interp(5, ast, { vars: ["n", "t"] });
 			expect(states.length).toBe(1);
-			expect(states[0].t).toEqual({ name: "Nom(0)", term: "a" });
+			expect(states[0].t).toEqual({
+				name: "Nom(0)",
+				term: "a",
+			});
 		});
 
 		test("nominal integration: two gen_nominal then tie each", () => {
-			const main = freshNominal1([cx.a, cx.b],
+			const main = freshNominal1(
+				[cx.a, cx.b],
 				cl.unify(cx.a, cx.aa),
 				cl.unify(cx.b, cx.bb),
 				cl.tie(cx.t1, cx.a, lit("x")),
@@ -502,8 +443,14 @@ describe("newinterp", () => {
 			expect(states.length).toBe(1);
 			expect(states[0].aa).toBe("Nom(0)");
 			expect(states[0].bb).toBe("Nom(1)");
-			expect(states[0].t1).toEqual({ name: "Nom(0)", term: "x" });
-			expect(states[0].t2).toEqual({ name: "Nom(1)", term: "y" });
+			expect(states[0].t1).toEqual({
+				name: "Nom(0)",
+				term: "x",
+			});
+			expect(states[0].t2).toEqual({
+				name: "Nom(1)",
+				term: "y",
+			});
 		});
 	});
 });

@@ -327,7 +327,10 @@ export const make_pred_expr = <T>(
 ): FullExpression<T> => {
 	// If out_id is null, create a new unique identifier
 	if (out_id === null) {
-		out_id = make.identifier(srcInfo, `out_${Math.random().toString(36).substring(2, 15)}`);
+		out_id = make.identifier(
+			srcInfo,
+			`out_${Math.random().toString(36).substring(2, 15)}`,
+		);
 	}
 	// splice in the id into the out_index
 	const args = args2.toSpliced(
@@ -504,39 +507,30 @@ export const ezmakeMaker = <T>(srcInfo: T) => ({
 	) => make_pred_expr(pred, args, srcInfo, out_id, 0),
 });
 
-
-export const ezmakeMaker2 = <T>(srcInfo: T) => (out_id: FlexExpression<T> | null = null) => {
-	const mkpred = (pred: string, ...args: FlexExpression<T>[]) => make_pred_expr(pred, args, srcInfo, out_id, 0,);
-	return ({
-		// The rest of (l) is out_id, the remainder of the list
-		rest: (l: Expression<T>) =>
-			mkpred("rest", l),
-		// The first of (l) is out_id
-		first: (l: Expression<T>) =>
-			mkpred("first", l),
-		empty: () =>
-			mkpred("empty"),
-	
-		rest2: (
-			l: FlexExpression<T>,
-		) => mkpred("rest", l),
-		first2: (
-			l: FlexExpression<T>,
-		) => mkpred("first", l),
-		cons2: (
-			a: FlexExpression<T>,
-			b: FlexExpression<T>,
-		) => mkpred("cons", a, b),
-		list: (
-			...args: FlexExpression<T>[]
-		) => mkpred("list", ...args),
-		pred: (
+export const ezmakeMaker2 =
+	<T>(srcInfo: T) =>
+	(out_id: FlexExpression<T> | null = null) => {
+		const mkpred = (
 			pred: string,
 			...args: FlexExpression<T>[]
-		) => mkpred(pred, ...args),
-	});
-};
+		) => make_pred_expr(pred, args, srcInfo, out_id, 0);
+		return {
+			// The rest of (l) is out_id, the remainder of the list
+			rest: (l: Expression<T>) => mkpred("rest", l),
+			// The first of (l) is out_id
+			first: (l: Expression<T>) => mkpred("first", l),
+			empty: () => mkpred("empty"),
 
+			rest2: (l: FlexExpression<T>) => mkpred("rest", l),
+			first2: (l: FlexExpression<T>) => mkpred("first", l),
+			cons2: (a: FlexExpression<T>, b: FlexExpression<T>) =>
+				mkpred("cons", a, b),
+			list: (...args: FlexExpression<T>[]) =>
+				mkpred("list", ...args),
+			pred: (pred: string, ...args: FlexExpression<T>[]) =>
+				mkpred(pred, ...args),
+		};
+	};
 
 // Use Proxy to generate identifiers super easily
 

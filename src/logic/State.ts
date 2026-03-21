@@ -5,7 +5,10 @@ import {
 } from "immutable";
 import { type LTerm, LLVar, LNom } from "./terms";
 import { Subst } from "./Subst";
-import { unifyKeyOf as kvUnifyKeyOf, mergeKvStore } from "./kv";
+import {
+	unifyKeyOf as kvUnifyKeyOf,
+	mergeKvStore,
+} from "./kv";
 import {
 	type CleanOutput,
 	type Nominal,
@@ -82,7 +85,11 @@ export class State extends ImmRecord(stateDefaults) {
 		return merged !== null ? merged : null;
 	}
 
-	unifyKeyOf(obj2: LTerm, key: string, value2: LTerm): State | null {
+	unifyKeyOf(
+		obj2: LTerm,
+		key: string,
+		value2: LTerm,
+	): State | null {
 		return kvUnifyKeyOf(this, obj2, key, value2);
 	}
 

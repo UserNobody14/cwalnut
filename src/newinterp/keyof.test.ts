@@ -15,7 +15,15 @@ import {
 } from "./jsonKeyOf";
 import { Map as ImmMap } from "immutable";
 import { makeLiteral } from "src/logic/makelvar";
-import { conj, call, id, lit, def, cx, cl } from "./asttestutils";
+import {
+	conj,
+	call,
+	id,
+	lit,
+	def,
+	cx,
+	cl,
+} from "./asttestutils";
 
 const cloc: CodeLocation = defaultCodeLocation;
 
@@ -29,9 +37,8 @@ function runInterp(
 	return r;
 }
 
-
 describe("keyof tests", () => {
-    test("set_key_of then unify value", () => {
+	test("set_key_of then unify value", () => {
 		const main = fresh1(
 			[cx.obj],
 			cl.set_key_of(cx.obj, lit("k"), cx.val),
@@ -43,7 +50,7 @@ describe("keyof tests", () => {
 		expect(states[0].val).toBe("hello");
 	});
 
-    test("set_key_of then unify value with different key", () => {
+	test("set_key_of then unify value with different key", () => {
 		const main = fresh1(
 			[cx.obj],
 			cl.set_key_of(cx.obj, lit("k"), cx.val),
@@ -55,7 +62,7 @@ describe("keyof tests", () => {
 		expect(states[0].val).toBe("hello");
 	});
 
-    test("set two different objects with the same key (different values) and unify them (should fail)", () => {
+	test("set two different objects with the same key (different values) and unify them (should fail)", () => {
 		const main = fresh1(
 			[cx.obj1, cx.obj2],
 			cl.set_key_of(cx.obj1, lit("k"), lit("hello")),
@@ -63,16 +70,18 @@ describe("keyof tests", () => {
 			cl.unify(cx.obj1, cx.obj2),
 		);
 		const ast: TermGeneric<CodeLocation>[] = [main];
-		const states = runInterp(5, ast, { vars: ["obj1", "obj2"] });
+		const states = runInterp(5, ast, {
+			vars: ["obj1", "obj2"],
+		});
 		expect(states.length).toBe(0);
 	});
 
-    test("set two different objects with the same key (same value) and unify them (should succeed)", () => {
+	test("set two different objects with the same key (same value) and unify them (should succeed)", () => {
 		const main = fresh1(
 			[cx.obj1, cx.obj2],
 			cl.set_key_of(cx.obj1, lit("k"), cx.val),
 			cl.set_key_of(cx.obj2, lit("k"), cx.val),
-            cl.unify(cx.val, lit("hello")),
+			cl.unify(cx.val, lit("hello")),
 			cl.unify(cx.obj1, cx.obj2),
 		);
 		const ast: TermGeneric<CodeLocation>[] = [main];
@@ -81,26 +90,32 @@ describe("keyof tests", () => {
 		expect(states[0].val).toBe("hello");
 	});
 
-    test("set two different objects with the same key (one with value, one with variable) and unify them (should succeed and solve for the variable)", () => {
-        const main = fresh1(
-            [cx.obj1, cx.obj2],
-            cl.unify(cx.val, lit("hello")),
-            cl.set_key_of(cx.obj1, lit("k"), cx.val),
-            cl.set_key_of(cx.obj2, lit("k"), cx.val2),
-            cl.unify(cx.obj1, cx.obj2),
-        );
-        const ast: TermGeneric<CodeLocation>[] = [main];
-        const states = runInterp(5, ast, { vars: ["val", "val2"] });
-        expect(states.length).toBe(1);
-        expect(states[0].val).toBe("hello");
-        expect(states[0].val2).toBe("hello");
-    });
+	test("set two different objects with the same key (one with value, one with variable) and unify them (should succeed and solve for the variable)", () => {
+		const main = fresh1(
+			[cx.obj1, cx.obj2],
+			cl.unify(cx.val, lit("hello")),
+			cl.set_key_of(cx.obj1, lit("k"), cx.val),
+			cl.set_key_of(cx.obj2, lit("k"), cx.val2),
+			cl.unify(cx.obj1, cx.obj2),
+		);
+		const ast: TermGeneric<CodeLocation>[] = [main];
+		const states = runInterp(5, ast, {
+			vars: ["val", "val2"],
+		});
+		expect(states.length).toBe(1);
+		expect(states[0].val).toBe("hello");
+		expect(states[0].val2).toBe("hello");
+	});
 
 	test("jsonToKeyOfGoal: nested JSON on a fresh var produces one state", () => {
 		const goal = all(
 			builtinGoals(),
 			freshInternal((obj) =>
-				jsonToKeyOfGoal(obj, { a: 1, b: "two", c: { d: true } }),
+				jsonToKeyOfGoal(obj, {
+					a: 1,
+					b: "two",
+					c: { d: true },
+				}),
 			),
 		);
 		const states = run(1, goal);
@@ -123,12 +138,19 @@ describe("keyof tests", () => {
 		const json = astBodyToJson(body);
 		expect(json.type).toBe("conjunction");
 		expect(Array.isArray(json.terms)).toBe(true);
-		expect((json.terms as Record<string, unknown>[]).length).toBe(1);
-		const term = (json.terms as Record<string, unknown>[])[0];
+		expect(
+			(json.terms as Record<string, unknown>[]).length,
+		).toBe(1);
+		const term = (
+			json.terms as Record<string, unknown>[]
+		)[0];
 		expect(term).toEqual({
 			type: "predicate_call",
 			source: { type: "identifier", value: "unify" },
-			args: [{ type: "identifier", value: "x" }, { type: "literal", kind: "string", value: "a" }],
+			args: [
+				{ type: "identifier", value: "x" },
+				{ type: "literal", kind: "string", value: "a" },
+			],
 		});
 		expect(term.type).toBe("predicate_call");
 	});
@@ -144,13 +166,15 @@ describe("keyof tests", () => {
 	});
 
 	test("envToKeyOfGoal: env bindings produce one state", () => {
-		const env = ImmMap<string, ReturnType<typeof makeLiteral>>().set(
-			"x",
-			makeLiteral("hello"),
-		);
+		const env = ImmMap<
+			string,
+			ReturnType<typeof makeLiteral>
+		>().set("x", makeLiteral("hello"));
 		const goal = all(
 			builtinGoals(),
-			freshInternal((envVar) => envToKeyOfGoal(envVar, env)),
+			freshInternal((envVar) =>
+				envToKeyOfGoal(envVar, env),
+			),
 		);
 		const states = run(1, goal);
 		expect(states.length).toBe(1);

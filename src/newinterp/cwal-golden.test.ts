@@ -26,36 +26,66 @@ type ParamsFile = {
 };
 
 function readParams(testname: string): ParamsFile {
-	const file = path.join(PARAMS_DIR, `${testname}.params.json`);
-	const raw: unknown = JSON.parse(fs.readFileSync(file, "utf8"));
-	if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
+	const file = path.join(
+		PARAMS_DIR,
+		`${testname}.params.json`,
+	);
+	const raw: unknown = JSON.parse(
+		fs.readFileSync(file, "utf8"),
+	);
+	if (
+		typeof raw !== "object" ||
+		raw === null ||
+		Array.isArray(raw)
+	) {
 		throw new Error(`${file}: expected a JSON object`);
 	}
 	const o = raw as Record<string, unknown>;
 	if (typeof o.limit !== "number") {
-		throw new Error(`${file}: missing or invalid "limit" (number)`);
+		throw new Error(
+			`${file}: missing or invalid "limit" (number)`,
+		);
 	}
-	if (!Array.isArray(o.vars) || !o.vars.every((v) => typeof v === "string")) {
-		throw new Error(`${file}: missing or invalid "vars" (string[])`);
+	if (
+		!Array.isArray(o.vars) ||
+		!o.vars.every((v) => typeof v === "string")
+	) {
+		throw new Error(
+			`${file}: missing or invalid "vars" (string[])`,
+		);
 	}
 	if (
 		o.extraNum !== undefined &&
-		(typeof o.extraNum !== "number" || !Number.isFinite(o.extraNum))
+		(typeof o.extraNum !== "number" ||
+			!Number.isFinite(o.extraNum))
 	) {
-		throw new Error(`${file}: invalid "extraNum" (optional number)`);
+		throw new Error(
+			`${file}: invalid "extraNum" (optional number)`,
+		);
 	}
 	return {
 		limit: o.limit,
 		vars: o.vars as string[],
-		...(o.extraNum !== undefined ? { extraNum: o.extraNum as number } : {}),
+		...(o.extraNum !== undefined
+			? { extraNum: o.extraNum as number }
+			: {}),
 	};
 }
 
-function readExpectedResult(testname: string): InterpResult {
-	const file = path.join(RESULTS_DIR, `${testname}.result.json`);
-	const raw: unknown = JSON.parse(fs.readFileSync(file, "utf8"));
+function readExpectedResult(
+	testname: string,
+): InterpResult {
+	const file = path.join(
+		RESULTS_DIR,
+		`${testname}.result.json`,
+	);
+	const raw: unknown = JSON.parse(
+		fs.readFileSync(file, "utf8"),
+	);
 	if (!Array.isArray(raw)) {
-		throw new Error(`${file}: expected a top-level JSON array (InterpResult)`);
+		throw new Error(
+			`${file}: expected a top-level JSON array (InterpResult)`,
+		);
 	}
 	return raw as InterpResult;
 }
@@ -73,8 +103,14 @@ function listCwalTestNames(): string[] {
 
 function assertTripleExists(testname: string): void {
 	const cwal = path.join(CWAL_DIR, `${testname}.cwal`);
-	const params = path.join(PARAMS_DIR, `${testname}.params.json`);
-	const result = path.join(RESULTS_DIR, `${testname}.result.json`);
+	const params = path.join(
+		PARAMS_DIR,
+		`${testname}.params.json`,
+	);
+	const result = path.join(
+		RESULTS_DIR,
+		`${testname}.result.json`,
+	);
 	const missing: string[] = [];
 	if (!fs.existsSync(cwal)) missing.push(cwal);
 	if (!fs.existsSync(params)) missing.push(params);
@@ -86,7 +122,10 @@ function assertTripleExists(testname: string): void {
 	}
 }
 
-function collectOrphans(): { params: string[]; results: string[] } {
+function collectOrphans(): {
+	params: string[];
+	results: string[];
+} {
 	const names = new Set(listCwalTestNames());
 	const paramsOrphans: string[] = [];
 	const resultsOrphans: string[] = [];
@@ -95,17 +134,22 @@ function collectOrphans(): { params: string[]; results: string[] } {
 		for (const f of fs.readdirSync(PARAMS_DIR)) {
 			if (!f.endsWith(".params.json")) continue;
 			const base = f.slice(0, -".params.json".length);
-			if (!names.has(base)) paramsOrphans.push(path.join(PARAMS_DIR, f));
+			if (!names.has(base))
+				paramsOrphans.push(path.join(PARAMS_DIR, f));
 		}
 	}
 	if (fs.existsSync(RESULTS_DIR)) {
 		for (const f of fs.readdirSync(RESULTS_DIR)) {
 			if (!f.endsWith(".result.json")) continue;
 			const base = f.slice(0, -".result.json".length);
-			if (!names.has(base)) resultsOrphans.push(path.join(RESULTS_DIR, f));
+			if (!names.has(base))
+				resultsOrphans.push(path.join(RESULTS_DIR, f));
 		}
 	}
-	return { params: paramsOrphans.sort(), results: resultsOrphans.sort() };
+	return {
+		params: paramsOrphans.sort(),
+		results: resultsOrphans.sort(),
+	};
 }
 
 describe("cwal golden (file-based)", () => {
@@ -137,7 +181,10 @@ describe("cwal golden (file-based)", () => {
 					: {}),
 			});
 
-			const resultPath = path.join(RESULTS_DIR, `${testname}.result.json`);
+			const resultPath = path.join(
+				RESULTS_DIR,
+				`${testname}.result.json`,
+			);
 			if (UPDATE_GOLDEN) {
 				fs.writeFileSync(
 					resultPath,

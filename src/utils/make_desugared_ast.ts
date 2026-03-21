@@ -372,7 +372,6 @@ export function unify_term(
 					: unify(l, r);
 }
 
-
 function flattenConjunctions(
 	terms: TermGeneric<undefined>[],
 ): TermGeneric<undefined>[] {

@@ -1,7 +1,12 @@
 import { test, describe, expect } from "@jest/globals";
 
 import { codeToAst } from "src/redo/desugar-with-linenums";
-import { ConjunctionGeneric, ExpressionGeneric, IdentifierGeneric, TermGeneric } from "src/types/AstGeneric";
+import {
+	ConjunctionGeneric,
+	ExpressionGeneric,
+	IdentifierGeneric,
+	TermGeneric,
+} from "src/types/AstGeneric";
 import {
 	conjunction1,
 	disjunction1,
@@ -23,12 +28,16 @@ import {
 import { pprintGeneric } from "src/pprint/pprintgeneric";
 import { mapToGeneric } from "src/lens/into-vars";
 
-
-function clearMeta<T>(ast: TermGeneric<T>[]): TermGeneric<undefined>[] {
-	return mapToGeneric(ast, (ig): IdentifierGeneric<undefined> => ({
-		...ig,
-		info: undefined,
-	}));
+function clearMeta<T>(
+	ast: TermGeneric<T>[],
+): TermGeneric<undefined>[] {
+	return mapToGeneric(
+		ast,
+		(ig): IdentifierGeneric<undefined> => ({
+			...ig,
+			info: undefined,
+		}),
+	);
 }
 
 describe("ast-desugar", () => {
@@ -83,30 +92,38 @@ either:
     qq = [45]`;
 		const res = codeToAst(sourceCode);
 		const expectation1 = [
-			// conjunction1(
 			disjunction1(
 				conjunction1(
-					mk_cons(
-						make_literal_ast(1),
-						ezlvar.__fresh_2,
-						ezlvar.__fresh_3,
+					make_fresh(
+						[
+							ezlvar.__fresh_0,
+							ezlvar.__fresh_1,
+							ezlvar.__fresh_2,
+							ezlvar.__fresh_3,
+						],
+						conjunction1(
+							to_empty(ezlvar.__fresh_0),
+							mk_cons(
+								make_literal_ast(1),
+								ezlvar.__fresh_0,
+								ezlvar.__fresh_1,
+							),
+							mk_internal_append(
+								ezlvar.mid,
+								ezlvar.__fresh_1,
+								ezlvar.__fresh_2,
+							),
+							mk_cons(
+								make_literal_ast(6),
+								ezlvar.__fresh_2,
+								ezlvar.__fresh_3,
+							),
+							unify(ezlvar.qq, ezlvar.__fresh_3),
+						),
 					),
-					mk_internal_append(
-						ezlvar.mid,
-						ezlvar.__fresh_1,
-						ezlvar.__fresh_2,
-					),
-					mk_cons(
-						make_literal_ast(6),
-						ezlvar.__fresh_0,
-						ezlvar.__fresh_1,
-					),
-					to_empty(ezlvar.__fresh_0),
-					unify(ezlvar.qq, ezlvar.__fresh_3),
 				),
 				conjunction1(list(ezlvar.qq, make_literal_ast(45))),
 			),
-			// )
 		];
 		expect(clearMeta(res)).toEqual(expectation1);
 	});
@@ -117,23 +134,27 @@ qq = [...einput, ...input2]
 `;
 		const res = codeToAst(sourceCode);
 		const expectation1 = [
-			// conjunction1(
-			// mk_internal_append(ezlvar.__fresh_27, ezlvar.__fresh_28, ezlvar.input2),
-			// // mk_internal_append(ezlvar.einput, ezlvar.__fresh_28, ezlvar.__fresh_29),
-			// mk_internal_append(ezlvar.__fresh_28, ezlvar.__fresh_29, ezlvar.einput),
-			mk_internal_append(
-				ezlvar.einput,
-				ezlvar.__fresh_1,
-				ezlvar.__fresh_2,
+			make_fresh(
+				[
+					ezlvar.__fresh_0,
+					ezlvar.__fresh_1,
+					ezlvar.__fresh_2,
+				],
+				conjunction1(
+					to_empty(ezlvar.__fresh_0),
+					mk_internal_append(
+						ezlvar.einput,
+						ezlvar.__fresh_0,
+						ezlvar.__fresh_1,
+					),
+					mk_internal_append(
+						ezlvar.input2,
+						ezlvar.__fresh_1,
+						ezlvar.__fresh_2,
+					),
+					unify(ezlvar.qq, ezlvar.__fresh_2),
+				),
 			),
-			mk_internal_append(
-				ezlvar.input2,
-				ezlvar.__fresh_0,
-				ezlvar.__fresh_1,
-			),
-			to_empty(ezlvar.__fresh_0),
-			unify(ezlvar.qq, ezlvar.__fresh_2),
-			// )
 		];
 		expect(clearMeta(res)).toEqual(expectation1);
 	});
@@ -162,37 +183,56 @@ either:
 					make_literal_ast(5),
 					make_literal_ast(6),
 				),
-				mk_internal_append(
-					ezlvar.einput,
-					ezlvar.__fresh_1,
-					ezlvar.__fresh_2,
-				),
-				mk_internal_append(
-					ezlvar.input2,
-					ezlvar.__fresh_0,
-					ezlvar.__fresh_1,
-				),
-				to_empty(ezlvar.__fresh_0),
-				unify(ezlvar.qq, ezlvar.__fresh_2),
-				disjunction1(
+				make_fresh(
+					[
+						ezlvar.__fresh_0,
+						ezlvar.__fresh_1,
+						ezlvar.__fresh_2,
+					],
 					conjunction1(
-						mk_cons(
-							make_literal_ast(1),
-							ezlvar.__fresh_5,
-							ezlvar.__fresh_6,
+						to_empty(ezlvar.__fresh_0),
+						mk_internal_append(
+							ezlvar.einput,
+							ezlvar.__fresh_0,
+							ezlvar.__fresh_1,
 						),
 						mk_internal_append(
-							ezlvar.mid,
-							ezlvar.__fresh_4,
-							ezlvar.__fresh_5,
+							ezlvar.input2,
+							ezlvar.__fresh_1,
+							ezlvar.__fresh_2,
 						),
-						mk_cons(
-							make_literal_ast(6),
-							ezlvar.__fresh_3,
-							ezlvar.__fresh_4,
+						unify(ezlvar.qq, ezlvar.__fresh_2),
+					),
+				),
+				disjunction1(
+					conjunction1(
+						make_fresh(
+							[
+								ezlvar.__fresh_3,
+								ezlvar.__fresh_4,
+								ezlvar.__fresh_5,
+								ezlvar.__fresh_6,
+							],
+							conjunction1(
+								to_empty(ezlvar.__fresh_3),
+								mk_cons(
+									make_literal_ast(1),
+									ezlvar.__fresh_3,
+									ezlvar.__fresh_4,
+								),
+								mk_internal_append(
+									ezlvar.mid,
+									ezlvar.__fresh_4,
+									ezlvar.__fresh_5,
+								),
+								mk_cons(
+									make_literal_ast(6),
+									ezlvar.__fresh_5,
+									ezlvar.__fresh_6,
+								),
+								unify(ezlvar.qq, ezlvar.__fresh_6),
+							),
 						),
-						to_empty(ezlvar.__fresh_3),
-						unify(ezlvar.qq, ezlvar.__fresh_6),
 					),
 					conjunction1(
 						list(ezlvar.qq, make_literal_ast(45)),
@@ -200,8 +240,16 @@ either:
 				),
 			),
 		];
-		expect(pprintGeneric(res as TermGeneric<undefined>[], () => "")).toEqual(
-			pprintGeneric(expectation1 as TermGeneric<undefined>[], () => ""),
+		expect(
+			pprintGeneric(
+				res as TermGeneric<undefined>[],
+				() => "",
+			),
+		).toEqual(
+			pprintGeneric(
+				expectation1 as TermGeneric<undefined>[],
+				() => "",
+			),
 		);
 		expect(clearMeta(res)).toEqual(expectation1);
 	});
@@ -465,17 +513,24 @@ type_ast = (ast, type_map) =>
 	});
 });
 
-
 describe("ast-desugar-additional desugaring", () => {
-
 	test("predicate expression", () => {
 		const sourceCode = `
 predcall(arg1, arg2) = 2
 `;
 		const res = codeToAst(sourceCode);
 		const expectation1 = [
-				make_predicate(ezlvar.predcall, [ezlvar.__fresh_0, ezlvar.arg1, ezlvar.arg2]),
-				unify(ezlvar.__fresh_0, make_literal_ast(2)),
+			make_fresh(
+				[ezlvar.__fresh_0],
+				conjunction1(
+					make_predicate(ezlvar.predcall, [
+						ezlvar.__fresh_0,
+						ezlvar.arg1,
+						ezlvar.arg2,
+					]),
+					unify(ezlvar.__fresh_0, make_literal_ast(2)),
+				),
+			),
 		];
 		expect(clearMeta(res)).toEqual(expectation1);
 	});
@@ -487,10 +542,13 @@ with predcall(arg1, arg2):
 `;
 		const res = codeToAst(sourceCode);
 		const expectation1 = [
-			make_with(make_predicate(
-				ezlvar.predcall,
-				[ezlvar.arg1, ezlvar.arg2],
-			), [unify(ezlvar.b, make_literal_ast(1))]),
+			make_with(
+				make_predicate(ezlvar.predcall, [
+					ezlvar.arg1,
+					ezlvar.arg2,
+				]),
+				[unify(ezlvar.b, make_literal_ast(1))],
+			),
 		];
 		expect(clearMeta(res)).toEqual(expectation1);
 	});
@@ -502,14 +560,13 @@ when predcall(a):
 `;
 		const res = codeToAst(sourceCode);
 		const expectation1 = [
-			make_with(make_predicate(
-				ezlvar.predcall,
-				[ezlvar.a],
-			), [unify(ezlvar.b, make_literal_ast(1))]),
+			make_with(
+				make_predicate(ezlvar.predcall, [ezlvar.a]),
+				[unify(ezlvar.b, make_literal_ast(1))],
+			),
 		];
 		expect(clearMeta(res)).toEqual(expectation1);
 	});
-
 
 	test("fresh statement", () => {
 		const sourceCode = `
@@ -520,9 +577,7 @@ fresh a:
 		const expectation1 = [
 			make_fresh(
 				[ezlvar.a],
-				conjunction1(
-					unify(ezlvar.b, make_literal_ast(1)),
-				),
+				conjunction1(unify(ezlvar.b, make_literal_ast(1))),
 			),
 		];
 		expect(clearMeta(res)).toEqual(expectation1);
@@ -576,19 +631,20 @@ data MyData:
 `;
 		const res = codeToAst(sourceCode);
 		const expectation1 = [
-			make_with(make_predicate(
-				ezlvar.data_generator,
-				[ezlvar.MyData],
-			), [
-
-				conjunction1(
+			make_with(
+				make_predicate(ezlvar.data_generator, [
+					ezlvar.MyData,
+				]),
+				[
+					conjunction1(
 						unify(ezlvar.a, make_literal_ast(2)),
 						unify(ezlvar.b, make_literal_ast("hello")),
-				),
-			]),
+					),
+				],
+			),
 		];
 		expect(clearMeta(res)).toEqual(expectation1);
-});
+	});
 
 	test("fresh statement with nominal", () => {
 		const sourceCode = `
@@ -599,13 +655,9 @@ fresh nominal a:
 		const expectation1 = [
 			make_fresh_nominal(
 				[ezlvar.a],
-				conjunction1(
-					unify(ezlvar.b, make_literal_ast(1)),
-				),
+				conjunction1(unify(ezlvar.b, make_literal_ast(1))),
 			),
 		];
 		expect(clearMeta(res)).toEqual(expectation1);
 	});
-
-
 });

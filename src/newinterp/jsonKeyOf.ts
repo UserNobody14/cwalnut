@@ -13,7 +13,10 @@ import {
 	makePair,
 	makeEmpty,
 } from "src/logic/makelvar";
-import { freshInternal, freshInternal2 } from "src/logic/AnyFreshFn";
+import {
+	freshInternal,
+	freshInternal2,
+} from "src/logic/AnyFreshFn";
 import { Map as ImmMap } from "immutable";
 import type {
 	ConjunctionGeneric,
@@ -21,12 +24,18 @@ import type {
 	ExpressionGeneric,
 } from "src/types/AstGeneric";
 
-function isPrimitive(value: unknown): value is string | number | boolean | null {
+function isPrimitive(
+	value: unknown,
+): value is string | number | boolean | null {
 	return value === null || typeof value !== "object";
 }
 
-function literalTerm(value: string | number | boolean | null): LTerm {
-	return value === null ? makeLiteral("null") : makeLiteral(value);
+function literalTerm(
+	value: string | number | boolean | null,
+): LTerm {
+	return value === null
+		? makeLiteral("null")
+		: makeLiteral(value);
 }
 
 /**
@@ -34,7 +43,10 @@ function literalTerm(value: string | number | boolean | null): LTerm {
  * Primitives become literals; objects become sub-objects (fresh var) with keys set;
  * arrays become list terms (pair/empty).
  */
-function valueToKeyOfGoal(valueVar: LTerm, value: unknown): MGoal {
+function valueToKeyOfGoal(
+	valueVar: LTerm,
+	value: unknown,
+): MGoal {
 	if (isPrimitive(value)) {
 		return eq(valueVar, literalTerm(value));
 	}
@@ -42,15 +54,24 @@ function valueToKeyOfGoal(valueVar: LTerm, value: unknown): MGoal {
 		return arrayToKeyOfGoal(valueVar, value);
 	}
 	if (typeof value === "object" && value !== null) {
-		return jsonToKeyOfGoal(valueVar, value as Record<string, unknown>);
+		return jsonToKeyOfGoal(
+			valueVar,
+			value as Record<string, unknown>,
+		);
 	}
-	return eq(valueVar, literalTerm(value as string | number | boolean));
+	return eq(
+		valueVar,
+		literalTerm(value as string | number | boolean),
+	);
 }
 
 /**
  * Goal that unifies listVar with the list representation of the JSON array.
  */
-function arrayToKeyOfGoal(listVar: LTerm, arr: unknown[]): MGoal {
+function arrayToKeyOfGoal(
+	listVar: LTerm,
+	arr: unknown[],
+): MGoal {
 	if (arr.length === 0) {
 		return eq(listVar, makeEmpty());
 	}
@@ -83,7 +104,12 @@ export function jsonToKeyOfGoal(
 		if (isPrimitive(value)) {
 			goal = all(
 				goal,
-				apply_pred(setKeyOf, objLVar, keyLit, literalTerm(value)),
+				apply_pred(
+					setKeyOf,
+					objLVar,
+					keyLit,
+					literalTerm(value),
+				),
 			);
 		} else if (Array.isArray(value)) {
 			goal = all(
@@ -101,7 +127,10 @@ export function jsonToKeyOfGoal(
 				freshInternal((subObj) =>
 					all(
 						apply_pred(setKeyOf, objLVar, keyLit, subObj),
-						jsonToKeyOfGoal(subObj, value as Record<string, unknown>),
+						jsonToKeyOfGoal(
+							subObj,
+							value as Record<string, unknown>,
+						),
 					),
 				),
 			);
@@ -125,7 +154,9 @@ function expressionToJson(
 }
 
 /** Location-free JSON shape for a term (conjunction, disjunction, fresh, with, predicate_call, predicate_definition). */
-function termToJson(term: TermGeneric<unknown>): Record<string, unknown> {
+function termToJson(
+	term: TermGeneric<unknown>,
+): Record<string, unknown> {
 	switch (term.type) {
 		case "conjunction":
 			return {
@@ -155,13 +186,19 @@ function termToJson(term: TermGeneric<unknown>): Record<string, unknown> {
 		case "predicate_call":
 			return {
 				type: "predicate_call",
-				source: { type: "identifier" as const, value: term.source.value },
+				source: {
+					type: "identifier" as const,
+					value: term.source.value,
+				},
 				args: term.args.map(expressionToJson),
 			};
 		case "predicate_definition":
 			return {
 				type: "predicate_definition",
-				name: { type: "identifier" as const, value: term.name.value },
+				name: {
+					type: "identifier" as const,
+					value: term.name.value,
+				},
 				args: term.args.map((id) => ({
 					type: "identifier" as const,
 					value: id.value,
@@ -205,7 +242,12 @@ export function envToKeyOfGoal(
 	env.forEach((lterm, name) => {
 		goal = all(
 			goal,
-			apply_pred(setKeyOf, objLVar, makeLiteral(name), lterm),
+			apply_pred(
+				setKeyOf,
+				objLVar,
+				makeLiteral(name),
+				lterm,
+			),
 		);
 	});
 	return goal;

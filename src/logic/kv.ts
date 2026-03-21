@@ -22,7 +22,10 @@ export function unifyKeyOf(
 	const retrievedValue = kstore.get(obj.name);
 	if (!retrievedValue) {
 		const ext = kstore.set(obj.name, value);
-		return state.set("i", state.i.set("kvStore", kvStore.set(key, ext)));
+		return state.set(
+			"i",
+			state.i.set("kvStore", kvStore.set(key, ext)),
+		);
 	}
 	return state.unify(retrievedValue, value);
 }
@@ -37,13 +40,21 @@ export function mergeKvStore(state: State): State | null {
 	let newKvStore = state.i.kvStore;
 
 	for (const key of state.i.kvStore.keys()) {
-		const kstore = stateCur.i.kvStore.get(key, ImmMap<string, LTerm>());
+		const kstore = stateCur.i.kvStore.get(
+			key,
+			ImmMap<string, LTerm>(),
+		);
 		// Group (objName, value) by canonical object
-		const groups = new Map<string, { canonicalName: string; values: LTerm[] }>();
+		const groups = new Map<
+			string,
+			{ canonicalName: string; values: LTerm[] }
+		>();
 		for (const [objName, value] of kstore.entries()) {
 			const canonical = stateCur.find(new LLVar(objName));
 			const canonicalName =
-				canonical instanceof LLVar ? canonical.name : objName;
+				canonical instanceof LLVar
+					? canonical.name
+					: objName;
 			const existing = groups.get(canonicalName);
 			const valCanon = stateCur.find(value);
 			if (existing) {
@@ -56,7 +67,10 @@ export function mergeKvStore(state: State): State | null {
 			}
 		}
 		let newKstore = ImmMap<string, LTerm>();
-		for (const { canonicalName, values } of groups.values()) {
+		for (const {
+			canonicalName,
+			values,
+		} of groups.values()) {
 			if (values.length > 1) {
 				// Unify all values in this group
 				let repr = values[0];
@@ -74,5 +88,8 @@ export function mergeKvStore(state: State): State | null {
 		newKvStore = newKvStore.set(key, newKstore);
 	}
 
-	return stateCur.set("i", stateCur.i.set("kvStore", newKvStore));
+	return stateCur.set(
+		"i",
+		stateCur.i.set("kvStore", newKvStore),
+	);
 }

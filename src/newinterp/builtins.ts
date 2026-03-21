@@ -8,7 +8,12 @@ import {
 	builtinList,
 } from "src/utils/builtinList";
 import { eq, all, either, apply_pred } from "src/logic";
-import { LTerm, LPredicateFn, LNom, LTie } from "src/logic/terms";
+import {
+	LTerm,
+	LPredicateFn,
+	LNom,
+	LTie,
+} from "src/logic/terms";
 import {
 	LPredicate,
 	LPair,
@@ -430,7 +435,9 @@ const set_key_of: LPredicateFn =
 			!(keyReified instanceof LLiteral) ||
 			typeof keyReified.value !== "string"
 		) {
-			throw new Error("set_key_of: key must reify to a literal string");
+			throw new Error(
+				"set_key_of: key must reify to a literal string",
+			);
 		}
 		const keyStr = keyReified.value;
 		const objCanon = sc.find(source);
@@ -439,26 +446,25 @@ const set_key_of: LPredicateFn =
 	};
 
 /** Build a tie: tie(A, Nom, Body) unifies A with tie(Nom, Body). */
-const tie: LPredicateFn =
-	(a: LTerm, tnom: LTerm, tbody: LTerm): MGoal => {
-		if (tnom instanceof LNom) {
-			return eq(a, makeTie(tnom, tbody));
-		}
-		throw new Error("tie: tnom must reify to a nominal");
-	};
+const tie: LPredicateFn = (
+	a: LTerm,
+	tnom: LTerm,
+	tbody: LTerm,
+): MGoal => {
+	if (tnom instanceof LNom) {
+		return eq(a, makeTie(tnom, tbody));
+	}
+	throw new Error("tie: tnom must reify to a nominal");
+};
 
-const hash: LPredicateFn =
-	(a: LTerm, b: LTerm): MGoal => {
-		if (a instanceof LNom) {
-			return avo.hash(a, b);
-		}
-		throw new Error("hash: a must reify to a nominal");
-	};
+const hash: LPredicateFn = (a: LTerm, b: LTerm): MGoal => {
+	if (a instanceof LNom) {
+		return avo.hash(a, b);
+	}
+	throw new Error("hash: a must reify to a nominal");
+};
 
-export const builtinsMap: Record<
-	string,
-	LPredicateFn
-> = {
+export const builtinsMap: Record<string, LPredicateFn> = {
 	unify: (...args) => {
 		if (args.length < 2)
 			throw new Error("Unify needs at least two arguments");

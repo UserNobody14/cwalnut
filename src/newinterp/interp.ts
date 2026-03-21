@@ -30,9 +30,16 @@ import type { LTerm } from "src/logic/terms";
 import { LLVar, LPredicate } from "src/logic/terms";
 import { makelvar, makeLiteral } from "src/logic/makelvar";
 import { Map as ImmMap } from "immutable";
-import { freshInternal, freshInternal2, freshNom } from "src/logic/AnyFreshFn";
+import {
+	freshInternal,
+	freshInternal2,
+	freshNom,
+} from "src/logic/AnyFreshFn";
 import { builtinGoals, builtinsMap } from "./builtins";
-import { bodyAstToKeyOfGoal, envToKeyOfGoal } from "./jsonKeyOf";
+import {
+	bodyAstToKeyOfGoal,
+	envToKeyOfGoal,
+} from "./jsonKeyOf";
 import { builtinList } from "src/utils/builtinList";
 
 /** Immutable environment: variable names -> LTerm (LLVar for fresh, any LTerm for predicate args) */
@@ -48,7 +55,14 @@ export function makeQueryEnv(names: string[]): Env {
 
 /** Add all builtins to the env. */
 function addBuiltinsToEnv(env: Env): Env {
-	return builtinList.reduce((acc, name) => acc.set(name, new LPredicate(name, builtinsMap[name])), env);
+	return builtinList.reduce(
+		(acc, name) =>
+			acc.set(
+				name,
+				new LPredicate(name, builtinsMap[name]),
+			),
+		env,
+	);
 }
 
 export type InterpOptions = {
@@ -83,7 +97,12 @@ export function interp(
 	const envWithBuiltins = addBuiltinsToEnv(initialEnv);
 	const goal = compileToGoal(ast, envWithBuiltins);
 	const withBuiltins = all(builtinGoals(), goal);
-	return run1(numb, queryVars, withBuiltins, options?.extraNum);
+	return run1(
+		numb,
+		queryVars,
+		withBuiltins,
+		options?.extraNum,
+	);
 }
 
 function emptyEnv(): Env {
@@ -121,7 +140,9 @@ function interpretExpr(
 		case "identifier": {
 			const resolved = env.get(expr.value);
 			if (!resolved) {
-				throw new Error(`Variable ${expr.value} not found in env`);
+				throw new Error(
+					`Variable ${expr.value} not found in env`,
+				);
 			}
 			return resolved;
 		}
@@ -178,7 +199,8 @@ function interpretDef(
 ): [MGoal, Env] {
 	const name = ast.name.value;
 	const env2 = env.set(
-		name, new LPredicate(name, (...args: LTerm[]) => {
+		name,
+		new LPredicate(name, (...args: LTerm[]) => {
 			return (sc: State): MStream => {
 				const argsEnv = ast.args.reduce(
 					(acc, id, i) => acc.set(id.value, args[i]),
@@ -187,7 +209,7 @@ function interpretDef(
 				const [bodyGoal] = interpretOne(ast.body, argsEnv);
 				return bodyGoal(sc);
 			};
-		})
+		}),
 	);
 	return [eq(makelvar(name), env2.get(name)!), env2];
 }
@@ -202,10 +224,18 @@ function interpretFresh(
 		const [bodyGoal] = interpretOne(ast.body, env);
 		return [bodyGoal, env];
 	}
-	const goal = foldFreshOne(names, env, ast.nominal, (extendedEnv) => {
-		const [bodyGoal] = interpretOne(ast.body, extendedEnv);
-		return bodyGoal;
-	});
+	const goal = foldFreshOne(
+		names,
+		env,
+		ast.nominal,
+		(extendedEnv) => {
+			const [bodyGoal] = interpretOne(
+				ast.body,
+				extendedEnv,
+			);
+			return bodyGoal;
+		},
+	);
 	return [goal, env];
 }
 
@@ -275,12 +305,19 @@ function interpretWith(
 	env: Env,
 ): [MGoal, Env] {
 	const source = interpretExpr(ast.name.source, env);
-	const remainingArgs = ast.name.args.map((a) => interpretExpr(a, env));
+	const remainingArgs = ast.name.args.map((a) =>
+		interpretExpr(a, env),
+	);
 	const goal = freshInternal2((bodyAstVar, envVar) =>
 		all(
 			bodyAstToKeyOfGoal(bodyAstVar, ast.body),
 			envToKeyOfGoal(envVar, env),
-			apply_pred(source, bodyAstVar, envVar, ...remainingArgs),
+			apply_pred(
+				source,
+				bodyAstVar,
+				envVar,
+				...remainingArgs,
+			),
 		),
 	);
 	return [goal, env];
