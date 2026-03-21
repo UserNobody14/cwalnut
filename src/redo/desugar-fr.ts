@@ -28,6 +28,16 @@ export class FrCounter extends Context.Tag(
 	"cwal/DesugarFrCounter",
 )<FrCounter, Ref.Ref<number>>() {}
 
+export type AccState = {
+	readonly terms: TermGeneric<CodeLocation>[];
+	readonly synthIds: IdentifierGeneric<CodeLocation>[];
+};
+
+/** Mutable sink for goals produced while lowering an expression; return value stays a var or literal. */
+export class ExpressionAcc extends Context.Tag(
+	"cwal/DesugarExpressionAcc",
+)<ExpressionAcc, Ref.Ref<AccState>>() {}
+
 /** Next integer slot for `__fresh_${n}` (mutates ref). */
 export const nextFrIndex: Effect.Effect<
 	number,
@@ -72,16 +82,6 @@ export function allocFrCounterSlotEffect(
 		return { slot: id, synthIds: [id] };
 	});
 }
-
-export type AccState = {
-	readonly terms: TermGeneric<CodeLocation>[];
-	readonly synthIds: IdentifierGeneric<CodeLocation>[];
-};
-
-/** Mutable sink for goals produced while lowering an expression; return value stays a var or literal. */
-export class ExpressionAcc extends Context.Tag(
-	"cwal/DesugarExpressionAcc",
-)<ExpressionAcc, Ref.Ref<AccState>>() {}
 
 export type SynthIdChunk =
 	readonly IdentifierGeneric<CodeLocation>[];
@@ -147,9 +147,9 @@ export type ExpressionDesugarServices =
 	| FrCounter
 	| ExpressionAcc;
 
-export function runWithFrCounterSync<A>(
+export function runWithFrCounterSync<A, E>(
 	initialFr: number,
-	eff: Effect.Effect<A, never, FrCounter>,
+	eff: Effect.Effect<A, E, FrCounter>,
 ): [A, number] {
 	return Effect.runSync(
 		Effect.gen(function* () {
@@ -230,20 +230,4 @@ export function runExpressionDesugarEffect(
 		yield* Ref.set(frRef, frNext);
 		return [expr, terms, synth] as const;
 	});
-}
-
-/** Sync one-shot slot allocation (threads numeric `fr` for list lowering and legacy paths). */
-export function allocSynthIdSync(
-	unifyVar: IdentifierGeneric<CodeLocation> | undefined,
-	fr: number,
-): [
-	IdentifierGeneric<CodeLocation>,
-	number,
-	readonly IdentifierGeneric<CodeLocation>[],
-] {
-	const [r, fr2] = runWithFrCounterSync(
-		fr,
-		allocFrCounterSlotEffect(unifyVar),
-	);
-	return [r.slot, fr2, r.synthIds];
 }

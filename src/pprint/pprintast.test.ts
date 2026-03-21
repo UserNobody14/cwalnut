@@ -88,6 +88,7 @@ describe.skip("pprintDsAst", () => {
 	test("formats fresh AST correctly", () => {
 		const ast: TermGeneric<undefined> = {
 			type: "fresh",
+			nominal: false,
 			newVars: [ezlvar.var1()],
 			body: {
 				type: "conjunction",

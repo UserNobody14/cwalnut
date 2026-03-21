@@ -29,6 +29,7 @@ import {
 	runWithFrCounterSync,
 } from "./desugar-fr";
 import { type CodeLocation, tocloc } from "./codeloc";
+import { Data } from "effect";
 
 const parser = new Parser();
 parser.setLanguage(CrystalWalnut);
@@ -39,6 +40,61 @@ const make_literal_ast = make.literal_ast;
 const make_predicate = make.predicate;
 const make_predicate_fn = make.predicate_fn;
 const make_unification = make.unification;
+
+class UnknownNodeTypeError extends Data.TaggedError(
+	"UnknownNodeTypeError",
+)<{
+	type: string;
+}> {}
+class EmptyCompoundLogicError extends Data.TaggedError(
+	"EmptyCompoundLogicError",
+)<{
+	node: Parser.SyntaxNode;
+	variety: "conjunction" | "disjunction";
+}> {}
+class UndefinedNodeFieldError extends Data.TaggedError(
+	"UndefinedNodeFieldError",
+)<{
+	field: string;
+	node: Parser.SyntaxNode;
+}> {}
+class NumberTermError extends Data.TaggedError(
+	"NumberTermError",
+)<{
+	term: TermGeneric<CodeLocation>;
+}> {}
+class ArrayTermError extends Data.TaggedError(
+	"ArrayTermError",
+)<{
+	term: TermGeneric<CodeLocation>;
+}> {}
+class PredicateSourceIdentifierError extends Data.TaggedError(
+	"PredicateSourceIdentifierError",
+)<{
+	source: ExpressionGeneric<CodeLocation>;
+	node: Parser.SyntaxNode;
+}> {}
+class PredicateDefinitionSourceIdentifierError extends Data.TaggedError(
+	"PredicateDefinitionSourceIdentifierError",
+)<{
+	source: ExpressionGeneric<CodeLocation>;
+	definition: PredicateDefinitionGeneric<CodeLocation>;
+}> {}
+class UnrecognizedOperatorError extends Data.TaggedError(
+	"UnrecognizedOperatorError",
+)<{
+	op: string;
+}> {}
+
+type ParseError =
+	| UnknownNodeTypeError
+	| EmptyCompoundLogicError
+	| UndefinedNodeFieldError
+	| NumberTermError
+	| ArrayTermError
+	| PredicateSourceIdentifierError
+	| PredicateDefinitionSourceIdentifierError
+	| UnrecognizedOperatorError;
 
 /** Bind desugar-generated logic vars with non-nominal `fresh` so the interpreter env is consistent. */
 function scopeSynthFresh(
@@ -74,7 +130,7 @@ function toAst1Effect(
 	node: Parser.SyntaxNode,
 ): Effect.Effect<
 	TermGeneric<CodeLocation>[],
-	never,
+	ParseError,
 	FrCounter
 > {
 	if (filterEmptyCompoundLogic(node) === false) {
@@ -191,11 +247,13 @@ function toAst1Effect(
 				if (op === "or") {
 					return [disjunction1(...a, ...b)];
 				}
-				throw new Error(`Unknown operator: ${op}`);
+				return yield* Effect.fail(
+					new UnrecognizedOperatorError({ op }),
+				);
 			});
 		default:
-			return Effect.die(
-				new Error(`Unrecognized node type: ${node.type}`),
+			return Effect.fail(
+				new UnknownNodeTypeError({ type: node.type }),
 			);
 	}
 }
@@ -205,7 +263,7 @@ function withOrWhenStatementEffect(
 	bodyNode: Parser.SyntaxNode,
 ): Effect.Effect<
 	TermGeneric<CodeLocation>[],
-	never,
+	ParseError,
 	FrCounter
 > {
 	return Effect.gen(function* () {
@@ -231,11 +289,13 @@ function buildCompoundLogicEffect(
 	variety: "conjunction" | "disjunction",
 ): Effect.Effect<
 	TermGeneric<CodeLocation>[],
-	never,
+	ParseError,
 	FrCounter
 > {
 	if (node.children.length === 0) {
-		return Effect.die(new Error("Empty compound logic"));
+		return Effect.fail(
+			new EmptyCompoundLogicError({ node, variety }),
+		);
 	}
 	if (node.children.length === 1) {
 		return toAst1Effect(node.children[0]);
@@ -266,7 +326,7 @@ function extractPredicateEffect(
 		TermGeneric<CodeLocation>[],
 		PredicateCallGeneric<CodeLocation>,
 	],
-	never,
+	ParseError,
 	FrCounter
 > {
 	return Effect.gen(function* () {
@@ -290,22 +350,14 @@ function extractPredicateEffect(
 				parseExpr(node.children[0]),
 			);
 		if (source.type !== "identifier") {
-			throw new Error(
-				"Source of predicate must be an identifier",
+			return yield* Effect.fail(
+				new PredicateSourceIdentifierError({
+					source,
+					node,
+				}),
 			);
 		}
 		const allArgs2 = allArgs.flatMap((aa) => aa[1]);
-		for (const aa of allArgs2) {
-			if (aa === undefined) {
-				throw new Error("Undefined term");
-			}
-			if (typeof aa === "number") {
-				throw new Error("Number term!");
-			}
-			if (Array.isArray(aa)) {
-				throw new Error("Array term");
-			}
-		}
 		const mergedSynth = mergeSynthIds(argsSynth, srcSynth);
 		const pred = make_predicate(
 			source,
@@ -323,7 +375,7 @@ function extractPredicateEffect(
 }
 
 function expressionOrPredicateDefinitionToAstEffect(
-	node: Parser.SyntaxNode | null,
+	node: Parser.SyntaxNode,
 	unifyVar?: IdentifierGeneric<CodeLocation>,
 ): Effect.Effect<
 	readonly [
@@ -334,12 +386,9 @@ function expressionOrPredicateDefinitionToAstEffect(
 		TermGeneric<CodeLocation>[],
 		IdentifierGeneric<CodeLocation>[],
 	],
-	never,
+	ParseError,
 	FrCounter
 > {
-	if (node === null) {
-		return Effect.die(new Error("Node is null"));
-	}
 	switch (node.type) {
 		case "predicate_definition":
 			return Effect.gen(function* () {
@@ -396,7 +445,7 @@ function unificationToAstEffect(
 	node: Parser.SyntaxNode,
 ): Effect.Effect<
 	TermGeneric<CodeLocation>[],
-	never,
+	ParseError,
 	FrCounter
 > {
 	return Effect.gen(function* () {
@@ -404,6 +453,16 @@ function unificationToAstEffect(
 		const startFr = yield* Ref.get(frRef);
 		const lhsField = node.childForFieldName("lhs");
 		const rhsField = node.childForFieldName("rhs");
+		if (lhsField === undefined || lhsField === null) {
+			return yield* Effect.fail(
+				new UndefinedNodeFieldError({ field: "lhs", node }),
+			);
+		}
+		if (rhsField === undefined || rhsField === null) {
+			return yield* Effect.fail(
+				new UndefinedNodeFieldError({ field: "rhs", node }),
+			);
+		}
 		const k = node.childForFieldName("operator")?.text as
 			| "="
 			| "<<"
@@ -475,8 +534,11 @@ function unificationToAstEffect(
 
 		if (b.type === "predicate_definition") {
 			if (a.type !== "identifier") {
-				throw new Error(
-					"Source of predicate must be an identifier",
+				return yield* Effect.fail(
+					new PredicateDefinitionSourceIdentifierError({
+						source: a,
+						definition: b,
+					}),
 				);
 			}
 			return scopeSynthFresh(mergedSynth, [
