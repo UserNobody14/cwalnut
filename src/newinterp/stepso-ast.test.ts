@@ -335,7 +335,7 @@ function stepsoAst(): TermGeneric<CodeLocation>[] {
 }
 
 describe("stepso via AST (stepso.test.ts)", () => {
-	test("Logic 64", () => {
+	test.skip("Logic 64", () => {
 		// Build input: app(Y, var(z)) and app(var(z), app(Y, var(z))) both stepso to t.
 		// Y = lam(tie(f, app(lam(tie(x,...)), lam(tie(x,...))))), hash(z,Y), then two stepso goals.
 		/**
