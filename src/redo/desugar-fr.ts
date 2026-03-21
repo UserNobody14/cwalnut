@@ -123,16 +123,11 @@ export const recordSynthIdsEffect = (
 	});
 
 /** Fresh slot for expression lowering; records new `__fresh_n` ids into {@link ExpressionAcc}. */
-export function allocExprSlotEffect(
-	unifyVar: IdentifierGeneric<CodeLocation> | undefined,
-): Effect.Effect<
+export function genFresh(): Effect.Effect<
 	IdentifierGeneric<CodeLocation>,
 	never,
 	FrCounter | ExpressionAcc
 > {
-	if (unifyVar !== undefined) {
-		return Effect.succeed(unifyVar);
-	}
 	return Effect.gen(function* () {
 		const r = yield* allocFrCounterSlotEffect(undefined);
 		yield* recordSynthIdsEffect(r.synthIds);

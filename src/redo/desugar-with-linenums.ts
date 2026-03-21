@@ -21,7 +21,7 @@ import {
 	unary_operate,
 } from "src/utils/make_better_typed";
 import { warnHolder, debugHolder } from "src/warnHolder";
-import { expressionToAstEffect } from "./desugar-expr-effect";
+import { parseExpr } from "./desugar-expr-effect";
 import {
 	type ExprFresh,
 	allocSynthIdSync,
@@ -571,7 +571,7 @@ function expressionToAstFRESH(
 	}
 	return runExpressionDesugarSync(
 		frCounter,
-		expressionToAstEffect(node1, unifyVar),
+		parseExpr(node1, unifyVar),
 	);
 }
 
