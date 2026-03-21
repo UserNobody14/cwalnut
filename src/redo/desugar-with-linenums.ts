@@ -21,47 +21,22 @@ import {
 	unary_operate,
 } from "src/utils/make_better_typed";
 import { warnHolder, debugHolder } from "src/warnHolder";
+import { expressionToAstEffect } from "./desugar-expr-effect";
+import {
+	type ExprFresh,
+	allocSynthIdSync,
+	mergeSynthIds,
+	runExpressionDesugarSync,
+} from "./desugar-fr";
 import {
 	type CodeLocation,
 	defaultCodeLocation,
 	tocloc,
 	mergecloc,
-	mergeClocs,
 } from "./codeloc";
 
 const parser = new Parser();
 parser.setLanguage(CrystalWalnut);
-
-type Expression = [
-	ExpressionGeneric<CodeLocation>,
-	TermGeneric<CodeLocation>[],
-];
-
-/** Expression desugar result: support terms, next fr counter, synthetic ids (allocation order). */
-type ExprFresh = [
-	ExpressionGeneric<CodeLocation>,
-	TermGeneric<CodeLocation>[],
-	number,
-	readonly IdentifierGeneric<CodeLocation>[],
-];
-
-type SynthIdChunk = readonly IdentifierGeneric<CodeLocation>[];
-
-function mergeSynthIds(
-	...parts: SynthIdChunk[]
-): IdentifierGeneric<CodeLocation>[] {
-	const seen = new Set<string>();
-	const out: IdentifierGeneric<CodeLocation>[] = [];
-	for (const part of parts) {
-		for (const id of part) {
-			if (!seen.has(id.value)) {
-				seen.add(id.value);
-				out.push(id);
-			}
-		}
-	}
-	return out;
-}
 
 const ezmake = ezmakeMaker<CodeLocation>(
 	defaultCodeLocation,
@@ -69,21 +44,10 @@ const ezmake = ezmakeMaker<CodeLocation>(
 
 const make_fresh = make.fresh;
 const make_identifier = make.identifier;
-const make_list_ast = make.list_ast;
 const make_literal_ast = make.literal_ast;
 const make_predicate = make.predicate;
 const make_predicate_fn = make.predicate_fn;
 const make_unification = make.unification;
-
-/** Reserved prefix: user code must not bind `__fresh_*` names. */
-function freshLvar2(
-	frCounter: number,
-): IdentifierGeneric<CodeLocation> {
-	return make_identifier(
-		defaultCodeLocation,
-		`__fresh_${frCounter}`,
-	);
-}
 
 /** Bind desugar-generated logic vars with non-nominal `fresh` so the interpreter env is consistent. */
 function scopeSynthFresh(
@@ -96,22 +60,6 @@ function scopeSynthFresh(
 	return [
 		make_fresh([...ids], conjunction1(...terms), false),
 	];
-}
-
-/** Allocate a synthetic id only when no unify slot was supplied (pure). */
-function allocSynthId(
-	unifyVar: IdentifierGeneric<CodeLocation> | undefined,
-	fr: number,
-): [
-	IdentifierGeneric<CodeLocation>,
-	number,
-	readonly IdentifierGeneric<CodeLocation>[],
-] {
-	if (unifyVar !== undefined) {
-		return [unifyVar, fr, []];
-	}
-	const id = freshLvar2(fr);
-	return [id, fr + 1, [id]];
 }
 
 export function toAst(
@@ -578,7 +526,7 @@ function expressionOrPredicateDefinitionToAst(
 				"conjunction",
 				frCounter,
 			);
-			const [frshName, nAfter, nameSynth] = allocSynthId(
+			const [frshName, nAfter, nameSynth] = allocSynthIdSync(
 				unifyVar,
 				n,
 			);
@@ -612,6 +560,7 @@ function expressionOrPredicateDefinitionToAst(
 	}
 }
 
+/** Outer entry: one `runExpressionDesugarSync` per source expression (unify arm, `for_control`, etc.). */
 function expressionToAstFRESH(
 	node1: Parser.SyntaxNode | null | undefined,
 	frCounter: number,
@@ -620,413 +569,10 @@ function expressionToAstFRESH(
 	if (node1 === undefined || node1 === null) {
 		throw new Error("Node is undefined");
 	}
-	const node = node1;
-	switch (node.type) {
-		case "keyword_identifier":
-		case "identifier":
-			return [
-				make_identifier(tocloc(node), node.text),
-				[],
-				frCounter,
-				[],
-			];
-		case "destructuring_expression":
-			console.debug(
-				`Destructuring expression: ${node.text}`,
-			);
-			return expressionToAstFRESH(
-				node.children[0],
-				frCounter,
-				unifyVar,
-			);
-
-		case "predicate_expression":
-		case "predicate": {
-			const [freshVar, frCounter2, headSynth] =
-				allocSynthId(unifyVar, frCounter);
-			const argActual = node.children[1];
-			const arglist = argActual.children
-				.slice(1, -1)
-				.filter((nnc) => nnc.grammarType !== ",");
-			const [allArgs, frCounter3, argsSynth] =
-				arglist.reduce<
-					[
-						[
-							ExpressionGeneric<CodeLocation>,
-							TermGeneric<CodeLocation>[],
-						][],
-						number,
-						IdentifierGeneric<CodeLocation>[],
-					]
-				>(
-					(acc, nc) => {
-						const [arg, argTerms, frPlus, sy] =
-							expressionToAstFRESH(nc, acc[1], unifyVar);
-						return [
-							acc[0].concat([[arg, argTerms]]),
-							frPlus,
-							mergeSynthIds(acc[2], sy),
-						];
-					},
-					[
-						[],
-						frCounter2,
-						[] as IdentifierGeneric<CodeLocation>[],
-					],
-				);
-			const [source, sourceTerms, frCounter4, srcSynth] =
-				expressionToAstFRESH(
-					node.children[0],
-					frCounter3,
-					unifyVar,
-				);
-			if (source.type !== "identifier") {
-				throw new Error(
-					"Source of predicate must be an identifier",
-				);
-			}
-			const predicateArgs = [
-				freshVar,
-				...allArgs.map((aa) => aa[0]),
-			];
-			const predicateTerm = make_predicate(
-				source,
-				predicateArgs,
-			);
-			return [
-				freshVar,
-				[
-					...allArgs.flatMap((aa) => aa[1]),
-					...sourceTerms,
-					predicateTerm,
-				],
-				frCounter4,
-				mergeSynthIds(headSynth, argsSynth, srcSynth),
-			];
-		}
-		case "expression":
-		case "primary_expression":
-			return expressionToAstFRESH(
-				node.children[0],
-				frCounter,
-				unifyVar,
-			);
-		case "attribute": {
-			const [obj1, objTerms, fr0, objSynth] =
-				expressionToAstFRESH(node.children[0], frCounter);
-			const attr = node.children[2].text;
-			const [val, fr0Plus, valSynth] = allocSynthId(
-				unifyVar,
-				fr0,
-			);
-			const attrAst = make_literal_ast("string", attr);
-			return [
-				val,
-				[
-					...objTerms,
-					set_key_of(tocloc(node), obj1, attrAst, val),
-				],
-				fr0Plus,
-				mergeSynthIds(objSynth, valSynth),
-			];
-		}
-		case "binary_operator": {
-			const [aaa, aaTerms, frC2, aaSynth] =
-				expressionToAstFRESH(
-					node.children[0],
-					frCounter,
-					unifyVar,
-				);
-			const op = node.children[1].text;
-			const [bbb, bbTerms, frC3, bbSynth] =
-				expressionToAstFRESH(
-					node.children[2],
-					frC2,
-					unifyVar,
-				);
-			const [val, frC3Plus, valSynth] = allocSynthId(
-				unifyVar,
-				frC3,
-			);
-			return [
-				val,
-				[
-					...aaTerms,
-					...bbTerms,
-					operate(op, aaa, bbb, val, tocloc(node)),
-				],
-				frC3Plus,
-				mergeSynthIds(aaSynth, bbSynth, valSynth),
-			];
-		}
-		case "unary_operator": {
-			const [aaa, aaTerms, frC2, aaSynth] =
-				expressionToAstFRESH(
-					node.children[1],
-					frCounter,
-					unifyVar,
-				);
-			const op = node.children[0].text;
-			const [val, frC2Plus, valSynth] = allocSynthId(
-				unifyVar,
-				frC2,
-			);
-			return [
-				val,
-				[
-					...aaTerms,
-					unary_operate(op, aaa, val, tocloc(node)),
-				],
-				frC2Plus,
-				mergeSynthIds(aaSynth, valSynth),
-			];
-		}
-		case "list": {
-			const listVals = node.children
-				.slice(1, -1)
-				.filter((nnc) => nnc.grammarType !== ",");
-			const [lst1, lstterms, ntt, lsynth] = listValsToList(
-				listVals,
-				frCounter,
-				unifyVar,
-			);
-			if (lst1 === undefined) {
-				throw new Error("lst1 is undefined");
-			}
-			if (lstterms === undefined) {
-				throw new Error("lstterms is undefined");
-			}
-			return [lst1, lstterms, ntt, lsynth];
-		}
-		case "dictionary": {
-			const listValsDict = node.children
-				.slice(1, -1)
-				.filter((nnc) => nnc.grammarType !== ",");
-			const [objv, fr3, objSynth] = allocSynthId(
-				unifyVar,
-				frCounter,
-			);
-			type ReductionType = [
-				[
-					ExpressionGeneric<CodeLocation>,
-					ExpressionGeneric<CodeLocation>,
-					CodeLocation,
-				][],
-				TermGeneric<CodeLocation>[],
-				number,
-				IdentifierGeneric<CodeLocation>[],
-			];
-			const [lvd, lvdterms, fr4, entrySynth] =
-				listValsDict.reduce<ReductionType>(
-					(acc, nc) => {
-						const [accKeyvals, accTerms, accFr, accSy] =
-							acc;
-						const [key, keyTerms, afr2, ksy] =
-							expressionToAstFRESH(nc.children[0], accFr);
-						const [val, valTerms, afr3, vsy] =
-							expressionToAstFRESH(nc.children[2], afr2);
-						return [
-							accKeyvals.concat([
-								[
-									key,
-									val,
-									mergecloc(
-										tocloc(nc.children[0]),
-										tocloc(nc.children[2]),
-									),
-								],
-							]),
-							[...accTerms, ...keyTerms, ...valTerms],
-							afr3,
-							mergeSynthIds(accSy, ksy, vsy),
-						];
-					},
-					[
-						[] as [
-							ExpressionGeneric<CodeLocation>,
-							ExpressionGeneric<CodeLocation>,
-							CodeLocation,
-						][],
-						[] as TermGeneric<CodeLocation>[],
-						fr3,
-						[] as IdentifierGeneric<CodeLocation>[],
-					] as const,
-				);
-			const dsterms = [
-				...lvdterms,
-				...lvd.map(([key, val, cl]) =>
-					set_key_of(cl, objv, key, val),
-				),
-			];
-			return [
-				objv,
-				dsterms,
-				fr4,
-				mergeSynthIds(objSynth, entrySynth),
-			];
-		}
-		case "string":
-			return [
-				make_literal_ast("string", node.text.slice(1, -1)),
-				[],
-				frCounter,
-				[],
-			];
-		case "number":
-			return [
-				make_literal_ast(
-					"number",
-					Number.parseInt(node.text, 10).toString(),
-				),
-				[],
-				frCounter,
-				[],
-			];
-		case "slice": {
-			const [obj1, objTerms, frCounter2, oSynth] =
-				expressionToAstFRESH(node.children[0], frCounter);
-			const attr = node.children[2].text;
-			const [val, frCounter2Plus, vSynth] = allocSynthId(
-				unifyVar,
-				frCounter2,
-			);
-			return [
-				val,
-				[
-					...objTerms,
-					to_slice(
-						tocloc(node),
-						obj1,
-						make_literal_ast("string", attr),
-						val,
-					),
-				],
-				frCounter2Plus,
-				mergeSynthIds(oSynth, vSynth),
-			];
-		}
-		default:
-			throw new Error(
-				`Unrecognized node type: ${node.type}`,
-			);
-	}
-}
-
-function listValsToList(
-	listVals: Parser.SyntaxNode[],
-	frCounter1: number,
-	unifyVar?: IdentifierGeneric<CodeLocation>,
-): ExprFresh {
-	const containsSplats = listVals.some(
-		(nnc) => nnc.grammarType === "splat",
+	return runExpressionDesugarSync(
+		frCounter,
+		expressionToAstEffect(node1, unifyVar),
 	);
-	const [listI, frAfterListI, listISynth] = allocSynthId(
-		unifyVar,
-		frCounter1,
-	);
-	if (containsSplats) {
-		const splatIsLast =
-			listVals[listVals.length - 1].grammarType === "splat";
-		const remainingNotSplats = listVals
-			.slice(0, -1)
-			.every((z) => z.grammarType !== "splat");
-		if (splatIsLast && remainingNotSplats) {
-			let fr = frAfterListI;
-			let elemSynth = mergeSynthIds(listISynth, []);
-			const pairs: Expression[] = [];
-			for (const v of listVals.slice(0, -1)) {
-				const [ff1, ts, n1, sy] = expressionToAstFRESH(
-					v,
-					fr,
-				);
-				fr = n1;
-				pairs.push([ff1, ts]);
-				elemSynth = mergeSynthIds(elemSynth, sy);
-			}
-			const splatVar = expressionToAstFRESH(
-				listVals[listVals.length - 1].children[1],
-				fr,
-			);
-			let accSynth = mergeSynthIds(elemSynth, splatVar[3]);
-			let accE = splatVar[0];
-			let accT = splatVar[1];
-			let accFr = splatVar[2];
-			for (const nc of pairs) {
-				const stepFr = accFr + 1;
-				const cellId = freshLvar2(stepFr);
-				const [outE, outT, outFr] = ezmake.cons(
-					cellId,
-					nc,
-					[accE, accT, stepFr],
-				);
-				accE = outE;
-				accT = outT;
-				accFr = outFr;
-				accSynth = mergeSynthIds(accSynth, [cellId]);
-			}
-			return [accE, accT, accFr, accSynth];
-		}
-		const startListId = freshLvar2(frAfterListI);
-		const frStart = frAfterListI + 1;
-		let curSynth = mergeSynthIds(listISynth, [startListId]);
-		const [startE, stt] = ezmake.empty(startListId);
-		let curE = startE;
-		let curT = stt;
-		let curFr = frStart;
-		for (const nnc of listVals) {
-			if (nnc.grammarType === "splat") {
-				const [svE, svT, svFr, svSy] = expressionToAstFRESH(
-					nnc.children[1],
-					curFr,
-				);
-				const [splatOut, frAfterSplat, splatSy] =
-					allocSynthId(undefined, svFr);
-				curSynth = mergeSynthIds(curSynth, svSy, splatSy);
-				const [outE, outT, outFr] = ezmake.append(
-					splatOut,
-					[svE, svT, frAfterSplat],
-					[curE, curT],
-				);
-				curE = outE;
-				curT = outT;
-				curFr = outFr;
-			} else {
-				const [ff1, ts, n1, sy] = expressionToAstFRESH(
-					nnc,
-					curFr,
-				);
-				const [consOut, cnFr, cnSy] = allocSynthId(
-					undefined,
-					n1,
-				);
-				curSynth = mergeSynthIds(curSynth, sy, cnSy);
-				const [outE, outT, outFr] = ezmake.cons(
-					consOut,
-					[ff1, ts],
-					[curE, curT, cnFr],
-				);
-				curE = outE;
-				curT = outT;
-				curFr = outFr;
-			}
-		}
-		return [curE, curT, curFr, curSynth];
-	}
-	let fr = frAfterListI;
-	let elemSynth = mergeSynthIds(listISynth, []);
-	const expressions: Expression[] = [];
-	for (const v of listVals) {
-		const [ff1, ts, n1, sy] = expressionToAstFRESH(v, fr);
-		fr = n1;
-		expressions.push([ff1, ts]);
-		elemSynth = mergeSynthIds(elemSynth, sy);
-	}
-	const ml1 = make_list_ast(
-		listI,
-		expressions,
-		mergeClocs(listVals.map((e) => tocloc(e))),
-	);
-	return [ml1[0], ml1[1], fr, elemSynth];
 }
 
 function handleEmptyCompoundLogic(
