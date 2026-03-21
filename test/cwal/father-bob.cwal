@@ -1,0 +1,9 @@
+father = (aaa, bbb) =>
+    either:
+        all:
+            aaa = "mcbob"
+            bbb = "bob"
+        all:
+            bbb = "bill"
+            aaa = "bob"
+father("bob", qq)
