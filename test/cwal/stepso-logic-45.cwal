@@ -1,84 +1,62 @@
 # Logic 45 (stepso2.test.ts): reflexive transitive closure — app(lam(tie(a, lam(tie(b, var(a))))), var(b)) steps to q.
 # Inlined: substo2, betao, stepo, stepso (no import yet).
+# Predicate-in-expression: first arg is implied (unified with position), e.g. substo2(tie(A, E1), E, Out), Idtm = tie(A, ["app", Args]).
+# App spine is still ["app", Args] with Args = [M, N] — not a flat three-tail list.
 
 substo2 = (Idtm, E, Out) =>
     either:
-        all:
-            fresh nominal A:
-                fresh VarA, TieA:
-                    VarA = ["var", A]
-                    tie(Idtm, A, VarA)
-                    E = Out
-        all:
-            fresh nominal A:
-                fresh B, VarB, TieA:
-                    hash(A, B)
-                    VarB = ["var", B]
-                    tie(Idtm, A, VarB)
-                    Out = ["var", B]
-        all:
-            fresh nominal A, B:
-                fresh E1, E1Hat, LamBody, InterLam, TieAE1, OutInter:
-                    hash(B, E)
-                    tie(Idtm, A, LamBody)
-                    LamBody = ["lam", InterLam]
-                    tie(InterLam, B, E1)
-                    tie(TieAE1, A, E1)
-                    substo2(TieAE1, E, E1Hat)
-                    Out = ["lam", OutInter]
-                    tie(OutInter, B, E1Hat)
-        all:
-            fresh nominal A:
-                fresh E1, E2, E1Hat, E2Hat, AppTerm, Args, T1, T2, ArgsOut:
-                    tie(Idtm, A, AppTerm)
-                    fresh Args:
-                        AppTerm = ["app", Args]
-                        Args = [E1, E2]
-                    tie(T1, A, E1)
-                    tie(T2, A, E2)
-                    fresh ArgsOut:
-                        ArgsOut = [E1Hat, E2Hat]
-                        Out = ["app", ArgsOut]
-                    substo2(T1, E, E1Hat)
-                    substo2(T2, E, E2Hat)
+        fresh nominal A:
+            Idtm = tie(A, ["var", A])
+            E = Out
+        fresh nominal A:
+            fresh B:
+                hash(A, B)
+                Idtm = tie(A, ["var", B])
+                Out = ["var", B]
+        fresh nominal A, B:
+            fresh E1, E1Hat:
+                hash(B, E)
+                Idtm = tie(A, ["lam", tie(B, E1)])
+                substo2(tie(A, E1), E, E1Hat)
+                Out = ["lam", tie(B, E1Hat)]
+        fresh nominal A:
+            fresh E1, E2, E1Hat, E2Hat, T1, T2:
+                Idtm = tie(A, ["app", [E1, E2]])
+                Out = ["app", [E1Hat, E2Hat]]
+                substo2(tie(A, E1), E, E1Hat)
+                substo2(tie(A, E2), E, E2Hat)
 
 betao = (T1, EHatHat) =>
     all:
         fresh nominal b:
-            fresh E, EHat, TieBE, Lam, AppArgs:
+            fresh E, EHat, Lam, AppArgs:
+                Lam = ["lam", tie(b, E)]
                 AppArgs = [Lam, EHat]
                 T1 = ["app", AppArgs]
-                tie(TieBE, b, E)
-                Lam = ["lam", TieBE]
-                substo2(TieBE, EHat, EHatHat)
+                substo2(tie(b, E), EHat, EHatHat)
 
 stepo = (T1, T2) =>
     either:
         betao(T1, T2)
-        all:
-            fresh M, N, MHat:
-                fresh Args1, Args2:
-                    Args1 = [M, N]
-                    T1 = ["app", Args1]
-                    Args2 = [MHat, N]
-                    T2 = ["app", Args2]
-                stepo(M, MHat)
-        all:
-            fresh M, N, NHat:
-                fresh Args1, Args2:
-                    Args1 = [M, N]
-                    T1 = ["app", Args1]
-                    Args2 = [M, NHat]
-                    T2 = ["app", Args2]
-                stepo(N, NHat)
+        fresh M, N, MHat:
+            Args1 = [M, N]
+            Args2 = [MHat, N]
+            T1 = ["app", Args1]
+            T2 = ["app", Args2]
+            stepo(M, MHat)
+        fresh M, N, NHat:
+            Args1 = [M, N]
+            Args2 = [M, NHat]
+            T1 = ["app", Args1]
+            T2 = ["app", Args2]
+            stepo(N, NHat)
 
 stepso = (T1, T2) =>
     either:
         T1 = T2
-        all:
-            fresh T:
-                stepo(T1, T)
-                stepso(T, T2)
+        fresh T:
+            stepo(T1, T)
+            stepso(T, T2)
 
 fresh nominal a, b:
     fresh Va, Vb, TieB, LamB, TieA, OuterLam, AppArgs, Input:
