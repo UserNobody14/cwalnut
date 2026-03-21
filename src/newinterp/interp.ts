@@ -235,6 +235,11 @@ function interpretConjunction(
 	ast: ConjunctionGeneric<CodeLocation>,
 	env: Env,
 ): [MGoal, Env] {
+	if (ast.terms.length === 0) {
+		return [identityGoal, env];
+	} else if (ast.terms.length === 1) {
+		return interpretOne(ast.terms[0], env);
+	}
 	const [goal, env2] = ast.terms.reduce<[MGoal, Env]>(
 		([acc, e]: [MGoal, Env], term) => {
 			const [g, nextEnv] = interpretOne(term, e);

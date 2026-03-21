@@ -185,7 +185,7 @@ function substo2Def(): TermGeneric<CodeLocation> {
           ),
         ),
         // Clause 3: Idtm = tie(a, lam(tie(b,E1))), hash(b,E) -> Out = lam(tie(b,E1Hat)), substo2(tie(a,E1), E, E1Hat)
-					/**
+        /**
      *         ((fresh (a b)
 (exist (E1 E1^)
 (hash b E)
@@ -206,7 +206,7 @@ function substo2Def(): TermGeneric<CodeLocation> {
           ),
         ),
         // Clause 4: Idtm = tie(a, app(E1,E2)) -> Out = app(E1Hat,E2Hat)
-		/**
+        /**
 		 *      *         ((fresh (a)
    (exist (E1 E2 E1^ E2^)
      (== (tie a `(app ,E1 ,E2)) id/tm)
@@ -367,7 +367,7 @@ describe("stepso via AST (stepso.test.ts)", () => {
       ),
     );
     const ast = [...stepsoAst(), main];
-    const states = interp(2, ast, { vars: ["t"] });
+    const states = interp(2, ast, { vars: ["t"], extraNum: 100000 });
     expect(states.length).toBe(2);
     // Same expected as stepso.test.ts Logic 64
     expect(states).toEqual([
@@ -401,7 +401,17 @@ describe("stepso via AST (stepso2.test.ts)", () => {
     // stepso(app(lam(tie(a, lam(tie(b, var(a))))), var(b)), q)
     const main = freshNominal1(
       [cx.a, cx.b],
-      conj(
+      fresh1(
+        [
+          cx.Va,
+          cx.Vb,
+          cx.TieB,
+          cx.LamB,
+          cx.TieA,
+          cx.OuterLam,
+          cx.AppArgs,
+          cx.Input,
+        ],
         cxvar(cx.Va, cx.a),
         cxvar(cx.Vb, cx.b),
         cl.tie(cx.TieB, cx.b, cx.Va),
@@ -444,7 +454,7 @@ describe("stepso via AST (stepso2.test.ts)", () => {
       {
         q: [
           qapp2(
-            qlam2(tieTag("Nom(0)", qvar2(suspTag("Nom(1)", "Nom(0)", "?$&0")))),
+            qlam2(tieTag("Nom(0)", qvar2(suspTag("Nom(0)", "Nom(1)", "?$&0")))),
             "?$&1",
           ),
           qvar2("?$&0"),
@@ -460,13 +470,21 @@ describe("stepso via AST (stepso2.test.ts)", () => {
       conj(
         freshNominal1(
           [cx.a, cx.b],
-          conj(
-            cl.tie(cx.TieB, cx.b, cx.E),
-            cxlam(cx.I, cx.TieB),
+          fresh1(
+            [
+              cx.Va,
+              cx.Vb,
+              cx.TieB,
+              cx.LamB,
+              cx.TieA,
+              cx.OuterLam,
+              cx.AppArgs,
+              cx.Input,
+            ],
+            cxlamtie(cx.I, cx.b, cx.E),
             cl.hash(cx.a, cx.I),
             cxvar(cx.Va, cx.a),
-            cl.list(id("AppI Va"), cx.I, cx.Va),
-            cl.list(cx.Input, lit("app"), id("AppI Va")),
+            cxapp(cx.Input, cx.I, cx.Va),
             cl.stepso(cx.Input, cx.Va),
           ),
         ),
@@ -487,28 +505,67 @@ describe("stepso via AST (stepso2.test.ts)", () => {
 describe("stepso via AST (stepso3.test.ts)", () => {
   test("Logic 56", () => {
     // stepso(app(var(z), app(Y, var(z))), t), stepso(app(Y, var(z)), t) with Y = Y combinator shape
+    /**
+	 * 			fresh((Y) => {
+				return freshNom3((z, f, x) => {
+					return all(
+						eq(
+							qlam(
+								ezTie(
+									f,
+									qapp(
+										qlam(
+											ezTie(x, qapp(qvar(f), qappVV(x, x))),
+										),
+										qlam(
+											ezTie(x, qapp(qvar(f), qappVV(x, x))),
+										),
+									),
+								),
+							),
+							Y,
+						),
+						availableo(z, Y),
+						stepso(
+							qapp(qvar(z), qapp(Y, qvar(z))),
+							qlvar.t,
+						),
+						stepso(qapp(Y, qvar(z)), qlvar.t),
+					);
+				});
+			}),
+	 */
     const main = fresh1(
       [cx.Y],
       conj(
         freshNominal1(
           [cx.z, cx.f, cx.x],
-          conj(
+          fresh1(
+            [
+              cx.Vz,
+              cx.Vf,
+              cx.Vx,
+              cx.AppLams,
+              cx.LamX,
+              cx.AppFXX,
+              cx.AppXX,
+              cx.AppYVz,
+              cx.Y,
+              cx.Input1,
+              cx.Input2,
+            ],
             cxvar(cx.Vz, cx.z),
             cxvar(cx.Vf, cx.f),
             cxvar(cx.Vx, cx.x),
-            cl.list(cx.AppXX, cx.Vx, cx.Vx),
-            cl.list(cx.AppXXX, cx.Vx, cx.AppXX),
-            cl.list(cx.AppFXX, cx.Vf, cx.AppXXX),
-            cl.tie(cx.TieX, cx.x, cx.AppFXX),
-            cxlam(cx.LamX, cx.TieX),
-            cl.list(cx.AppLams, cx.LamX, cx.LamX),
-            cl.tie(cx.TieF, cx.f, cx.AppLams),
-            cxlam(cx.Y, cx.TieF),
+			cxapp(cx.AppFXX, cx.Vf, cx.AppXX),
+            cxapp(cx.AppXX, cx.Vx, cx.Vx),
+            cxlamtie(cx.LamX, cx.x, cx.AppFXX),
+            cxapp(cx.AppLams, cx.LamX, cx.LamX),
+            cxlamtie(cx.Y, cx.f, cx.AppLams),
             cl.hash(cx.z, cx.Y),
-            cl.list(cx.AppYVz, cx.Y, cx.Vz),
-            cl.list(cx.Input2, lit("app"), cx.AppYVz),
-            cl.list(cx.AppZ, cx.Vz, cx.AppYVz),
-            cl.list(cx.Input1, lit("app"), cx.AppZ),
+            cxapp(cx.AppYVz, cx.Y, cx.Vz),
+            cxapp(cx.Input1, cx.Vz, cx.AppYVz),
+            cxapp(cx.Input2, cx.Y, cx.Vz),
             cl.stepso(cx.Input1, cx.t),
             cl.stepso(cx.Input2, cx.t),
           ),
@@ -516,7 +573,7 @@ describe("stepso via AST (stepso3.test.ts)", () => {
       ),
     );
     const ast = [...stepsoAst(), main];
-    const states = interp(1, ast, { vars: ["t"] });
+    const states = interp(1, ast, { vars: ["t"], extraNum: 100000 });
     expect(states.length).toBe(1);
     // Same expected as stepso3.test.ts Logic 56 (two lams with distinct nominals Nom(1) and Nom(2))
     const body1 = qapp2(qvar2("Nom(0)"), qappVV2("Nom(1)", "Nom(1)"));

@@ -2,7 +2,7 @@ import { test, describe, expect } from "@jest/globals";
 import type { TermGeneric } from "src/types/AstGeneric";
 import type { CodeLocation } from "src/redo/codeloc";
 import { interp } from "./interp";
-import { make } from "src/utils/make_better_typed";
+import { fresh1, make } from "src/utils/make_better_typed";
 import { defaultCodeLocation } from "src/redo/codeloc";
 import { run, all } from "src/logic";
 import { builtinGoals } from "./builtins";
@@ -15,6 +15,7 @@ import {
 } from "./jsonKeyOf";
 import { Map as ImmMap } from "immutable";
 import { makeLiteral } from "src/logic/makelvar";
+import { conj, call, id, lit, def, cx, cl } from "./asttestutils";
 
 const cloc: CodeLocation = defaultCodeLocation;
 
@@ -28,48 +29,13 @@ function runInterp(
 	return r;
 }
 
-function id(name: string) {
-	return make.identifier(cloc, name);
-}
-function lit(
-	kind: "string" | "number" | "boolean" | "null",
-	value: string,
-) {
-	return make.literal(kind, value);
-}
-function conj(...terms: TermGeneric<CodeLocation>[]) {
-	return make.conjunction(terms);
-}
-function fresh(
-	vars: ReturnType<typeof id>[],
-	body: ReturnType<typeof conj>,
-) {
-	return make.fresh(vars, body);
-}
-function call(
-	source: string,
-	...args: (
-		| ReturnType<typeof id>
-		| ReturnType<typeof lit>
-	)[]
-) {
-	return make.predicate_call(id(source), args);
-}
-function def(
-	name: string,
-	args: ReturnType<typeof id>[],
-	body: ReturnType<typeof conj>,
-) {
-	return make.predicate_definition(id(name), args, body);
-}
-
-
 
 describe("keyof tests", () => {
     test("set_key_of then unify value", () => {
-		const main = conj(
-			call("set_key_of", id("obj"), lit("string", "k"), id("val")),
-			call("unify", id("val"), lit("string", "hello")),
+		const main = fresh1(
+			[cx.obj],
+			cl.set_key_of(cx.obj, lit("k"), cx.val),
+			cl.unify(cx.val, lit("hello")),
 		);
 		const ast: TermGeneric<CodeLocation>[] = [main];
 		const states = runInterp(5, ast, { vars: ["val"] });
@@ -78,9 +44,10 @@ describe("keyof tests", () => {
 	});
 
     test("set_key_of then unify value with different key", () => {
-		const main = conj(
-			call("set_key_of", id("obj"), lit("string", "k"), id("val")),
-			call("unify", id("val"), lit("string", "hello")),
+		const main = fresh1(
+			[cx.obj],
+			cl.set_key_of(cx.obj, lit("k"), cx.val),
+			cl.unify(cx.val, lit("hello")),
 		);
 		const ast: TermGeneric<CodeLocation>[] = [main];
 		const states = runInterp(5, ast, { vars: ["val"] });
@@ -89,10 +56,11 @@ describe("keyof tests", () => {
 	});
 
     test("set two different objects with the same key (different values) and unify them (should fail)", () => {
-		const main = conj(
-			call("set_key_of", id("obj1"), lit("string", "k"), lit("string", "hello")),
-			call("set_key_of", id("obj2"), lit("string", "k"), lit("string", "world")),
-			call("unify", id("obj1"), id("obj2")),
+		const main = fresh1(
+			[cx.obj1, cx.obj2],
+			cl.set_key_of(cx.obj1, lit("k"), lit("hello")),
+			cl.set_key_of(cx.obj2, lit("k"), lit("world")),
+			cl.unify(cx.obj1, cx.obj2),
 		);
 		const ast: TermGeneric<CodeLocation>[] = [main];
 		const states = runInterp(5, ast, { vars: ["obj1", "obj2"] });
@@ -100,11 +68,12 @@ describe("keyof tests", () => {
 	});
 
     test("set two different objects with the same key (same value) and unify them (should succeed)", () => {
-		const main = conj(
-			call("set_key_of", id("obj1"), lit("string", "k"), id("val")),
-			call("set_key_of", id("obj2"), lit("string", "k"), id("val")),
-            call("unify", id("val"), lit("string", "hello")),
-			call("unify", id("obj1"), id("obj2")),
+		const main = fresh1(
+			[cx.obj1, cx.obj2],
+			cl.set_key_of(cx.obj1, lit("k"), cx.val),
+			cl.set_key_of(cx.obj2, lit("k"), cx.val),
+            cl.unify(cx.val, lit("hello")),
+			cl.unify(cx.obj1, cx.obj2),
 		);
 		const ast: TermGeneric<CodeLocation>[] = [main];
 		const states = runInterp(5, ast, { vars: ["val"] });
@@ -113,11 +82,12 @@ describe("keyof tests", () => {
 	});
 
     test("set two different objects with the same key (one with value, one with variable) and unify them (should succeed and solve for the variable)", () => {
-        const main = conj(
-            call("unify", id("val"), lit("string", "hello")),
-            call("set_key_of", id("obj1"), lit("string", "k"), id("val")),
-            call("set_key_of", id("obj2"), lit("string", "k"), id("val2")),
-            call("unify", id("obj1"), id("obj2")),
+        const main = fresh1(
+            [cx.obj1, cx.obj2],
+            cl.unify(cx.val, lit("hello")),
+            cl.set_key_of(cx.obj1, lit("k"), cx.val),
+            cl.set_key_of(cx.obj2, lit("k"), cx.val2),
+            cl.unify(cx.obj1, cx.obj2),
         );
         const ast: TermGeneric<CodeLocation>[] = [main];
         const states = runInterp(5, ast, { vars: ["val", "val2"] });
@@ -149,17 +119,22 @@ describe("keyof tests", () => {
 	});
 
 	test("astBodyToJson: conjunction has type and terms", () => {
-		const body = conj(call("unify", id("x"), lit("string", "a")));
+		const body = conj(cl.unify(cx.x, lit("a")));
 		const json = astBodyToJson(body);
 		expect(json.type).toBe("conjunction");
 		expect(Array.isArray(json.terms)).toBe(true);
 		expect((json.terms as Record<string, unknown>[]).length).toBe(1);
 		const term = (json.terms as Record<string, unknown>[])[0];
+		expect(term).toEqual({
+			type: "predicate_call",
+			source: { type: "identifier", value: "unify" },
+			args: [{ type: "identifier", value: "x" }, { type: "literal", kind: "string", value: "a" }],
+		});
 		expect(term.type).toBe("predicate_call");
 	});
 
 	test("bodyAstToKeyOfGoal: conjunction body produces one state", () => {
-		const body = conj(call("unify", id("x"), lit("string", "a")));
+		const body = conj(cl.unify(cx.x, lit("a")));
 		const goal = all(
 			builtinGoals(),
 			freshInternal((v) => bodyAstToKeyOfGoal(v, body)),
